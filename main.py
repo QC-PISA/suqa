@@ -10,8 +10,8 @@ from qiskit import execute
 
 beta = 1.0
 eps = 1.0
-th1 = 2*np.asin(np.exp(-beta*eps))
-th2 = 2*np.asin(np.exp(-beta*eps))
+th1 = 2*np.arcsin(np.exp(-beta*eps))
+th2 = 2*np.arcsin(np.exp(-2*beta*eps))
 au_Phi = (1.+np.sqrt(5))/2.
 au_phi = -1./au_Phi
 au_sqPhi = np.sqrt(2+au_Phi)
@@ -40,7 +40,7 @@ def draw_C():
 def apply_C(qc, psi, Ci):
     if Ci == 0:
         qc.x(psi[0])
-    elif Ci == 0:
+    elif Ci == 1:
         qc.x(psi[0])
     else:
         raise "ERROR"
@@ -72,7 +72,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_old[1])
     qc.x(ene_old[0])
 
-    qc.cry(th1, qaux[3], acc)
+    qc.cry(th1, qaux[3], acc[0])
 
     qc.x(ene_old[0])
     qc.x(ene_old[1])
@@ -89,7 +89,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_old[1])
     qc.x(ene_new[0])
 
-    qc.cry(th1, qaux[3], acc)
+    qc.cry(th1, qaux[3], acc[0])
 
     qc.x(ene_new[0])
     qc.x(ene_old[1])
@@ -106,7 +106,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_old[1])
     qc.x(ene_new[0])
 
-    qc.cry(th2, qaux[3], acc)
+    qc.cry(th2, qaux[3], acc[0])
 
     qc.x(ene_old[0])
     qc.x(ene_old[1])
@@ -117,7 +117,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_new[0])
 
 
-    qc.x(acc)
+    qc.x(acc[0])
 
     # 0     2
     qc.x(ene_old[0])
@@ -128,7 +128,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_old[1])
     qc.x(ene_new[0])
 
-    qc.cry(-th2, qaux[3], acc)
+    qc.cry(-th2, qaux[3], acc[0])
 
     qc.x(ene_old[0])
     qc.x(ene_old[1])
@@ -145,7 +145,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_old[1])
     qc.x(ene_new[0])
 
-    qc.cry(-th1, qaux[3], acc)
+    qc.cry(-th1, qaux[3], acc[0])
 
     qc.x(ene_new[0])
     qc.x(ene_old[1])
@@ -162,7 +162,7 @@ def apply_W(qc, acc, ene_old, ene_new, qaux):
     qc.x(ene_old[1])
     qc.x(ene_old[0])
 
-    qc.cry(-th1, qaux[3], acc)
+    qc.cry(-th1, qaux[3], acc[0])
 
     qc.x(ene_old[0])
     qc.x(ene_old[1])
@@ -201,7 +201,7 @@ c_ene_old = ClassicalRegister(2, 'c_ene_old')
 c_ene_new = ClassicalRegister(2, 'c_ene_new')
 
 
-qc = QuantumCircuit(psi, ene_old, ene_new, acc)
+qc = QuantumCircuit(psi, ene_old, ene_new, acc, qaux, c_acc, c_ene_old, c_ene_new)
 
 # initialize state (already done here)
 
@@ -210,7 +210,17 @@ qc = QuantumCircuit(psi, ene_old, ene_new, acc)
 # build U=W Phi C matrix, with C drawn randomly
 
 
+
+def initialization():
+    qc.measure(ene_old, c_ene_old)
+
+
 def iteration():
+    qc.reset(acc)
+    qc.reset(ene_new)
+    qc.reset(ene_old)
+    apply_Phi(qc, psi, ene_old)
+
     C_idx = draw_C()
     apply_U(qc, psi, ene_new, ene_old, acc, qaux, C_idx)
 
@@ -222,16 +232,16 @@ def iteration():
 
     # else
 
-    apply_U_inverse(qc, psi, ene_new, ene_old, acc, qaux, C_idx)
+    apply_U_inverse(qc, psi, ene_new, ene_old, acc, qaux, C_idx, c_acc)
 
-    iters = 10
+    iters = 50
     while iters > 0:
-        apply_Phi(qc, psi, ene_new)
+        apply_Phi(qc, psi, ene_new, c_acc)
         qc.measure(ene_old, c_ene_old)
         qc.measure(ene_new, c_ene_new)
         apply_Phi_inverse(qc, psi, ene_new)
 
-        if (c_ene_old == c_ene_new).all():
+        if np.array_equal(c_ene_old, c_ene_new):
             # P1
             print("accepted")
             break
@@ -247,12 +257,29 @@ def iteration():
         print("not converged :(")
         sys.exit(1)
 
-def measure_observable():
+# def measure_observable():
+
+
+num_sim_iters = 100
 
 num_iters = 100
 
+backend=BasicAer.get_backend('qasm_simulator')
+energies = []
 if __name__ == '__main__':
-    for i in range(0, num_iters):
-        iteration()
+    for j in range(0, num_sim_iters):
+        qc = QuantumCircuit(psi, ene_old, ene_new, acc, qaux, c_acc, c_ene_old, c_ene_new)
+        initialization()
+        for i in range(0, num_iters):
+            iteration()
+        
+        qc.reset(ene_old)
+        apply_Phi(qc, psi, ene_old)
+        qc.measure(ene_old, c_ene_old)
+        job=execute(qc,backend) # .result().get_unitary(qc,decimals=2)[:,i] 
+        energies.append(c_ene_old)
+        
+np.savetxt("energies.txt",np.array(energies))
+#    measure_observable()
 
-    measure_observable()
+
