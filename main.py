@@ -39,11 +39,13 @@ def draw_C():
 
 def apply_C(qc, psi, Ci):
     if Ci == 0:
-        qc.x(psi[0])
+        qc.x(psi[1])
+        qc.cx(psi[1], psi[0])
+        qc.x(psi[1])
     elif Ci == 1:
-        qc.x(psi[0])
-    else:
-        raise "ERROR"
+        qc.cx(psi[1], psi[0])
+        qc.cx(psi[0], psi[1])
+        qc.cx(psi[1], psi[0])
 
 
 def apply_C_inverse(qc, psi, Ci):

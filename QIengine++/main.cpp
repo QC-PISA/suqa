@@ -2,6 +2,8 @@
 #include <vector>
 #include <complex>
 #include <cmath>
+#include "include/Rand.hpp"
+
 
 using namespace std;
 
@@ -36,6 +38,8 @@ vector<double> energy_measures;
 
 
 // Utilities
+
+pcg rangen;
 
 // bit masks
 enum bm_idxs {  bm_psi0, 
@@ -154,6 +158,41 @@ void apply_Phi(){
    qi_cx(gState, bm_psi1, bm_E_new1);
 }
 
+void apply_Phi_inverse(){
+   // quantum phase estimation (here trivial)
+   qi_cx(gState, bm_psi0, bm_E_new0);
+   qi_cx(gState, bm_psi1, bm_E_new1);
+}
+
+uint draw_C(){
+    if (rangen.doub()<0.5)
+        return 0U;
+    return 1U;
+}
+
+void apply_C(const uint &Ci){
+    if(Ci==0U){
+        qi_x(gState,bm_psi1);
+        qi_cx(gState,bm_psi1,bm_psi0);
+        qi_x(gState,bm_psi1);
+    }else if(Ci==1U){
+        //TODO: optimizable as SWAP gate
+        qi_cx(gState,bm_psi1,bm_psi0);
+        qi_cx(gState,bm_psi0,bm_psi1);
+        qi_cx(gState,bm_psi1,bm_psi0);
+    }else{
+        throw "Error!";
+    }
+}
+
+void apply_C_inverse(const uint &Ci){
+    apply_C(Ci);
+}
+
+//TODO: continue
+void apply_W(){
+    ;
+}
 
 void metro_step(){
     reset_non_state_qbits();
@@ -162,35 +201,45 @@ void metro_step(){
 }
 
 
-
 int main(){
     
+    // Banner
+    printf("\n"
+		".▄▄▄  ▪  .▄▄ · ▄ •▄ ▪  ▄▄▄▄▄    .▄▄ · ▄• ▄▌ ▄▄·  ▄▄▄· \n"
+		"▐▀•▀█ ██ ▐█ ▀. █▌▄▌▪██ •██      ▐█ ▀. █▪██▌▐█ ▌▪▐█ ▀█ \n" 
+		"█▌·.█▌▐█·▄▀▀▀█▄▐▀▀▄·▐█· ▐█.▪    ▄▀▀▀█▄█▌▐█▌██ ▄▄▄█▀▀█ \n" 
+		"▐█▪▄█·▐█▌▐█▄▪▐█▐█.█▌▐█▌ ▐█▌·    ▐█▄▪▐█▐█▄█▌▐███▌▐█ ▪▐ \n"
+		"·▀▀█. ▀▀▀ ▀▀▀▀ ·▀  ▀▀▀▀ ▀▀▀      ▀▀▀▀  ▀▀▀ ·▀▀▀  ▀  ▀ \n" );
+
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     gState[0] = 1.0; 
     energy_measures.push_back(0.0);
 
-//    for(uint s = 0U; s < metro_steps; ++s){
-//        metro_step();
-//    }
+    for(uint s = 0U; s < metro_steps; ++s){
+        metro_step();
+    }
 
-//TODO: continue
 
-    // test gates:
-    cout<<"TEST GATES"<<endl;
-    vector<Complex> test_state = {{0.4,-1.6},{1.2,0.7},{-0.1,0.6},{-1.3,0.4},{1.2,-1.3},{-1.2,1.7},{-3.1,0.6},{-0.3,0.2}};
-    vnormalize(test_state);
-    cout<<"initial state:"<<endl;
-    print(test_state);
-    cout<<"apply X to qbit 1 (most significant one)"<<endl;
-    qi_x(test_state, 1);
-    print(test_state);
-    cout<<"apply CX controlled by qbit 0 to qbit 1"<<endl;
-    qi_cx(test_state, 0, 1);
-    print(test_state);
-    cout<<"apply CCX controlled by qbit 1 and 2 to qbit 0"<<endl;
-    qi_mcx(test_state, {1,2}, 0);
-    print(test_state);
+
+
+    cout<<"\n\tSuca!\n"<<endl;
+
+//     // test gates:
+//     cout<<"TEST GATES"<<endl;
+//     vector<Complex> test_state = {{0.4,-1.6},{1.2,0.7},{-0.1,0.6},{-1.3,0.4},{1.2,-1.3},{-1.2,1.7},{-3.1,0.6},{-0.3,0.2}};
+//     vnormalize(test_state);
+//     cout<<"initial state:"<<endl;
+//     print(test_state);
+//     cout<<"apply X to qbit 1 (most significant one)"<<endl;
+//     qi_x(test_state, 1);
+//     print(test_state);
+//     cout<<"apply CX controlled by qbit 0 to qbit 1"<<endl;
+//     qi_cx(test_state, 0, 1);
+//     print(test_state);
+//     cout<<"apply CCX controlled by qbit 1 and 2 to qbit 0"<<endl;
+//     qi_mcx(test_state, {1,2}, 0);
+//     print(test_state);
 
     return 0;
 }
