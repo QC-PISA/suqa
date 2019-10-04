@@ -22,12 +22,18 @@ const double beta = 1.0;
 const double eps = 1.0;
 const double th1 = 2*asin(exp(-beta*eps));
 const double th2 = 2*asin(exp(-2*beta*eps));
+const double f1 = exp(-beta*eps);
+const double f2 = exp(-2.*beta*eps);
 const uint nqubits = 8;
 const uint Dim = (uint)pow(2.0, nqubits);
 
 // simulation hyperparameters
 const uint max_reverse_attempts = 20;
 const uint metro_steps = 100;
+
+uint gCi;
+double c_acc = 0.0;
+
 
 // Global state of the system.
 // Ordering (less to most significant)
@@ -95,6 +101,15 @@ void vnormalize(vector<Complex>& v){
         el/=vec_norm;
 }
 
+template<class T>
+void apply_2x2mat(T& x1, T& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
+
+            T x1_next = m11 * x1 + m12 * x2;
+            T x2_next = m21 * x1 + m22 * x2;
+            x1 = x1_next;
+            x2 = x2_next;
+}
+
 void qi_x(vector<Complex>& state, const uint& q){
     for(uint i = 0U; i < state.size(); ++i){
         if((i >> q) & 1U){ // checks q-th digit in i
@@ -120,6 +135,7 @@ void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& 
     uint mask = 0U;
     for(const auto& el : q_controls)
        mask |= 1U << el; 
+    mask |= 1U << q_target;
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask){
             uint j = i & ~(1U << q_target);
@@ -189,15 +205,99 @@ void apply_C_inverse(const uint &Ci){
     apply_C(Ci);
 }
 
-//TODO: continue
 void apply_W(){
-    ;
+    uint mask = 124U;
+    uint case1a = 80U;
+    uint case1b = 100U;
+    uint case2 = 96U;
+//                  (1U << bm_E_old0)
+//                | (1U << bm_E_old1)
+//                | (1U << bm_E_new0)
+//                | (1U << bm_E_new1);
+    for(uint i = 0U; i < gState.size(); ++i){
+        if(((i & mask) == case1a) || ((i & mask) == case1b)){
+            uint j = i & ~(1U << bm_acc);
+            
+            apply_2x2mat(gState[i], gState[j], sqrt(1.-f1), sqrt(f1), sqrt(f1), -sqrt(1.-f1));
+        }else if((i & mask) == case2){
+            uint j = i & ~(1U << bm_acc);
+
+            apply_2x2mat(gState[i], gState[j], sqrt(1.-f2), sqrt(f2), sqrt(f2), -sqrt(1.-f2));
+        }else if((i >> bm_acc) & 1U){
+            uint j = i & ~(1U << bm_acc);
+
+            std::swap(gState[i],gState[j]);
+        }
+    }
+}
+
+void apply_W_inverse(){
+    apply_W();
+}
+
+void apply_U(){
+    apply_C(gCi);
+    apply_Phi();
+    apply_W();
+}
+
+void apply_U_inverse(){
+    apply_C_inverse(gCi);
+    apply_Phi_inverse();
+    apply_W_inverse();
+}
+
+
+double measure_acc(){
+    double prob = 0.0;
+
+    for(uint i = 0U; i < gState.size(); ++i){
+        if((i >> bm_acc) & 1U){
+            prob+=norm(gState[i]); 
+        }
+    }
+    bool collapsed_to_1 = rangen.doub() < prob;
+    
+    if(collapsed_to_1){ // set to 0 coeffs with bm_acc 0
+        for(uint i = 0U; i < gState.size(); ++i){
+            if((i & 64U) == 0U)
+                gState[i] = {0.0, 0.0};        
+        }
+    }else{ // set to 0 coeffs with bm_acc 1
+        for(uint i = 0U; i < gState.size(); ++i){
+            if((i & 64U) == 1U)
+                gState[i] = {0.0, 0.0};        
+        }
+    }
+    vnormalize(gState);
+
+    return collapsed_to_1;
 }
 
 void metro_step(){
     reset_non_state_qbits();
     apply_Phi();
 
+    gCi = draw_C();
+    apply_U();
+
+    c_acc = measure_acc();
+
+    if (c_acc == 1U){
+        cout<<"accepted"<<endl;
+        return;
+    }
+
+        cout<<"rejected"<<endl;
+    apply_U_inverse();
+
+    uint iters = max_reverse_attempts;
+    while(iters > 0){
+        apply_Phi();
+        //TODO: continue
+
+        iters--;
+    }
 }
 
 
