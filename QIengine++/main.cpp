@@ -5,10 +5,26 @@
 #include <cstring>
 #include <stdio.h>
 #include <cmath>
+#include <cassert>
 #include "include/Rand.hpp"
 
+#ifndef NDEBUG
+    #define DEBUG_CALL(x) x
+#else
+    #define DEBUG_CALL(x)
+#endif
 
 using namespace std;
+
+void print_banner(){
+    printf("\n"
+		".▄▄▄  ▪  .▄▄ · ▄ •▄ ▪  ▄▄▄▄▄    .▄▄ · ▄• ▄▌ ▄▄·  ▄▄▄· \n"
+		"▐▀•▀█ ██ ▐█ ▀. █▌▄▌▪██ •██      ▐█ ▀. █▪██▌▐█ ▌▪▐█ ▀█ \n" 
+		"█▌·.█▌▐█·▄▀▀▀█▄▐▀▀▄·▐█· ▐█.▪    ▄▀▀▀█▄█▌▐█▌██ ▄▄▄█▀▀█ \n" 
+		"▐█▪▄█·▐█▌▐█▄▪▐█▐█.█▌▐█▌ ▐█▌·    ▐█▄▪▐█▐█▄█▌▐███▌▐█ ▪▐ \n"
+		"·▀▀█. ▀▀▀ ▀▀▀▀ ·▀  ▀▀▀▀ ▀▀▀      ▀▀▀▀  ▀▀▀ ·▀▀▀  ▀  ▀ \n");
+}
+
 
 typedef complex<double> Complex;
 const Complex iu(0, 1);
@@ -25,7 +41,7 @@ double beta;
 double eps;
 double f1;
 double f2;
-const uint nqubits = 8;
+const uint nqubits = 7;
 const uint Dim = (uint)pow(2.0, nqubits);
 
 // simulation hyperparameters
@@ -38,7 +54,7 @@ uint c_acc = 0;
 
 // Global state of the system.
 // Ordering (less to most significant)
-// psi[0], psi[1], E_old[0], E_old[1], E_new[0], E_new[1], acc, qaux[0]
+// psi[0], psi[1], E_old[0], E_old[1], E_new[0], E_new[1], acc //, qaux[0]
 vector<Complex> gState(Dim,0.0);
 
 vector<double> energy_measures;
@@ -55,8 +71,8 @@ enum bm_idxs {  bm_psi0,
                 bm_E_old1,
                 bm_E_new0,
                 bm_E_new1,
-                bm_acc,
-                bm_qaux0};
+                bm_acc};//,
+//                bm_qaux0};
 
 
 std::ostream& operator<<(std::ostream& s, const Complex& c){
@@ -68,6 +84,14 @@ template<class T>
 void print(vector<T> v){
     for(const auto& el : v)
         cout<<el<<" ";
+    cout<<endl;
+}
+
+void sparse_print(vector<Complex> v){
+    for(uint i=0; i<v.size(); ++i){
+        if(norm(v[i])>1e-8)
+            cout<<"i="<<i<<" -> "<<v[i]<<"; ";
+    }
     cout<<endl;
 }
 
@@ -94,6 +118,17 @@ void apply_2x2mat(T& x1, T& x2, const Complex& m11, const Complex& m12, const Co
             x2 = x2_next;
 }
 
+void qi_reset(vector<Complex>& state, const uint& q){
+    for(uint i = 0U; i < state.size(); ++i){
+        if((i >> q) & 1U){ // checks q-th digit in i
+            uint j = i & ~(1U << q); // j has 0 on q-th digit
+            state[j]+=state[i];
+            state[i]= {0.0, 0.0};
+        }
+    }
+    vnormalize(state);
+}  
+
 void qi_x(vector<Complex>& state, const uint& q){
     for(uint i = 0U; i < state.size(); ++i){
         if((i >> q) & 1U){ // checks q-th digit in i
@@ -114,12 +149,13 @@ void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_target){
     }
     
 }  
+  
 
 void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& q_target){
-    uint mask = 0U;
+    uint mask = 1U << q_target;
     for(const auto& el : q_controls)
-       mask |= 1U << el; 
-    mask |= 1U << q_target;
+        mask |= 1U << el;
+
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask){
             uint j = i & ~(1U << q_target);
@@ -131,26 +167,33 @@ void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& 
 
 // Simulation procedures
 
-void reset_non_state_qbits(){
-    // resets E_old, E_new and acc to zero
-    // sweeps all the global state vector, setting to zero
-    // the amplitude for non zero values of that qubits.
-    
-    for(uint i = 0U; i < Dim; ++i){
-        // read i in binary:
-        if(i & 124U)
-            gState[i] = {0.0, 0.0};   
-        // equivalent (but more efficient) to this check
-//                  ((i >> bm_E_old0) & 1U)
-//                | ((i >> bm_E_old1) & 1U)
-//                | ((i >> bm_E_new0) & 1U)
-//                | ((i >> bm_E_new1) & 1U)
-//                | ((i >> bm_acc) & 1U)
-    }
+//void reset_non_state_qbits(){
+//    // resets E_old, E_new and acc to zero
+//    // sweeps all the global state vector, setting to zero
+//    // the amplitude for non zero values of that qubits.
+//    for(uint i = 0U; i < Dim; ++i){
+//        // read i in binary:
+//        if(i & 124U)
+//            gState[i] = {0.0, 0.0};   
+//        // equivalent (but more efficient) to this check
+////                  ((i >> bm_E_old0) & 1U)
+////                | ((i >> bm_E_old1) & 1U)
+////                | ((i >> bm_E_new0) & 1U)
+////                | ((i >> bm_E_new1) & 1U)
+//    }
+//
+//    // normalize again
+//    vnormalize(gState);
+//}
 
-    // normalize again
-    vnormalize(gState);
+void reset_non_state_qbits(){
+    qi_reset(gState, bm_acc);
+    qi_reset(gState, bm_E_old0);
+    qi_reset(gState, bm_E_old1);
+    qi_reset(gState, bm_E_new0);
+    qi_reset(gState, bm_E_new1);
 }
+
 void apply_Phi_old(){
    // quantum phase estimation (here trivial)
    qi_cx(gState, bm_psi0, bm_E_old0);
@@ -201,27 +244,37 @@ void apply_C_inverse(const uint &Ci){
 }
 
 void apply_W(){
+    DEBUG_CALL(cout<<"\n\nApply W"<<endl);
+    //(1U <<bm_E_old0) | (1U <<bm_E_old1) |(1U <<bm_E_new0) |(1U <<bm_E_new1) |(1U <<bm_acc); 
     uint mask = 124U;
+    // Ei = 0, Ek = 1
+    //(1U <<bm_E_new0) |(1U <<bm_acc);
     uint case1a = 80U;
+    // Ei = 1, Ek = 2
+    //(1U <<bm_E_old0) |(1U <<bm_E_new1) |(1U <<bm_acc);
     uint case1b = 100U;
+    // Ei = 0, Ek = 2
+    //(1U <<bm_E_new1) |(1U <<bm_acc);
     uint case2 = 96U;
-//                  (1U << bm_E_old0)
-//                | (1U << bm_E_old1)
-//                | (1U << bm_E_new0)
-//                | (1U << bm_E_new1);
     for(uint i = 0U; i < gState.size(); ++i){
         if(((i & mask) == case1a) || ((i & mask) == case1b)){
             uint j = i & ~(1U << bm_acc);
             
-            apply_2x2mat(gState[i], gState[j], sqrt(1.-f1), sqrt(f1), sqrt(f1), -sqrt(1.-f1));
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+            apply_2x2mat(gState[j], gState[i], sqrt(1.-f1), sqrt(f1), sqrt(f1), -sqrt(1.-f1));
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i & mask) == case2){
             uint j = i & ~(1U << bm_acc);
 
-            apply_2x2mat(gState[i], gState[j], sqrt(1.-f2), sqrt(f2), sqrt(f2), -sqrt(1.-f2));
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case2: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+            apply_2x2mat(gState[j], gState[i], sqrt(1.-f2), sqrt(f2), sqrt(f2), -sqrt(1.-f2));
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i >> bm_acc) & 1U){
             uint j = i & ~(1U << bm_acc);
 
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
             std::swap(gState[i],gState[j]);
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }
     }
 }
@@ -231,9 +284,16 @@ void apply_W_inverse(){
 }
 
 void apply_U(){
+    DEBUG_CALL(cout<<"\n\nApply U"<<endl);
     apply_C(gCi);
+    DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
+    DEBUG_CALL(sparse_print(gState));
     apply_Phi();
+    DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     apply_W();
+    DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_U_inverse(){
@@ -274,25 +334,35 @@ void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>&
 
 
 void metro_step(){
+    DEBUG_CALL(cout<<"initial state"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     reset_non_state_qbits();
+    DEBUG_CALL(cout<<"state after reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     apply_Phi_old();
+    DEBUG_CALL(cout<<"\n\nAfter first phase estimation"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
     gCi = draw_C();
+    DEBUG_CALL(cout<<"\n\ndrawn C = "<<gCi<<endl);
     apply_U();
 
     measure_qbit(gState, bm_acc, c_acc);
 
     if (c_acc == 1U){
-        cout<<"accepted"<<endl;
+        DEBUG_CALL(cout<<"accepted"<<endl);
         vector<uint> c_E_news(2,0);
         measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
-        energy_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+        double tmp_E=c_E_news[0]+2*c_E_news[1];
+        energy_measures.push_back(tmp_E);
+        DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
+
         return;
     }
     //else
 
-    cout<<"rejected; restoration cycle:"<<endl;
+    DEBUG_CALL(cout<<"rejected; restoration cycle:"<<endl);
     apply_U_inverse();
 
     uint iters = max_reverse_attempts;
@@ -308,12 +378,13 @@ void metro_step(){
         apply_Phi_inverse();
         
         if(Eold_meas == Enew_meas){
-            cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl; 
+            DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
             energy_measures.push_back(Eold_meas);
+            DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
             break;
         }
-            cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl; 
         //else
+        DEBUG_CALL(cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
         uint c_acc_trash;
         apply_U(); 
         measure_qbit(gState, bm_acc, c_acc_trash); 
@@ -331,7 +402,7 @@ void metro_step(){
 
 int main(int argc, char** argv){
     if(argc < 5){
-        cout<<"arguments: <beta> <eps> <metro iterations> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
+        cout<<"arguments: <beta> <eps> <metro steps> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
         exit(1);
     }
     beta = stod(argv[1]);
@@ -342,17 +413,15 @@ int main(int argc, char** argv){
     
     f1 = exp(-beta*eps);
     f2 = exp(-2.*beta*eps);
+
     
     // Banner
-    printf("\n"
-		".▄▄▄  ▪  .▄▄ · ▄ •▄ ▪  ▄▄▄▄▄    .▄▄ · ▄• ▄▌ ▄▄·  ▄▄▄· \n"
-		"▐▀•▀█ ██ ▐█ ▀. █▌▄▌▪██ •██      ▐█ ▀. █▪██▌▐█ ▌▪▐█ ▀█ \n" 
-		"█▌·.█▌▐█·▄▀▀▀█▄▐▀▀▄·▐█· ▐█.▪    ▄▀▀▀█▄█▌▐█▌██ ▄▄▄█▀▀█ \n" 
-		"▐█▪▄█·▐█▌▐█▄▪▐█▐█.█▌▐█▌ ▐█▌·    ▐█▄▪▐█▐█▄█▌▐███▌▐█ ▪▐ \n"
-		"·▀▀█. ▀▀▀ ▀▀▀▀ ·▀  ▀▀▀▀ ▀▀▀      ▀▀▀▀  ▀▀▀ ·▀▀▀  ▀  ▀ \n" );
+    print_banner();
+    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
+    
     gState[0] = 1.0; 
     energy_measures.push_back(0.0);
 
@@ -374,21 +443,45 @@ int main(int argc, char** argv){
 
     cout<<"\n\tSuca!\n"<<endl;
 
-//     // test gates:
-//     cout<<"TEST GATES"<<endl;
-//     vector<Complex> test_state = {{0.4,-1.6},{1.2,0.7},{-0.1,0.6},{-1.3,0.4},{1.2,-1.3},{-1.2,1.7},{-3.1,0.6},{-0.3,0.2}};
-//     vnormalize(test_state);
-//     cout<<"initial state:"<<endl;
-//     print(test_state);
-//     cout<<"apply X to qbit 1 (most significant one)"<<endl;
-//     qi_x(test_state, 1);
-//     print(test_state);
-//     cout<<"apply CX controlled by qbit 0 to qbit 1"<<endl;
-//     qi_cx(test_state, 0, 1);
-//     print(test_state);
-//     cout<<"apply CCX controlled by qbit 1 and 2 to qbit 0"<<endl;
-//     qi_mcx(test_state, {1,2}, 0);
-//     print(test_state);
+    // test gates:
+//    {
+//        cout<<"TEST GATES"<<endl;
+//        vector<Complex> test_state = {{0.4,-1.6},{1.2,0.7},{-0.1,0.6},{-1.3,0.4},{1.2,-1.3},{-1.2,1.7},{-3.1,0.6},{-0.3,0.2}};
+//        vnormalize(test_state);
+//        cout<<"initial state:"<<endl;
+//        print(test_state);
+//        cout<<"apply X to qbit 1 (most significant one)"<<endl;
+//        qi_x(test_state, 1);
+//        print(test_state);
+//        cout<<"reapply X to qbit 1 (most significant one)"<<endl;
+//        qi_x(test_state, 1);
+//        print(test_state);
+//        cout<<"apply CX controlled by qbit 0 to qbit 1"<<endl;
+//        qi_cx(test_state, 0, 1);
+//        print(test_state);
+//        cout<<"apply CCX controlled by qbit 1 and 2 to qbit 0"<<endl;
+//        qi_mcx(test_state, {1,2}, 0);
+//        print(test_state);
+//    }
+//    { 
+//        cout<<"\nTEST SIMULATION"<<endl;
+//        vector<Complex> test_state = {{0.4,-1.6},{1.2,0.7},{-0.1,0.6},{-1.3,0.4},{1.2,-1.3},{-1.2,1.7},{-3.1,0.6},{-0.3,0.2}};
+//        vnormalize(test_state);
+//        gState = test_state;
+//        cout<<"initial state:"<<endl;
+//        sparse_print(gState);
+//        for(uint jj=0; jj<3; ++jj){
+//            cout<<"draw C (qubits 0 and 1 involved)"<<endl;
+//            gCi = draw_C();
+//            cout<<"drawn "<<gCi<<", apply it"<<endl;
+//            apply_C(gCi);
+//            sparse_print(gState);
+//        }
+//        cout<<"measure qubit 1"<<endl;
+//        uint ctest;
+//        measure_qbit(gState, 1U, ctest);
+//        sparse_print(gState);
+//    }
 
     return 0;
 }
