@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <complex>
+#include <string>
+#include <cstring>
+#include <stdio.h>
 #include <cmath>
 #include "include/Rand.hpp"
 
@@ -18,21 +21,19 @@ const Complex iu(0, 1);
 
 
 // simulation parameters
-const double beta = 1.0;
-const double eps = 1.0;
-const double th1 = 2*asin(exp(-beta*eps));
-const double th2 = 2*asin(exp(-2*beta*eps));
-const double f1 = exp(-beta*eps);
-const double f2 = exp(-2.*beta*eps);
+double beta;
+double eps;
+double f1;
+double f2;
 const uint nqubits = 8;
 const uint Dim = (uint)pow(2.0, nqubits);
 
 // simulation hyperparameters
-const uint max_reverse_attempts = 20;
-const uint metro_steps = 100;
+uint max_reverse_attempts;
+uint metro_steps;
 
 uint gCi;
-double c_acc = 0.0;
+uint c_acc = 0;
 
 
 // Global state of the system.
@@ -56,24 +57,7 @@ enum bm_idxs {  bm_psi0,
                 bm_E_new1,
                 bm_acc,
                 bm_qaux0};
-// const vector<uint> bm_list = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
 
-
-// vector<uint> get_binary(const uint& i){
-//     vector<uint> ret(nqubits);
-//     for(uint j = 0; j < nqubits; ++j){
-//         ret[j] = i & (1U << j);
-//     }
-//     return ret;
-// }
-// 
-// uint get_decimal(const vector<uint>& b){
-//     uint ret = 0;
-//     for(uint j = 0; j < nqubits; ++j)
-//         ret += b[j] << j;
-//     
-//     return ret;
-// }
 
 std::ostream& operator<<(std::ostream& s, const Complex& c){
     s<<"("<<real(c)<<", "<<imag(c)<<")";
@@ -167,6 +151,17 @@ void reset_non_state_qbits(){
     // normalize again
     vnormalize(gState);
 }
+void apply_Phi_old(){
+   // quantum phase estimation (here trivial)
+   qi_cx(gState, bm_psi0, bm_E_old0);
+   qi_cx(gState, bm_psi1, bm_E_old1);
+}
+
+void apply_Phi_old_inverse(){
+   // quantum phase estimation (here trivial)
+   qi_cx(gState, bm_psi0, bm_E_old0);
+   qi_cx(gState, bm_psi1, bm_E_old1);
+}
 
 void apply_Phi(){
    // quantum phase estimation (here trivial)
@@ -247,61 +242,106 @@ void apply_U_inverse(){
     apply_W_inverse();
 }
 
+void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
+    double prob1 = 0.0;
 
-double measure_acc(){
-    double prob = 0.0;
-
-    for(uint i = 0U; i < gState.size(); ++i){
-        if((i >> bm_acc) & 1U){
-            prob+=norm(gState[i]); 
+    for(uint i = 0U; i < state.size(); ++i){
+        if((i >> q) & 1U){
+            prob1+=norm(state[i]); 
         }
     }
-    bool collapsed_to_1 = rangen.doub() < prob;
+    c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
     
-    if(collapsed_to_1){ // set to 0 coeffs with bm_acc 0
-        for(uint i = 0U; i < gState.size(); ++i){
-            if((i & 64U) == 0U)
-                gState[i] = {0.0, 0.0};        
+    if(c){ // set to 0 coeffs with bm_acc 0
+        for(uint i = 0U; i < state.size(); ++i){
+            if(((i >> q) & 1U) == 0U)
+                state[i] = {0.0, 0.0};        
         }
     }else{ // set to 0 coeffs with bm_acc 1
         for(uint i = 0U; i < gState.size(); ++i){
-            if((i & 64U) == 1U)
-                gState[i] = {0.0, 0.0};        
+            if(((i >> q) & 1U) == 1U)
+                state[i] = {0.0, 0.0};        
         }
     }
-    vnormalize(gState);
-
-    return collapsed_to_1;
+    vnormalize(state);
 }
+
+//TODO: can be optimized for multiple qbits measures?
+void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>& cs){
+    for(uint k = 0U; k < qs.size(); ++k)
+        measure_qbit(state, qs[k], cs[k]);
+}
+
 
 void metro_step(){
     reset_non_state_qbits();
-    apply_Phi();
+    apply_Phi_old();
 
     gCi = draw_C();
     apply_U();
 
-    c_acc = measure_acc();
+    measure_qbit(gState, bm_acc, c_acc);
 
     if (c_acc == 1U){
         cout<<"accepted"<<endl;
+        vector<uint> c_E_news(2,0);
+        measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+        energy_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+        apply_Phi_inverse();
         return;
     }
+    //else
 
-        cout<<"rejected"<<endl;
+    cout<<"rejected; restoration cycle:"<<endl;
     apply_U_inverse();
 
     uint iters = max_reverse_attempts;
     while(iters > 0){
         apply_Phi();
-        //TODO: continue
+        double Eold_meas, Enew_meas;
+        vector<uint> c_E_olds(2,0);
+        vector<uint> c_E_news(2,0);
+        measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+        Eold_meas = c_E_olds[0]+2*c_E_olds[1];
+        measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+        Enew_meas = c_E_news[0]+2*c_E_news[1];
+        apply_Phi_inverse();
+        
+        if(Eold_meas == Enew_meas){
+            cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl; 
+            energy_measures.push_back(Eold_meas);
+            break;
+        }
+            cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl; 
+        //else
+        uint c_acc_trash;
+        apply_U(); 
+        measure_qbit(gState, bm_acc, c_acc_trash); 
+        apply_U_inverse(); 
 
         iters--;
+    }
+
+    if (iters == 0){
+        cout<<"not converged :("<<endl;
+        exit(1);
     }
 }
 
 
-int main(){
+int main(int argc, char** argv){
+    if(argc < 5){
+        cout<<"arguments: <beta> <eps> <metro iterations> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
+        exit(1);
+    }
+    beta = stod(argv[1]);
+    eps = stod(argv[2]);
+    metro_steps = (uint)atoi(argv[3]);
+    string outfilename(argv[4]);
+    max_reverse_attempts = (argc==7 && strcmp(argv[5],"--max-reverse")==0)? (uint)atoi(argv[6]) : 20U;
+    
+    f1 = exp(-beta*eps);
+    f2 = exp(-2.*beta*eps);
     
     // Banner
     printf("\n"
@@ -321,7 +361,16 @@ int main(){
     }
 
 
+    cout<<"all fine :)\n"<<endl;
 
+    FILE * fil = fopen(outfilename.c_str(), "w");
+
+    fprintf(fil, "# it E\n");
+
+    for(uint ei = 0; ei < energy_measures.size(); ++ei){
+        fprintf(fil, "%d %.lg\n", ei, energy_measures[ei]);
+    }
+    fclose(fil);
 
     cout<<"\n\tSuca!\n"<<endl;
 
