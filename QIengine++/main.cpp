@@ -58,6 +58,14 @@ uint c_acc = 0;
 vector<Complex> gState(Dim,0.0);
 
 vector<double> energy_measures;
+vector<double> X_measures;
+
+// Operator X parameter
+const double phi = (1+sqrt(5))/2.;
+const double mphi_inv = -1/phi;
+const double S_01=1, S_10=phi/sqrt(2+phi), S_12=1./sqrt(2+phi), S_20=mphi_inv/sqrt(2+mphi_inv), S_22=1./(2+mphi_inv);
+
+
 
 
 // Utilities
@@ -318,7 +326,7 @@ void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
                 state[i] = {0.0, 0.0};        
         }
     }else{ // set to 0 coeffs with bm_acc 1
-        for(uint i = 0U; i < gState.size(); ++i){
+        for(uint i = 0U; i < state.size(); ++i){
             if(((i >> q) & 1U) == 1U)
                 state[i] = {0.0, 0.0};        
         }
@@ -331,6 +339,64 @@ void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>&
     for(uint k = 0U; k < qs.size(); ++k)
         measure_qbit(state, qs[k], cs[k]);
 }
+
+double measure_X(){
+	uint mask = 3U;
+	vector<uint> classics(2);
+	for(uint i_00 = 0U; i_00 < gState.size(); ++i_00){
+          if((i_00 & mask) == 0U){
+		uint i_01 = i_00 | 1U;
+		uint i_10 = i_00 | 2U;
+
+		Complex a_00, a_01, a_10;
+		a_00 = gState[i_00];
+		a_01 = gState[i_01];
+		a_10 = gState[i_10];
+		
+		gState[i_00] = a_01;
+		gState[i_01] = S_10*a_00 + S_12*a_10;
+		gState[i_10] = S_20*a_00 + S_22*a_10;
+  }
+ }
+ measure_qbits(gState, {0,1}, classics);
+	for(uint i_00 = 0U; i_00 < gState.size(); ++i_00){
+          if((i_00 & mask) == 0U){
+		uint i_01 = i_00 | 1U;
+		uint i_10 = i_00 | 2U;
+
+		Complex a_00, a_01, a_10;
+		a_00 = gState[i_00];
+		a_01 = gState[i_01];
+		a_10 = gState[i_10];
+		
+		gState[i_00] = S_10*a_01 + S_20*a_10;
+		gState[i_01] = a_00;
+		gState[i_10] = S_12*a_01 + S_22*a_10;
+  }
+ }
+uint meas = classics[0] +2*classics[1];
+if(meas == 0)
+{
+	return 0;
+}
+
+else if (meas ==1)
+{
+return phi;
+}
+else if (meas == 2)
+{
+return mphi_inv;
+}
+else
+{
+cout<<"error"<<endl;
+exit(1);
+
+}
+return 0.0;
+}
+
 
 
 void metro_step(){
@@ -400,6 +466,7 @@ void metro_step(){
 }
 
 
+
 int main(int argc, char** argv){
     if(argc < 5){
         cout<<"arguments: <beta> <eps> <metro steps> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
@@ -424,11 +491,14 @@ int main(int argc, char** argv){
     
     gState[0] = 1.0; 
     energy_measures.push_back(0.0);
-
-    for(uint s = 0U; s < metro_steps; ++s){
-        metro_step();
-    }
-
+    for(uint t = 0U; t<100U; ++t){
+	    std::fill_n(gState.begin(), gState.size(), 0.0);
+    	    gState[0] = 1.0; 
+	    for(uint s = 0U; s < metro_steps; ++s){
+		metro_step();
+	    }
+	    X_measures.push_back(measure_X());
+	}
 
     cout<<"all fine :)\n"<<endl;
 
@@ -436,8 +506,8 @@ int main(int argc, char** argv){
 
     fprintf(fil, "# it E\n");
 
-    for(uint ei = 0; ei < energy_measures.size(); ++ei){
-        fprintf(fil, "%d %.lg\n", ei, energy_measures[ei]);
+    for(uint ei = 0; ei < X_measures.size(); ++ei){
+        fprintf(fil, "%d %.lg\n", ei, X_measures[ei]);
     }
     fclose(fil);
 
