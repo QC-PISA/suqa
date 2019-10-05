@@ -63,7 +63,7 @@ vector<double> X_measures;
 // Operator X parameter
 const double phi = (1+sqrt(5))/2.;
 const double mphi_inv = -1/phi;
-const double S_01=1, S_10=phi/sqrt(2+phi), S_12=1./sqrt(2+phi), S_20=mphi_inv/sqrt(2+mphi_inv), S_22=1./(2+mphi_inv);
+const double S_10=phi/sqrt(2+phi), S_12=1./sqrt(2+phi), S_20=mphi_inv/sqrt(2+mphi_inv), S_22=1./(2+mphi_inv);
 
 
 
@@ -343,58 +343,49 @@ void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>&
 double measure_X(){
 	uint mask = 3U;
 	vector<uint> classics(2);
-	for(uint i_00 = 0U; i_00 < gState.size(); ++i_00){
-          if((i_00 & mask) == 0U){
-		uint i_01 = i_00 | 1U;
-		uint i_10 = i_00 | 2U;
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
 
-		Complex a_00, a_01, a_10;
-		a_00 = gState[i_00];
-		a_01 = gState[i_01];
-		a_10 = gState[i_10];
-		
-		gState[i_00] = a_01;
-		gState[i_01] = S_10*a_00 + S_12*a_10;
-		gState[i_10] = S_20*a_00 + S_22*a_10;
-  }
- }
- measure_qbits(gState, {0,1}, classics);
-	for(uint i_00 = 0U; i_00 < gState.size(); ++i_00){
-          if((i_00 & mask) == 0U){
-		uint i_01 = i_00 | 1U;
-		uint i_10 = i_00 | 2U;
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_1;
+            gState[i_1] = S_10*a_0 + S_12*a_2;
+            gState[i_2] = S_20*a_0 + S_22*a_2;
+        }
+    }
+    measure_qbits(gState, {0,1}, classics);
+    for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
 
-		Complex a_00, a_01, a_10;
-		a_00 = gState[i_00];
-		a_01 = gState[i_01];
-		a_10 = gState[i_10];
-		
-		gState[i_00] = S_10*a_01 + S_20*a_10;
-		gState[i_01] = a_00;
-		gState[i_10] = S_12*a_01 + S_22*a_10;
-  }
- }
-uint meas = classics[0] +2*classics[1];
-if(meas == 0)
-{
-	return 0;
-}
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
 
-else if (meas ==1)
-{
-return phi;
-}
-else if (meas == 2)
-{
-return mphi_inv;
-}
-else
-{
-cout<<"error"<<endl;
-exit(1);
-
-}
-return 0.0;
+            gState[i_0] = S_10*a_1 + S_20*a_2;
+            gState[i_1] = a_0;
+            gState[i_2] = S_12*a_1 + S_22*a_2;
+        }
+    }
+    uint meas = classics[0] + 2*classics[1];
+    switch(meas){
+        case 0:
+            return 0;
+            break;
+        case 1:
+            return phi;
+            break;
+        case 2:
+            return mphi_inv;
+        default:
+            throw "Error!";
+    }
+    return 0.0;
 }
 
 
@@ -492,13 +483,13 @@ int main(int argc, char** argv){
     gState[0] = 1.0; 
     energy_measures.push_back(0.0);
     for(uint t = 0U; t<100U; ++t){
-	    std::fill_n(gState.begin(), gState.size(), 0.0);
-    	    gState[0] = 1.0; 
-	    for(uint s = 0U; s < metro_steps; ++s){
-		metro_step();
-	    }
-	    X_measures.push_back(measure_X());
-	}
+        std::fill_n(gState.begin(), gState.size(), 0.0);
+        gState[0] = 1.0; 
+        for(uint s = 0U; s < metro_steps; ++s){
+            metro_step();
+        }
+        X_measures.push_back(measure_X());
+    }
 
     cout<<"all fine :)\n"<<endl;
 
