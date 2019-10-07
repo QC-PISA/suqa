@@ -31,7 +31,7 @@ const Complex iu(0, 1);
 
 /* Hamiltonian
  *
- * H = eps diag(0, 1, 1)
+ * H = eps {{1, 0, 0}, {0, 1, 1}, {0, 1, 1}}
  *
  */
 
@@ -42,9 +42,7 @@ double eps;
 double f1;
 double f2;
 const uint nqubits = 7;
-const uint Dim = (uint)pow(2.0, nqubits);
-
-// simulation hyperparameters
+const uint Dim = (uint)pow(2.0, nqubits); // simulation hyperparameters
 uint max_reverse_attempts;
 uint metro_steps;
 uint reset_each;
@@ -66,7 +64,7 @@ vector<double> E_measures;
 const double phi = (1.+sqrt(5.))/2.;
 const double mphi_inv = -1./phi;
 const double S_10=phi/sqrt(2.+phi), S_12=1./sqrt(2+phi), S_20=mphi_inv/sqrt(2+mphi_inv), S_22=1./(2+mphi_inv);
-
+const double twosqinv = 1./sqrt(2.);
 
 
 
@@ -198,6 +196,19 @@ void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const vector
 
 // Simulation procedures
 
+void check_unused(){
+    uint mask1 = 3U;
+    uint mask2 = 12U;
+    for(uint i = 0U; i < gState.size(); ++i){
+        if( (i & mask1) == mask1){
+            assert(norm(gState[i])<1e-8);
+        }
+        if( (i & mask2) == mask2){
+            assert(norm(gState[i])<1e-8);
+        }
+    } 
+}
+
 //void reset_non_state_qbits(){
 //    // resets E_old, E_new and acc to zero
 //    // sweeps all the global state vector, setting to zero
@@ -225,32 +236,223 @@ void reset_non_state_qbits(){
     qi_reset(gState, bm_E_new1);
 }
 
+
+void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
+    double prob1 = 0.0;
+
+    for(uint i = 0U; i < state.size(); ++i){
+        if((i >> q) & 1U){
+            prob1+=norm(state[i]); 
+        }
+    }
+    c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
+    
+    if(c){ // set to 0 coeffs with bm_acc 0
+        for(uint i = 0U; i < state.size(); ++i){
+            if(((i >> q) & 1U) == 0U)
+                state[i] = {0.0, 0.0};        
+        }
+    }else{ // set to 0 coeffs with bm_acc 1
+        for(uint i = 0U; i < state.size(); ++i){
+            if(((i >> q) & 1U) == 1U)
+                state[i] = {0.0, 0.0};        
+        }
+    }
+    vnormalize(state);
+}
+
+//TODO: can be optimized for multiple qbits measures?
+void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>& cs){
+    for(uint k = 0U; k < qs.size(); ++k)
+        measure_qbit(state, qs[k], cs[k]);
+}
+
 void apply_Phi_old(){
    // quantum phase estimation (here trivial)
-    qi_x(gState, {bm_psi0, bm_psi1, bm_E_old0});
+    DEBUG_CALL(cout<<"\nApply Phi old\n"<<endl);
+	uint mask = 3U;
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
+
+
+    qi_x(gState, {bm_psi0, bm_psi1});
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
     qi_x(gState, {bm_psi0, bm_psi1});
+    qi_x(gState, bm_psi0);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old1);
+    qi_x(gState, bm_psi0);
+
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
 }
 
 void apply_Phi_old_inverse(){
    // quantum phase estimation (here trivial)
+    DEBUG_CALL(cout<<"\nApply Phi old inverse\n"<<endl);
+	uint mask = 3U;
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
+
+    qi_x(gState, bm_psi0);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old1);
+    qi_x(gState, bm_psi0);
     qi_x(gState, {bm_psi0, bm_psi1});
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
-    qi_x(gState, {bm_psi0, bm_psi1, bm_E_old0});
+    qi_x(gState, {bm_psi0, bm_psi1});
+
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
 }
 
 void apply_Phi(){
    // quantum phase estimation (here trivial)
-    qi_x(gState, {bm_psi0, bm_psi1, bm_E_new0});
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
+    DEBUG_CALL(cout<<"\nApply Phi\n"<<endl);
+	uint mask = 3U;
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
+    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+
     qi_x(gState, {bm_psi0, bm_psi1});
+    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, {bm_psi0, bm_psi1});:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
+    DEBUG_CALL(cout<<"\n\tapply qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    qi_x(gState, {bm_psi0, bm_psi1});
+    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, {bm_psi0, bm_psi1});:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    qi_x(gState, bm_psi0);
+    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi1);:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);
+    DEBUG_CALL(cout<<"\n\tapply qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    qi_x(gState, bm_psi0);
+    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi1);:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    
+    DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
+    DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_Phi_inverse(){
    // quantum phase estimation (here trivial)
+    DEBUG_CALL(cout<<"\nApply Phi inverse\n"<<endl);
+	uint mask = 3U;
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
+
+    qi_x(gState, bm_psi0);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);
+    qi_x(gState, bm_psi0);
     qi_x(gState, {bm_psi0, bm_psi1});
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
-    qi_x(gState, {bm_psi0, bm_psi1, bm_E_new0});
+    qi_x(gState, {bm_psi0, bm_psi1});
+
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_0;
+            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+        }
+    }
 }
 
 uint draw_C(){
@@ -285,12 +487,24 @@ void apply_W(){
     // Ei = 0, Ek = 1
     //(1U <<bm_E_new0) |(1U <<bm_acc);
     uint case1a = 80U;
+    // Ei = 1, Ek = 2
+    //(1U <<bm_E_old0) |(1U <<bm_E_new1) |(1U <<bm_acc);
+    uint case1b = 100U;
+    // Ei = 0, Ek = 2
+    //(1U <<bm_E_new1) |(1U <<bm_acc);
+    uint case2 = 96U;
     for(uint i = 0U; i < gState.size(); ++i){
-        if((i & mask) == case1a){
+        if(((i & mask) == case1a) || ((i & mask) == case1b)){
             uint j = i & ~(1U << bm_acc);
             
             DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
             apply_2x2mat(gState[j], gState[i], sqrt(1.-f1), sqrt(f1), sqrt(f1), -sqrt(1.-f1));
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+        }else if((i & mask) == case2){
+            uint j = i & ~(1U << bm_acc);
+
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case2: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+            apply_2x2mat(gState[j], gState[i], sqrt(1.-f2), sqrt(f2), sqrt(f2), -sqrt(1.-f2));
             DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i >> bm_acc) & 1U){
             uint j = i & ~(1U << bm_acc);
@@ -323,36 +537,6 @@ void apply_U_inverse(){
     apply_C_inverse(gCi);
     apply_Phi_inverse();
     apply_W_inverse();
-}
-
-void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
-    double prob1 = 0.0;
-
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i >> q) & 1U){
-            prob1+=norm(state[i]); 
-        }
-    }
-    c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
-    
-    if(c){ // set to 0 coeffs with bm_acc 0
-        for(uint i = 0U; i < state.size(); ++i){
-            if(((i >> q) & 1U) == 0U)
-                state[i] = {0.0, 0.0};        
-        }
-    }else{ // set to 0 coeffs with bm_acc 1
-        for(uint i = 0U; i < state.size(); ++i){
-            if(((i >> q) & 1U) == 1U)
-                state[i] = {0.0, 0.0};        
-        }
-    }
-    vnormalize(state);
-}
-
-//TODO: can be optimized for multiple qbits measures?
-void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>& cs){
-    for(uint k = 0U; k < qs.size(); ++k)
-        measure_qbit(state, qs[k], cs[k]);
 }
 
 double measure_X(){
@@ -403,39 +587,24 @@ double measure_X(){
     return 0.0;
 }
 
-double measure_E(){
-	vector<uint> classics(2);
-    measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
-    uint meas = classics[0] + 2*classics[1];
-    switch(meas){
-        case 0:
-            return 0.0;
-            break;
-        case 1:
-            return 1.0;
-            break;
-        case 2:
-            return 2.0;
-        default:
-            throw "Error!";
-    }
-    return 0.0;
-}
 
 
 void metro_step(uint s){
     DEBUG_CALL(cout<<"initial state"<<endl);
     DEBUG_CALL(sparse_print(gState));
     reset_non_state_qbits();
+    DEBUG_CALL(check_unused());
     DEBUG_CALL(cout<<"state after reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
     apply_Phi_old();
+    DEBUG_CALL(check_unused());
     DEBUG_CALL(cout<<"\n\nAfter first phase estimation"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
     gCi = draw_C();
     DEBUG_CALL(cout<<"\n\ndrawn C = "<<gCi<<endl);
     apply_U();
+    DEBUG_CALL(check_unused());
 
     measure_qbit(gState, bm_acc, c_acc);
 
@@ -448,7 +617,8 @@ void metro_step(uint s){
         apply_Phi_inverse();
         if(s>0U and s%reset_each ==0U){
             E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
-            X_measures.push_back(measure_X());
+//            X_measures.push_back(measure_X());
+            X_measures.push_back(0.0);
             reset_non_state_qbits();
             apply_Phi_old();
             measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
@@ -477,7 +647,8 @@ void metro_step(uint s){
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
             if(s>0U and s%reset_each ==0U){
                 E_measures.push_back(Eold_meas);
-                X_measures.push_back(measure_X());
+//                X_measures.push_back(measure_X());
+                X_measures.push_back(0.0);
                 reset_non_state_qbits();
                 apply_Phi_old();
                 measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
@@ -521,7 +692,7 @@ int main(int argc, char** argv){
     
     // Banner
     print_banner();
-    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each);
+    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
