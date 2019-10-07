@@ -70,7 +70,7 @@ const double twosqinv = 1./sqrt(2.);
 
 // Utilities
 
-pcg rangen;
+pcg rangen(709383021388604706ULL);
 
 // bit masks
 enum bm_idxs {  bm_psi0, 
@@ -285,6 +285,8 @@ void apply_Phi_old(){
             gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
         }
     }
+    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
 
     qi_x(gState, {bm_psi0, bm_psi1});
@@ -293,6 +295,9 @@ void apply_Phi_old(){
     qi_x(gState, bm_psi0);
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old1);
     qi_x(gState, bm_psi0);
+
+    DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
         if((i_0 & mask) == 0U){
@@ -328,6 +333,8 @@ void apply_Phi_old_inverse(){
             gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
         }
     }
+    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
     qi_x(gState, bm_psi0);
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old1);
@@ -335,6 +342,9 @@ void apply_Phi_old_inverse(){
     qi_x(gState, {bm_psi0, bm_psi1});
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
     qi_x(gState, {bm_psi0, bm_psi1});
+
+    DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
         if((i_0 & mask) == 0U){
@@ -383,13 +393,13 @@ void apply_Phi(){
     DEBUG_CALL(cout<<"\n\tapply qi_x(gState, {bm_psi0, bm_psi1});:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
     qi_x(gState, bm_psi0);
-    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi1);:\n"<<endl);
+    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi0);:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);
     DEBUG_CALL(cout<<"\n\tapply qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
     qi_x(gState, bm_psi0);
-    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi1);:\n"<<endl);
+    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi0);:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
     
     DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
@@ -427,10 +437,12 @@ void apply_Phi_inverse(){
             Complex a_2 = gState[i_2];
             
             gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
         }
     }
+    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
     qi_x(gState, bm_psi0);
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);
@@ -438,6 +450,9 @@ void apply_Phi_inverse(){
     qi_x(gState, {bm_psi0, bm_psi1});
     qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
     qi_x(gState, {bm_psi0, bm_psi1});
+
+    DEBUG_CALL(cout<<"\napply Phi_diag inverse:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 
 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
         if((i_0 & mask) == 0U){
@@ -449,10 +464,12 @@ void apply_Phi_inverse(){
             Complex a_2 = gState[i_2];
             
             gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
         }
     }
+    DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 uint draw_C(){
@@ -534,9 +551,15 @@ void apply_U(){
 }
 
 void apply_U_inverse(){
-    apply_C_inverse(gCi);
-    apply_Phi_inverse();
     apply_W_inverse();
+    DEBUG_CALL(cout<<"\n\nAfter apply W inverse"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    apply_Phi_inverse();
+    DEBUG_CALL(cout<<"\n\nAfter inverse second phase estimation"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    apply_C_inverse(gCi);
+    DEBUG_CALL(cout<<"\n\nAfter apply C inverse = "<<gCi<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 double measure_X(){
@@ -619,9 +642,9 @@ void metro_step(uint s){
             E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
 //            X_measures.push_back(measure_X());
             X_measures.push_back(0.0);
-            reset_non_state_qbits();
-            apply_Phi_old();
-            measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+//            reset_non_state_qbits();
+//           apply_Phi_old();
+//            measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
         }
 
         return;
@@ -631,6 +654,8 @@ void metro_step(uint s){
     DEBUG_CALL(cout<<"rejected; restoration cycle:"<<endl);
     apply_U_inverse();
 
+    DEBUG_CALL(cout<<"\n\nBefore reverse attempts"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     uint iters = max_reverse_attempts;
     while(iters > 0){
         apply_Phi();
@@ -649,9 +674,9 @@ void metro_step(uint s){
                 E_measures.push_back(Eold_meas);
 //                X_measures.push_back(measure_X());
                 X_measures.push_back(0.0);
-                reset_non_state_qbits();
-                apply_Phi_old();
-                measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+//                reset_non_state_qbits();
+//                apply_Phi_old();
+//                measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
             }
             DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
             break;
@@ -693,6 +718,7 @@ int main(int argc, char** argv){
     // Banner
     print_banner();
     printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts);
+    printf("initial random seed: %ld\n",rangen.get_state().state);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
@@ -701,6 +727,7 @@ int main(int argc, char** argv){
     gState[0] = 1.0; 
     for(uint s = 0U; s < metro_steps; ++s){
         metro_step(s);
+        assert(abs(vnorm(gState)-1.0)<1e-8);
     }
 
     cout<<"all fine :)\n"<<endl;
