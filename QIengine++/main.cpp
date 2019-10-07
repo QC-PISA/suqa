@@ -47,6 +47,7 @@ const uint Dim = (uint)pow(2.0, nqubits);
 // simulation hyperparameters
 uint max_reverse_attempts;
 uint metro_steps;
+uint reset_each;
 
 uint gCi;
 uint c_acc = 0;
@@ -409,7 +410,7 @@ double measure_E(){
 }
 
 
-void metro_step(){
+void metro_step(uint s){
     DEBUG_CALL(cout<<"initial state"<<endl);
     DEBUG_CALL(sparse_print(gState));
     reset_non_state_qbits();
@@ -430,13 +431,15 @@ void metro_step(){
         vector<uint> c_E_news(2,0), c_E_olds(2,0);
         measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
         DEBUG_CALL(double tmp_E=c_E_news[0]+2*c_E_news[1]);
-        E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
-        X_measures.push_back(measure_X());
-        reset_non_state_qbits();
-        apply_Phi_old();
-        measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+        if(s>0U and s%reset_each ==0U){
+            E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+            X_measures.push_back(measure_X());
+            reset_non_state_qbits();
+            apply_Phi_old();
+            measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+        }
 
         return;
     }
@@ -459,11 +462,13 @@ void metro_step(){
         
         if(Eold_meas == Enew_meas){
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-            E_measures.push_back(Eold_meas);
-            X_measures.push_back(measure_X());
-            reset_non_state_qbits();
-            apply_Phi_old();
-            measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+            if(s>0U and s%reset_each ==0U){
+                E_measures.push_back(Eold_meas);
+                X_measures.push_back(measure_X());
+                reset_non_state_qbits();
+                apply_Phi_old();
+                measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+            }
             DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
             break;
         }
@@ -486,15 +491,16 @@ void metro_step(){
 
 
 int main(int argc, char** argv){
-    if(argc < 5){
-        cout<<"arguments: <beta> <eps> <metro steps> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
+    if(argc < 6){
+        cout<<"arguments: <beta> <eps> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
         exit(1);
     }
     beta = stod(argv[1]);
     eps = stod(argv[2]);
     metro_steps = (uint)atoi(argv[3]);
-    string outfilename(argv[4]);
-    max_reverse_attempts = (argc==7 && strcmp(argv[5],"--max-reverse")==0)? (uint)atoi(argv[6]) : 20U;
+    reset_each = (uint)atoi(argv[4]);
+    string outfilename(argv[5]);
+    max_reverse_attempts = (argc==8 && strcmp(argv[6],"--max-reverse")==0)? (uint)atoi(argv[7]) : 20U;
     
     f1 = exp(-beta*eps);
     f2 = exp(-2.*beta*eps);
@@ -502,7 +508,7 @@ int main(int argc, char** argv){
     
     // Banner
     print_banner();
-    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps);
+    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
@@ -511,7 +517,7 @@ int main(int argc, char** argv){
     std::fill_n(gState.begin(), gState.size(), 0.0);
     gState[0] = 1.0; 
     for(uint s = 0U; s < metro_steps; ++s){
-        metro_step();
+        metro_step(s);
     }
 
     cout<<"all fine :)\n"<<endl;
