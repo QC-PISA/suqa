@@ -47,7 +47,6 @@ const uint Dim = (uint)pow(2.0, nqubits);
 // simulation hyperparameters
 uint max_reverse_attempts;
 uint metro_steps;
-uint num_resets;
 
 uint gCi;
 uint c_acc = 0;
@@ -432,10 +431,12 @@ void metro_step(){
         measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
         DEBUG_CALL(double tmp_E=c_E_news[0]+2*c_E_news[1]);
 //        energy_measures.push_back(tmp_E);
+        E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
 //        if(s>0U and s%20U)
 //            X_measures.push_back(measure_X());
         apply_Phi_inverse();
+        X_measures.push_back(measure_X());
         return;
     }
     //else
@@ -460,6 +461,8 @@ void metro_step(){
         if(Eold_meas == Enew_meas){
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
 //            energy_measures.push_back(Eold_meas);
+            E_measures.push_back(Eold_meas);
+            X_measures.push_back(measure_X());
             DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
             break;
         }
@@ -484,16 +487,15 @@ void metro_step(){
 
 
 int main(int argc, char** argv){
-    if(argc < 6){
-        cout<<"arguments: <beta> <eps> <metro steps> <num resets> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
+    if(argc < 5){
+        cout<<"arguments: <beta> <eps> <metro steps> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
         exit(1);
     }
     beta = stod(argv[1]);
     eps = stod(argv[2]);
     metro_steps = (uint)atoi(argv[3]);
-    num_resets = (uint)atoi(argv[4]);
-    string outfilename(argv[5]);
-    max_reverse_attempts = (argc==8 && strcmp(argv[6],"--max-reverse")==0)? (uint)atoi(argv[7]) : 20U;
+    string outfilename(argv[4]);
+    max_reverse_attempts = (argc==7 && strcmp(argv[5],"--max-reverse")==0)? (uint)atoi(argv[6]) : 20U;
     
     f1 = exp(-beta*eps);
     f2 = exp(-2.*beta*eps);
@@ -501,22 +503,20 @@ int main(int argc, char** argv){
     
     // Banner
     print_banner();
-    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"num_resets",num_resets);
+    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
     gState[0] = 1.0; 
 //    energy_measures.push_back(0.0);
-    for(uint t = 0U; t<num_resets; ++t){
-        std::fill_n(gState.begin(), gState.size(), 0.0);
-        gState[0] = 1.0; 
-        for(uint s = 0U; s < metro_steps; ++s){
-            metro_step();
-        }
-        E_measures.push_back(measure_E());
-        X_measures.push_back(measure_X());
+    std::fill_n(gState.begin(), gState.size(), 0.0);
+    gState[0] = 1.0; 
+    for(uint s = 0U; s < metro_steps; ++s){
+        metro_step();
     }
+//        E_measures.push_back(measure_E());
+//        X_measures.push_back(measure_X());
 
     cout<<"all fine :)\n"<<endl;
 
