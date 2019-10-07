@@ -31,7 +31,7 @@ const Complex iu(0, 1);
 
 /* Hamiltonian
  *
- * H = eps diag(0, 1, 2)
+ * H = eps diag(0, 1, 1)
  *
  */
 
@@ -148,6 +148,11 @@ void qi_x(vector<Complex>& state, const uint& q){
     }
 }  
 
+void qi_x(vector<Complex>& state, const vector<uint>& qs){
+    for(const auto& q : qs)
+        qi_x(state, q);
+}  
+
 
 void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_target){
     for(uint i = 0U; i < state.size(); ++i){
@@ -163,8 +168,8 @@ void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_target){
 
 void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& q_target){
     uint mask = 1U << q_target;
-    for(const auto& el : q_controls)
-        mask |= 1U << el;
+    for(const auto& q : q_controls)
+        mask |= 1U << q;
 
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask){
@@ -172,7 +177,23 @@ void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& 
             std::swap(state[i],state[j]);
         }
     }
-    
+}  
+
+
+void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const vector<uint>& q_mask, const uint& q_target){
+    uint mask = 1U << q_target;
+    for(const auto& q : q_controls)
+        mask |= 1U << q;
+    uint mask_qs = 1U << q_target;
+    for(uint k = 0U; k < q_controls.size(); ++k){
+        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
+    }
+    for(uint i = 0U; i < state.size(); ++i){
+        if((i & mask) == mask_qs){
+            uint j = i & ~(1U << q_target);
+            std::swap(state[i],state[j]);
+        }
+    }
 }  
 
 // Simulation procedures
@@ -206,26 +227,30 @@ void reset_non_state_qbits(){
 
 void apply_Phi_old(){
    // quantum phase estimation (here trivial)
-   qi_cx(gState, bm_psi0, bm_E_old0);
-   qi_cx(gState, bm_psi1, bm_E_old1);
+    qi_x(gState, {bm_psi0, bm_psi1, bm_E_old0});
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
+    qi_x(gState, {bm_psi0, bm_psi1});
 }
 
 void apply_Phi_old_inverse(){
    // quantum phase estimation (here trivial)
-   qi_cx(gState, bm_psi0, bm_E_old0);
-   qi_cx(gState, bm_psi1, bm_E_old1);
+    qi_x(gState, {bm_psi0, bm_psi1});
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
+    qi_x(gState, {bm_psi0, bm_psi1, bm_E_old0});
 }
 
 void apply_Phi(){
    // quantum phase estimation (here trivial)
-   qi_cx(gState, bm_psi0, bm_E_new0);
-   qi_cx(gState, bm_psi1, bm_E_new1);
+    qi_x(gState, {bm_psi0, bm_psi1, bm_E_new0});
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
+    qi_x(gState, {bm_psi0, bm_psi1});
 }
 
 void apply_Phi_inverse(){
    // quantum phase estimation (here trivial)
-   qi_cx(gState, bm_psi0, bm_E_new0);
-   qi_cx(gState, bm_psi1, bm_E_new1);
+    qi_x(gState, {bm_psi0, bm_psi1});
+    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
+    qi_x(gState, {bm_psi0, bm_psi1, bm_E_new0});
 }
 
 uint draw_C(){
@@ -260,24 +285,12 @@ void apply_W(){
     // Ei = 0, Ek = 1
     //(1U <<bm_E_new0) |(1U <<bm_acc);
     uint case1a = 80U;
-    // Ei = 1, Ek = 2
-    //(1U <<bm_E_old0) |(1U <<bm_E_new1) |(1U <<bm_acc);
-    uint case1b = 100U;
-    // Ei = 0, Ek = 2
-    //(1U <<bm_E_new1) |(1U <<bm_acc);
-    uint case2 = 96U;
     for(uint i = 0U; i < gState.size(); ++i){
-        if(((i & mask) == case1a) || ((i & mask) == case1b)){
+        if((i & mask) == case1a){
             uint j = i & ~(1U << bm_acc);
             
             DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
             apply_2x2mat(gState[j], gState[i], sqrt(1.-f1), sqrt(f1), sqrt(f1), -sqrt(1.-f1));
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-        }else if((i & mask) == case2){
-            uint j = i & ~(1U << bm_acc);
-
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case2: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-            apply_2x2mat(gState[j], gState[i], sqrt(1.-f2), sqrt(f2), sqrt(f2), -sqrt(1.-f2));
             DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i >> bm_acc) & 1U){
             uint j = i & ~(1U << bm_acc);
@@ -513,7 +526,6 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-    gState[0] = 1.0; 
     std::fill_n(gState.begin(), gState.size(), 0.0);
     gState[0] = 1.0; 
     for(uint s = 0U; s < metro_steps; ++s){
