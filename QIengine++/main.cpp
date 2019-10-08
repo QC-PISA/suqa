@@ -63,14 +63,16 @@ vector<double> E_measures;
 // Operator X parameter
 const double phi = (1.+sqrt(5.))/2.;
 const double mphi_inv = -1./phi;
-const double S_10=phi/sqrt(2.+phi), S_12=1./sqrt(2+phi), S_20=mphi_inv/sqrt(2+mphi_inv), S_22=1./(2+mphi_inv);
+const double Sa = phi/sqrt(2.+phi);
+const double Sb = 1/sqrt(2.+phi);
+const double S_10=Sa, S_12=Sb, S_20=-Sb, S_22=Sa;
 const double twosqinv = 1./sqrt(2.);
 
 
 
 // Utilities
 
-pcg rangen(709383021388604706ULL);
+pcg rangen;
 
 // bit masks
 enum bm_idxs {  bm_psi0, 
@@ -570,73 +572,74 @@ void apply_U_inverse(){
     DEBUG_CALL(sparse_print(gState));
 }
 
-// double measure_X(){
-// 	uint mask = 3U;
-// 	vector<uint> classics(2);
-// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//         if((i_0 & mask) == 0U){
-//             uint i_1 = i_0 | 1U;
-//             uint i_2 = i_0 | 2U;
-// 
-//             Complex a_0 = gState[i_0];
-//             Complex a_1 = gState[i_1];
-//             Complex a_2 = gState[i_2];
-//             
-//             gState[i_0] = a_1;
-//             gState[i_1] = S_10*a_0 + S_12*a_2;
-//             gState[i_2] = S_20*a_0 + S_22*a_2;
-//         }
-//     }
-//     measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
-//     for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//         if((i_0 & mask) == 0U){
-//             uint i_1 = i_0 | 1U;
-//             uint i_2 = i_0 | 2U;
-// 
-//             Complex a_0 = gState[i_0];
-//             Complex a_1 = gState[i_1];
-//             Complex a_2 = gState[i_2];
-// 
-//             gState[i_0] = S_10*a_1 + S_20*a_2;
-//             gState[i_1] = a_0;
-//             gState[i_2] = S_12*a_1 + S_22*a_2;
-//         }
-//     }
-//     uint meas = classics[0] + 2*classics[1];
-//     switch(meas){
-//         case 0:
-//             return 0;
-//             break;
-//         case 1:
-//             return phi;
-//             break;
-//         case 2:
-//             return mphi_inv;
-//         default:
-//             throw "Error!";
-//     }
-//     return 0.0;
-// }
-
 double measure_X(){
+	uint mask = 3U;
 	vector<uint> classics(2);
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            
+            gState[i_0] = a_1;
+            gState[i_1] = Sa*a_0 + Sb*a_2;
+            gState[i_2] = -Sb*a_0 + Sa*a_2;
+        }
+    }
     measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
+    for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+
+            gState[i_0] = Sa*a_1 - Sb*a_2;
+            gState[i_1] = a_0;
+            gState[i_2] = Sb*a_1 + Sa*a_2;
+        }
+    }
     uint meas = classics[0] + 2*classics[1];
     switch(meas){
         case 0:
-            return 1.0;
+            return 0;
             break;
         case 1:
-            return 2.0;
+            return phi;
             break;
         case 2:
-            return 3.0;
+            return mphi_inv;
             break;
         default:
             throw "Error!";
     }
     return 0.0;
 }
+
+// double measure_X(){
+// 	vector<uint> classics(2);
+//     measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
+//     uint meas = classics[0] + 2*classics[1];
+//     switch(meas){
+//         case 0:
+//             return 1.0;
+//             break;
+//         case 1:
+//             return 2.0;
+//             break;
+//         case 2:
+//             return 3.0;
+//             break;
+//         default:
+//             throw "Error!";
+//     }
+//     return 0.0;
+// }
 
 
 void metro_step(uint s){
@@ -770,7 +773,7 @@ int main(int argc, char** argv){
     // Banner
     print_banner();
     printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts);
-    printf("initial random seed: %ld\n",rangen.get_state().state);
+    printf("initial random seed: %lu\n",rangen.get_state().state);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
