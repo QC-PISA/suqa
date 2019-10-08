@@ -229,11 +229,15 @@ void check_unused(){
 //}
 
 void reset_non_state_qbits(){
+    DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     qi_reset(gState, bm_acc);
     qi_reset(gState, bm_E_old0);
     qi_reset(gState, bm_E_old1);
     qi_reset(gState, bm_E_new0);
     qi_reset(gState, bm_E_new1);
+    DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 
@@ -313,6 +317,8 @@ void apply_Phi_old(){
             gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
         }
     }
+    DEBUG_CALL(cout<<"\napply S_dag old:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_Phi_old_inverse(){
@@ -360,6 +366,8 @@ void apply_Phi_old_inverse(){
             gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
         }
     }
+    DEBUG_CALL(cout<<"\napply S_dag old inverse:\n"<<endl);
+    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_Phi(){
@@ -562,54 +570,73 @@ void apply_U_inverse(){
     DEBUG_CALL(sparse_print(gState));
 }
 
+// double measure_X(){
+// 	uint mask = 3U;
+// 	vector<uint> classics(2);
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_1;
+//             gState[i_1] = S_10*a_0 + S_12*a_2;
+//             gState[i_2] = S_20*a_0 + S_22*a_2;
+//         }
+//     }
+//     measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
+//     for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+// 
+//             gState[i_0] = S_10*a_1 + S_20*a_2;
+//             gState[i_1] = a_0;
+//             gState[i_2] = S_12*a_1 + S_22*a_2;
+//         }
+//     }
+//     uint meas = classics[0] + 2*classics[1];
+//     switch(meas){
+//         case 0:
+//             return 0;
+//             break;
+//         case 1:
+//             return phi;
+//             break;
+//         case 2:
+//             return mphi_inv;
+//         default:
+//             throw "Error!";
+//     }
+//     return 0.0;
+// }
+
 double measure_X(){
-	uint mask = 3U;
 	vector<uint> classics(2);
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_1;
-            gState[i_1] = S_10*a_0 + S_12*a_2;
-            gState[i_2] = S_20*a_0 + S_22*a_2;
-        }
-    }
-    measure_qbits(gState, {0,1}, classics);
-    for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-
-            gState[i_0] = S_10*a_1 + S_20*a_2;
-            gState[i_1] = a_0;
-            gState[i_2] = S_12*a_1 + S_22*a_2;
-        }
-    }
+    measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
     uint meas = classics[0] + 2*classics[1];
     switch(meas){
         case 0:
-            return 0;
+            return 1.0;
             break;
         case 1:
-            return phi;
+            return 2.0;
             break;
         case 2:
-            return mphi_inv;
+            return 3.0;
+            break;
         default:
             throw "Error!";
     }
     return 0.0;
 }
-
 
 
 void metro_step(uint s){
@@ -638,14 +665,26 @@ void metro_step(uint s){
         DEBUG_CALL(double tmp_E=c_E_news[0]+2*c_E_news[1]);
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
-        if(s>0U and s%reset_each ==0U){
-            E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+        E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+//        if(s>0U and s%reset_each ==0U){
+//            E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+//            qi_reset(gState, bm_E_new0);
+//            qi_reset(gState, bm_E_new1);
 //            X_measures.push_back(measure_X());
-            X_measures.push_back(0.0);
-//            reset_non_state_qbits();
-//           apply_Phi_old();
-//            measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
-        }
+//////            X_measures.push_back(0.0);
+//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+//            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+//            DEBUG_CALL(sparse_print(gState));
+//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+////            reset_non_state_qbits();
+//            qi_reset(gState, bm_E_new0);
+//            qi_reset(gState, bm_E_new1);
+//            apply_Phi();
+//            measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+//            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+//            DEBUG_CALL(sparse_print(gState));
+//            apply_Phi_inverse();
+//        }
 
         return;
     }
@@ -669,16 +708,29 @@ void metro_step(uint s){
         apply_Phi_inverse();
         
         if(Eold_meas == Enew_meas){
+            E_measures.push_back(Eold_meas);
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-            if(s>0U and s%reset_each ==0U){
-                E_measures.push_back(Eold_meas);
+//            if(s>0U and s%reset_each == 0U){
+//                E_measures.push_back(Eold_meas);
+//                DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
+//                DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
+//                DEBUG_CALL(sparse_print(gState));
+//                qi_reset(gState, bm_E_new0);
+//                qi_reset(gState, bm_E_new1);
 //                X_measures.push_back(measure_X());
-                X_measures.push_back(0.0);
-//                reset_non_state_qbits();
-//                apply_Phi_old();
-//                measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
-            }
-            DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
+//////                X_measures.push_back(0.);
+//                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+//                DEBUG_CALL(sparse_print(gState));
+//                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+// ////               reset_non_state_qbits();
+//                qi_reset(gState, bm_E_new0);
+//                qi_reset(gState, bm_E_new1);
+//                apply_Phi();
+//                measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+//                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+//                DEBUG_CALL(sparse_print(gState));
+//                apply_Phi_inverse();
+//            }
             break;
         }
         //else
@@ -723,11 +775,13 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-    std::fill_n(gState.begin(), gState.size(), 0.0);
-    gState[0] = 1.0; 
-    for(uint s = 0U; s < metro_steps; ++s){
-        metro_step(s);
-        assert(abs(vnorm(gState)-1.0)<1e-8);
+    for(uint k = 0U; k < metro_steps; ++k){
+        std::fill_n(gState.begin(), gState.size(), 0.0);
+        gState[0] = 1.0; 
+        for(uint s = 0U; s < reset_each; ++s){
+            metro_step(s);
+        }
+        X_measures.push_back(measure_X());
     }
 
     cout<<"all fine :)\n"<<endl;
