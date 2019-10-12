@@ -796,9 +796,6 @@ int main(int argc, char** argv){
     print_banner();
     printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n%-12s\t%llu\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts,"initial random seed:",iseed);
 
-    for(int i=0; i<50; ++i){
-        cerr<<rangen.doub()<<endl;
-    }
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
