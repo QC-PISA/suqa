@@ -83,8 +83,7 @@ enum bm_idxs {  bm_psi0,
                 bm_E_old1,
                 bm_E_new0,
                 bm_E_new1,
-                bm_acc};//,
-//                bm_qaux0};
+                bm_acc};
 
 
 std::ostream& operator<<(std::ostream& s, const Complex& c){
@@ -141,19 +140,19 @@ void qi_reset(vector<Complex>& state, const uint& q){
     vnormalize(state);
 }  
 
-// void qi_reset(vector<Complex>& state, const vector<uint>& qs){
-//     uint mask=0U;
-//     for(const auto& q : qs)
-//         mask |= 1U << q;
-// 
-//     for(uint i = 0U; i < state.size(); ++i){
-//         if((i & mask) != 0U){ // checks q-th digit in i
-//             state[i & ~mask]+=state[i];
-//             state[i]= 0.0;
-//         }
-//     }
-//     vnormalize(state);
-// }  
+void qi_reset(vector<Complex>& state, const vector<uint>& qs){
+    uint mask=0U;
+    for(const auto& q : qs)
+        mask |= 1U << q;
+
+    for(uint i = 0U; i < state.size(); ++i){
+        if((i & mask) != 0U){ // checks q-th digit in i
+            state[i & ~mask]+=state[i];
+            state[i]= 0.0;
+        }
+    }
+    vnormalize(state);
+}  
 
 void qi_x(vector<Complex>& state, const uint& q){
     for(uint i = 0U; i < state.size(); ++i){
@@ -178,9 +177,20 @@ void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_target){
             std::swap(state[i],state[j]);
         }
     }
-    
 }  
   
+
+void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_mask, const uint& q_target){
+    uint mask_qs = 1U << q_target;
+    uint mask = mask_qs | (1U << q_control);
+    if(q_mask) mask_qs |= (1U << q_control);
+    for(uint i = 0U; i < state.size(); ++i){
+        if((i & mask) == mask_qs){
+            uint j = i & ~(1U << q_target);
+            std::swap(state[i],state[j]);
+        }
+    }
+}  
 
 void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& q_target){
     uint mask = 1U << q_target;
@@ -211,6 +221,18 @@ void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const vector
         }
     }
 }  
+void qi_swap(vector<Complex>& state, const uint& q1, const uint& q2){
+        // swap gate: 00->00, 01->10, 10->01, 11->11
+        // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
+        uint mask_q = (1U << q1);
+        uint mask = mask_q | (1U << q2);
+        for(uint i = 0U; i < state.size(); ++i){
+            if((i & mask) == mask_q){
+                uint j = (i & ~(1U << q1)) | (1U << q2);
+                std::swap(state[i],state[j]);
+            }
+        }
+}
 
 // Simulation procedures
 
@@ -249,11 +271,7 @@ void check_unused(){
 void reset_non_state_qbits(){
     DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
-    qi_reset(gState, bm_acc);
-    qi_reset(gState, bm_E_old0);
-    qi_reset(gState, bm_E_old1);
-    qi_reset(gState, bm_E_new0);
-    qi_reset(gState, bm_E_new1);
+    qi_reset(gState, {bm_E_old0, bm_E_old1, bm_E_new0, bm_E_new1, bm_acc});
     DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
 }
@@ -311,12 +329,8 @@ void apply_Phi_old(){
     DEBUG_CALL(sparse_print(gState));
 
 
-    qi_x(gState, {bm_psi0, bm_psi1});
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
-    qi_x(gState, {bm_psi0, bm_psi1});
-    qi_x(gState, bm_psi0);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old1);
-    qi_x(gState, bm_psi0);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_old0);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_old1);
 
     DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -360,12 +374,8 @@ void apply_Phi_old_inverse(){
     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-    qi_x(gState, bm_psi0);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old1);
-    qi_x(gState, bm_psi0);
-    qi_x(gState, {bm_psi0, bm_psi1});
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_old0);
-    qi_x(gState, {bm_psi0, bm_psi1});
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_old1);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_old0);
 
     DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -409,24 +419,8 @@ void apply_Phi(){
     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-    qi_x(gState, {bm_psi0, bm_psi1});
-    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, {bm_psi0, bm_psi1});:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
-    DEBUG_CALL(cout<<"\n\tapply qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    qi_x(gState, {bm_psi0, bm_psi1});
-    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, {bm_psi0, bm_psi1});:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    qi_x(gState, bm_psi0);
-    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi0);:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);
-    DEBUG_CALL(cout<<"\n\tapply qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    qi_x(gState, bm_psi0);
-    DEBUG_CALL(cout<<"\n\tapply qi_x(gState, bm_psi0);:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_new0);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_new1);
     
     DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -470,12 +464,8 @@ void apply_Phi_inverse(){
     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-    qi_x(gState, bm_psi0);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new1);
-    qi_x(gState, bm_psi0);
-    qi_x(gState, {bm_psi0, bm_psi1});
-    qi_mcx(gState, {bm_psi0, bm_psi1}, bm_E_new0);
-    qi_x(gState, {bm_psi0, bm_psi1});
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_new1);
+    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_new0);
 
     DEBUG_CALL(cout<<"\napply Phi_diag inverse:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -506,14 +496,9 @@ uint draw_C(){
 
 void apply_C(const uint &Ci){
     if(Ci==0U){
-        qi_x(gState,bm_psi1);
-        qi_cx(gState,bm_psi1,bm_psi0);
-        qi_x(gState,bm_psi1);
+        qi_cx(gState,bm_psi1, 0, bm_psi0);
     }else if(Ci==1U){
-        //TODO: optimizable as SWAP gate
-        qi_cx(gState,bm_psi1,bm_psi0);
-        qi_cx(gState,bm_psi0,bm_psi1);
-        qi_cx(gState,bm_psi1,bm_psi0);
+        qi_swap(gState,bm_psi1,bm_psi0);
     }else{
         throw "Error!";
     }
@@ -687,8 +672,7 @@ void metro_step(uint s){
         E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
         if(s>0U and s%reset_each ==0U){
             E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
-            qi_reset(gState, bm_E_new0);
-            qi_reset(gState, bm_E_new1);
+            qi_reset(gState, {bm_E_new0, bm_E_new1});
             X_measures.push_back(measure_X());
 ////            X_measures.push_back(0.0);
             DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
@@ -696,8 +680,7 @@ void metro_step(uint s){
             DEBUG_CALL(sparse_print(gState));
             DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
 //            reset_non_state_qbits();
-            qi_reset(gState, bm_E_new0);
-            qi_reset(gState, bm_E_new1);
+            qi_reset(gState, {bm_E_new0, bm_E_new1});
             apply_Phi();
             measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
             DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
@@ -734,16 +717,14 @@ void metro_step(uint s){
                 DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
-                qi_reset(gState, bm_E_new0);
-                qi_reset(gState, bm_E_new1);
+                qi_reset(gState, {bm_E_new0, bm_E_new1});
                 X_measures.push_back(measure_X());
 ////                X_measures.push_back(0.);
                 DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
                 DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
  ////               reset_non_state_qbits();
-                qi_reset(gState, bm_E_new0);
-                qi_reset(gState, bm_E_new1);
+                qi_reset(gState, {bm_E_new0, bm_E_new1});
                 apply_Phi();
                 measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
                 DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
