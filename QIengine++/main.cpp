@@ -4,6 +4,7 @@
 #include <string>
 #include <cstring>
 #include <stdio.h>
+#include <bits/stdc++.h>
 #include <cmath>
 #include <cassert>
 #include "include/Rand.hpp"
@@ -46,6 +47,7 @@ const uint Dim = (uint)pow(2.0, nqubits); // simulation hyperparameters
 uint max_reverse_attempts;
 uint metro_steps;
 uint reset_each;
+unsigned long long iseed = 0ULL;
 
 uint gCi;
 uint c_acc = 0;
@@ -138,6 +140,20 @@ void qi_reset(vector<Complex>& state, const uint& q){
     }
     vnormalize(state);
 }  
+
+// void qi_reset(vector<Complex>& state, const vector<uint>& qs){
+//     uint mask=0U;
+//     for(const auto& q : qs)
+//         mask |= 1U << q;
+// 
+//     for(uint i = 0U; i < state.size(); ++i){
+//         if((i & mask) != 0U){ // checks q-th digit in i
+//             state[i & ~mask]+=state[i];
+//             state[i]= 0.0;
+//         }
+//     }
+//     vnormalize(state);
+// }  
 
 void qi_x(vector<Complex>& state, const uint& q){
     for(uint i = 0U; i < state.size(); ++i){
@@ -756,7 +772,7 @@ void metro_step(uint s){
 
 int main(int argc, char** argv){
     if(argc < 6){
-        cout<<"arguments: <beta> <eps> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20]"<<endl;
+        cout<<"arguments: <beta> <eps> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random]"<<endl;
         exit(1);
     }
     beta = stod(argv[1]);
@@ -764,17 +780,25 @@ int main(int argc, char** argv){
     metro_steps = (uint)atoi(argv[3]);
     reset_each = (uint)atoi(argv[4]);
     string outfilename(argv[5]);
-    max_reverse_attempts = (argc==8 && strcmp(argv[6],"--max-reverse")==0)? (uint)atoi(argv[7]) : 20U;
-    
+    max_reverse_attempts = (argc>=8 && strcmp(argv[6],"--max-reverse")==0)? (uint)atoi(argv[7]) : 20U;
+    char *end;
+    if(argc>=10 && strcmp(argv[8],"--seed")==0){
+        iseed = strtoull(argv[9], &end, 10);
+        rangen.set_seed(iseed);
+    }
+    iseed = rangen.get_seed();
+
     f1 = exp(-beta*eps);
     f2 = exp(-2.*beta*eps);
 
     
     // Banner
     print_banner();
-    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts);
-    printf("initial random seed: %lu\n",rangen.get_state().state);
+    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n%-12s\t%llu\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts,"initial random seed:",iseed);
 
+    for(int i=0; i<50; ++i){
+        cerr<<rangen.doub()<<endl;
+    }
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     

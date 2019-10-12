@@ -239,15 +239,18 @@ struct pcg_state{
 class pcg{
     pcg32 rng;
 
+    Ullong seed;
+
     public:
         pcg() : pcg(0ULL) {}
 
         pcg(Ullong j){
             if(j==0){
-			struct timeval tval;
-			gettimeofday(&tval,NULL);
-			j=tval.tv_sec*1000000ULL+tval.tv_usec;
+                struct timeval tval;
+                gettimeofday(&tval,NULL);
+                j=tval.tv_sec*1000000ULL+tval.tv_usec;
             }
+            seed = j;
             rng.seed(j);
         }
 
@@ -268,6 +271,13 @@ class pcg{
 			ret.state=rng.state;
 			return ret;
 		}
+
+		void set_seed(const Ullong& iseed){
+            seed = iseed;
+            rng.seed(iseed);
+		}
+
+		inline Ullong get_seed(){ return seed; }
 };
 
 
