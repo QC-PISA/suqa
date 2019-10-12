@@ -17,6 +17,7 @@
 
 using namespace std;
 
+
 void print_banner(){
     printf("\n"
 		".▄▄▄  ▪  .▄▄ · ▄ •▄ ▪  ▄▄▄▄▄    .▄▄ · ▄• ▄▌ ▄▄·  ▄▄▄· \n"
@@ -248,25 +249,6 @@ void check_unused(){
         }
     } 
 }
-
-//void reset_non_state_qbits(){
-//    // resets E_old, E_new and acc to zero
-//    // sweeps all the global state vector, setting to zero
-//    // the amplitude for non zero values of that qubits.
-//    for(uint i = 0U; i < Dim; ++i){
-//        // read i in binary:
-//        if(i & 124U)
-//            gState[i] = {0.0, 0.0};   
-//        // equivalent (but more efficient) to this check
-////                  ((i >> bm_E_old0) & 1U)
-////                | ((i >> bm_E_old1) & 1U)
-////                | ((i >> bm_E_new0) & 1U)
-////                | ((i >> bm_E_new1) & 1U)
-//    }
-//
-//    // normalize again
-//    vnormalize(gState);
-//}
 
 void reset_non_state_qbits(){
     DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);

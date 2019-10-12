@@ -1,11 +1,17 @@
-release: main.cpp
-	g++ -Wall -Wextra -std=c++11 -O3 main.cpp -o main -DNDEBUG
+.PHONY: release debug clean 
 
-debug: main.cpp
-	g++ -Wall -Wextra -std=c++11 -g main.cpp -o main
+CXX = g++
+CXXFLAGS = -Wall -Wextra -std=c++11
 
-profiling_O0: main.cpp
-	g++ -Wall -Wextra -std=c++11 -O0 -g main.cpp -o main_O0 -DNDEBUG
+release: CXXFLAGS += -O3 -DNDEBUG
+release: main
+	
+debug: CXXFLAGS += -g
+debug: main
+	
+main: main.cpp
+	$(CXX) $(CXXFLAGS) main.cpp -o main
 
-profiling_O3: main.cpp
-	g++ -Wall -Wextra -std=c++11 -O3 -g main.cpp -o main_O3 -DNDEBUG 
+clean:
+	rm -rf main
+
