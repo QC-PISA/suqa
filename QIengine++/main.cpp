@@ -36,7 +36,7 @@ const Complex iu(0, 1);
 
 /* Hamiltonian
  *
- * H = eps {{1, 0, 0}, {0, 1, 1}, {0, 1, 1}}
+ * H = eps {{0, 0, 0}, {0, 2, 1}, {0, 1, 2}}
  *
  */
 
@@ -314,8 +314,7 @@ void apply_Phi_old(){
     DEBUG_CALL(sparse_print(gState));
 
 
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_old0);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_old1);
+    qi_cx(gState, bm_psi1, bm_E_old1);
 
     DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -359,8 +358,7 @@ void apply_Phi_old_inverse(){
     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_old1);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_old0);
+    qi_cx(gState, bm_psi1, bm_E_old1);
 
     DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -404,8 +402,7 @@ void apply_Phi(){
     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_new0);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_new1);
+    qi_cx(gState, bm_psi1, bm_E_new1);
     
     DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -449,8 +446,7 @@ void apply_Phi_inverse(){
     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 1}, bm_E_new1);
-    qi_mcx(gState, {bm_psi0, bm_psi1}, {0, 0}, bm_E_new0);
+    qi_cx(gState, bm_psi1, bm_E_new1);
 
     DEBUG_CALL(cout<<"\napply Phi_diag inverse:\n"<<endl);
     DEBUG_CALL(sparse_print(gState));
