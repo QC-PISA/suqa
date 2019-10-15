@@ -22,7 +22,7 @@ const Complex iu(0, 1);
 
 /* Hamiltonian
  *
- * H = eps {{0, 0, 0}, {0, 2, 1}, {0, 1, 2}}
+ * H = eps {{1, 0, 0}, {0, 1, 1}, {0, 1, 1}}
  *
  */
 
@@ -421,8 +421,8 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
             
 
             state[i_0] = exp(-dt*iu)*a_0;
-            state[i_1] = exp(-dt*iu)*(cos(dt/2.)*a_1 -sin(dt/2.)*iu*a_2);
-            state[i_2] = exp(-dt*iu)*(-sin(dt/2.)*iu*a_1 + cos(dt/2.)*a_2);
+            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
+            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
 //            state[i_3] = a_3;
         }
     }
@@ -431,9 +431,9 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
 
 void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
 
-    qi_h(state, qact[1]);
-    qi_crm(state, qact[1], qact[0], 2);
     qi_h(state, qact[0]);
+    qi_crm(state, qact[0], qact[1], 2);
+    qi_h(state, qact[1]);
 
 }
 
@@ -445,11 +445,11 @@ void apply_phase_estimation(vector<Complex>& state, const double& t, const uint&
     double dt = t/(double)n;
 
     for(uint ti = 0; ti < n; ++ti){
-        qi_cu_on2(state, dt, 2, {0, 1});
+        qi_cu_on2(state, dt, 3, {0, 1});
     }
     for(uint ti = 0; ti < n; ++ti){
-        qi_cu_on2(state, dt, 3, {0, 1});
-        qi_cu_on2(state, dt, 3, {0, 1});
+        qi_cu_on2(state, dt, 2, {0, 1});
+        qi_cu_on2(state, dt, 2, {0, 1});
     }
     
     // apply QFT^{-1}
@@ -474,21 +474,31 @@ int main(int argc, char** argv){
     state[0]=1.0;
     cout<<"Case 0:"<<endl;
 
+    cout<<"before:"<<endl;
+    sparse_print(state);
     apply_phase_estimation(state, t, n);
+    cout<<"after:"<<endl;
     sparse_print(state);
 
     cout<<"Case 1:"<<endl;
     state = vector<Complex>(16, 0.0);
     state[1]=twosqinv;
     state[2]=-twosqinv;
+
+    cout<<"before:"<<endl;
+    sparse_print(state);
     apply_phase_estimation(state, t, n);
+    cout<<"after:"<<endl;
     sparse_print(state);
 
     cout<<"Case 2:"<<endl;
     state = vector<Complex>(16, 0.0);
     state[1]=twosqinv;
     state[2]=twosqinv;
+    cout<<"before:"<<endl;
+    sparse_print(state);
     apply_phase_estimation(state, t, n);
+    cout<<"after:"<<endl;
     sparse_print(state);
 
     cout<<"all fine :)\n"<<endl;
