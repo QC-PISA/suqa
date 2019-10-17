@@ -623,43 +623,8 @@ double measure_X(){
 //     return 0.0;
 // }
 
-void reverse_attempts(){
-    DEBUG_CALL(cout<<"\n\nBefore reverse attempts"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    uint iters = max_reverse_attempts;
-    while(iters > 0){
-        apply_Phi();
-        double Eold_meas, Enew_meas;
-        vector<uint> c_E_olds(2,0);
-        vector<uint> c_E_news(2,0);
-        measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
-        Eold_meas = c_E_olds[0]+2*c_E_olds[1];
-        measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
-        Enew_meas = c_E_news[0]+2*c_E_news[1];
-        apply_Phi_inverse();
-        
-        if(Eold_meas == Enew_meas){
-            E_measures.push_back(Eold_meas);
-            DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-            break;
-        }
-        //else
-        DEBUG_CALL(cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-        uint c_acc_trash;
-        apply_U(); 
-        measure_qbit(gState, bm_acc, c_acc_trash); 
-        apply_U_inverse(); 
 
-        iters--;
-    }
-
-    if (iters == 0){
-        cout<<"not converged :("<<endl;
-        exit(1);
-    }
-}
-
-void metro_step(){
+void metro_step(uint s){
     DEBUG_CALL(cout<<"initial state"<<endl);
     DEBUG_CALL(sparse_print(gState));
     reset_non_state_qbits();
@@ -686,17 +651,83 @@ void metro_step(){
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
         E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
-//            qi_reset(gState, {bm_E_new0, bm_E_new1});
+        if(s>0U and s%reset_each ==0U){
+            E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+            qi_reset(gState, {bm_E_new0, bm_E_new1});
+            X_measures.push_back(measure_X());
+////            X_measures.push_back(0.0);
+            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+            DEBUG_CALL(sparse_print(gState));
+            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+//            reset_non_state_qbits();
+            qi_reset(gState, {bm_E_new0, bm_E_new1});
+            apply_Phi();
+            measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+            DEBUG_CALL(sparse_print(gState));
+            apply_Phi_inverse();
+        }
 
         return;
     }
     //else
 
     DEBUG_CALL(cout<<"rejected; restoration cycle:"<<endl);
-
     apply_U_inverse();
-    reverse_attempts();
 
+    DEBUG_CALL(cout<<"\n\nBefore reverse attempts"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    uint iters = max_reverse_attempts;
+    while(iters > 0){
+        apply_Phi();
+        double Eold_meas, Enew_meas;
+        vector<uint> c_E_olds(2,0);
+        vector<uint> c_E_news(2,0);
+        measure_qbits(gState, {bm_E_old0, bm_E_old1}, c_E_olds);
+        Eold_meas = c_E_olds[0]+2*c_E_olds[1];
+        measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+        Enew_meas = c_E_news[0]+2*c_E_news[1];
+        apply_Phi_inverse();
+        
+        if(Eold_meas == Enew_meas){
+            E_measures.push_back(Eold_meas);
+            DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
+            if(s>0U and s%reset_each == 0U){
+                E_measures.push_back(Eold_meas);
+                DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
+                DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
+                DEBUG_CALL(sparse_print(gState));
+                qi_reset(gState, {bm_E_new0, bm_E_new1});
+                X_measures.push_back(measure_X());
+////                X_measures.push_back(0.);
+                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+                DEBUG_CALL(sparse_print(gState));
+                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+ ////               reset_non_state_qbits();
+                qi_reset(gState, {bm_E_new0, bm_E_new1});
+                apply_Phi();
+                measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+                DEBUG_CALL(sparse_print(gState));
+                apply_Phi_inverse();
+            }
+            break;
+        }
+        //else
+        DEBUG_CALL(cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
+        uint c_acc_trash;
+        apply_U(); 
+        measure_qbit(gState, bm_acc, c_acc_trash); 
+        apply_U_inverse(); 
+
+        iters--;
+    }
+
+    if (iters == 0){
+        cout<<"not converged :("<<endl;
+        exit(1);
+    }
 }
 
 
@@ -733,27 +764,17 @@ int main(int argc, char** argv){
     std::fill_n(gState.begin(), gState.size(), 0.0);
     gState[0] = 1.0; 
     for(uint s = 0U; s < metro_steps; ++s){
-        metro_step();
-//        if(s>0 and s%reset_each == 0){
-//            
-//
-//            std::fill_n(gState.begin(), gState.size(), 0.0);
-//            gState[0] = 1.0; 
-//        }
+        metro_step(s);
     }
 
     cout<<"all fine :)\n"<<endl;
 
     FILE * fil = fopen(outfilename.c_str(), "w");
 
-//    fprintf(fil, "# it E X\n");
-    fprintf(fil, "# it E\n");
+    fprintf(fil, "# it E X\n");
 
-//    for(uint ei = 0; ei < X_measures.size(); ++ei){
-//        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
-//    }
-    for(uint ei = 0; ei < E_measures.size(); ++ei){
-        fprintf(fil, "%d %.16lg\n", ei, E_measures[ei]);
+    for(uint ei = 0; ei < X_measures.size(); ++ei){
+        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
     }
     fclose(fil);
 
