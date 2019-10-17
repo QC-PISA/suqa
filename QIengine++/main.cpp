@@ -36,14 +36,13 @@ const Complex iu(0, 1);
 
 /* Hamiltonian
  *
- * H = eps {{0, 0, 0}, {0, 2, 1}, {0, 1, 2}}
+ * H = {{1, 0, 0}, {0, 1, 1}, {0, 1, 1}}
  *
  */
 
 
 // simulation parameters
 double beta;
-double eps;
 double f1;
 double f2;
 const uint nqubits = 7;
@@ -52,6 +51,8 @@ uint max_reverse_attempts;
 uint metro_steps;
 uint reset_each;
 unsigned long long iseed = 0ULL;
+double t_phase_estimation;
+int n_phase_estimation;
 
 uint gCi;
 uint c_acc = 0;
@@ -75,6 +76,8 @@ const double S_10=Sa, S_12=Sb, S_20=-Sb, S_22=Sa;
 const double twosqinv = 1./sqrt(2.);
 
 
+// constants
+const Complex rphase_m[3] = {exp((2*M_PI)*iu), exp((2*M_PI/2.)*iu), exp((2*M_PI/4.)*iu)};
 
 // Utilities
 
@@ -170,6 +173,23 @@ void qi_x(vector<Complex>& state, const uint& q){
 void qi_x(vector<Complex>& state, const vector<uint>& qs){
     for(const auto& q : qs)
         qi_x(state, q);
+}  
+
+void qi_h(vector<Complex>& state, const uint& q){
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & (1U << q)) == 0U){
+            uint i_1 = i_0 | (1U << q);
+            Complex a_0 = state[i_0];
+            Complex a_1 = state[i_1];
+            state[i_0] = twosqinv*(a_0+a_1);
+            state[i_1] = twosqinv*(a_0-a_1);
+        }
+    }
+}  
+
+void qi_h(vector<Complex>& state, const vector<uint>& qs){
+    for(const auto& q : qs)
+        qi_h(state, q);
 }  
 
 
@@ -292,182 +312,313 @@ void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>&
         measure_qbit(state, qs[k], cs[k]);
 }
 
+void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target, const int& m){
+    for(uint i = 0U; i < state.size(); ++i){
+        // for the swap, not only q_target:1 but also q_control:1
+        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
+            state[i] *= (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
+        }
+    }
+}
+
+void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, const vector<uint>& qstate){
+    uint cmask = (1U << q_control);
+	uint mask = cmask; // (1U << qstate[0]) | (1U << qstate[0])
+    for(const auto& qs : qstate){
+        mask |= (1U << qs);
+    }
+
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & mask) == cmask){
+      
+            uint i_1 = i_0 | (1U << qstate[0]);
+            uint i_2 = i_0 | (1U << qstate[1]);
+            uint i_3 = i_1 | i_2;
+
+            Complex a_0 = state[i_0];
+            Complex a_1 = state[i_1];
+            Complex a_2 = state[i_2];
+            Complex a_3 = state[i_3];
+            
+
+            state[i_0] = exp(-dt*iu)*a_0;
+            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
+            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] = exp(-dt*iu)*a_3;
+        }
+    }
+
+}
+
+void qi_qft(vector<Complex>& state, const vector<uint>& qact){
+    if(qact.size()!=2)
+        throw "ERROR: qft(inverse) not implemented for nqubits != 2";
+
+    qi_h(state, qact[1]);
+    qi_crm(state, qact[0], qact[1], -2);
+    qi_h(state, qact[0]);
+
+}
+
+void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
+    if(qact.size()!=2)
+        throw "ERROR: qft(inverse) not implemented for nqubits != 2";
+
+    qi_h(state, qact[0]);
+    qi_crm(state, qact[0], qact[1], 2);
+    qi_h(state, qact[1]);
+
+}
+
+void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
+    DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
+    qi_h(state,q_target);
+    DEBUG_CALL(cout<<"after qi_h(state,q_target)"<<endl);
+    DEBUG_CALL(sparse_print(state));
+
+    // apply CUs
+    double dt = t/(double)n;
+
+    for(int trg = q_target.size() - 1; trg > -1; --trg){
+        for(uint ti = 0; ti < n; ++ti){
+            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+                qi_cu_on2(state, dt, q_target[trg], q_state);
+            }
+        }
+    }
+    DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
+    DEBUG_CALL(sparse_print(state));
+    
+    // apply QFT^{-1}
+    qi_qft_inverse(state, q_target); 
+
+}
+
+void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
+    DEBUG_CALL(cout<<"apply_phase_estimation_inverse()"<<endl);
+
+    // apply QFT
+    qi_qft(state, q_target); 
+
+
+    // apply CUs
+    double dt = t/(double)n;
+
+    for(uint trg = 0; trg < q_target.size(); ++trg){
+        for(uint ti = 0; ti < n; ++ti){
+            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+                qi_cu_on2(state, -dt, q_target[trg], q_state);
+            }
+        }
+    }
+    
+    qi_h(state,q_target);
+
+}
+
+// void apply_Phi_old(){
+//    // quantum phase estimation (here trivial)
+//     DEBUG_CALL(cout<<"\nApply Phi old\n"<<endl);
+// 	uint mask = 3U;
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+//             gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+// 
+//     qi_cx(gState, bm_psi1, bm_E_old1);
+// 
+//     DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+//             gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S_dag old:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// }
+// 
+// void apply_Phi_old_inverse(){
+//    // quantum phase estimation (here trivial)
+//     DEBUG_CALL(cout<<"\nApply Phi old inverse\n"<<endl);
+// 	uint mask = 3U;
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+//             gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+//     qi_cx(gState, bm_psi1, bm_E_old1);
+// 
+//     DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+//             gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S_dag old inverse:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// }
+// 
+// void apply_Phi(){
+//    // quantum phase estimation (here trivial)
+//     DEBUG_CALL(cout<<"\nApply Phi\n"<<endl);
+// 	uint mask = 3U;
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+//             gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+//     qi_cx(gState, bm_psi1, bm_E_new1);
+//     
+//     DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+//             gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// }
+// 
+// void apply_Phi_inverse(){
+//    // quantum phase estimation (here trivial)
+//     DEBUG_CALL(cout<<"\nApply Phi inverse\n"<<endl);
+// 	uint mask = 3U;
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
+//             gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+//     qi_cx(gState, bm_psi1, bm_E_new1);
+// 
+//     DEBUG_CALL(cout<<"\napply Phi_diag inverse:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// 
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & mask) == 0U){
+//             uint i_1 = i_0 | 1U;
+//             uint i_2 = i_0 | 2U;
+// 
+//             Complex a_0 = gState[i_0];
+//             Complex a_1 = gState[i_1];
+//             Complex a_2 = gState[i_2];
+//             
+//             gState[i_0] = a_0;
+//             gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
+//             gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
+//         }
+//     }
+//     DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
+//     DEBUG_CALL(sparse_print(gState));
+// }
+//
+//
+
 void apply_Phi_old(){
-   // quantum phase estimation (here trivial)
-    DEBUG_CALL(cout<<"\nApply Phi old\n"<<endl);
-	uint mask = 3U;
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
 
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
+    apply_phase_estimation(gState, {bm_psi0, bm_psi1}, {bm_E_old0, bm_E_old1}, t_phase_estimation, n_phase_estimation);
 
-
-    qi_cx(gState, bm_psi1, bm_E_old1);
-
-    DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S_dag old:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_Phi_old_inverse(){
-   // quantum phase estimation (here trivial)
-    DEBUG_CALL(cout<<"\nApply Phi old inverse\n"<<endl);
-	uint mask = 3U;
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
 
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
+    apply_phase_estimation_inverse(gState, {bm_psi0, bm_psi1}, {bm_E_old0, bm_E_old1}, t_phase_estimation, n_phase_estimation);
 
-    qi_cx(gState, bm_psi1, bm_E_old1);
-
-    DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S_dag old inverse:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_Phi(){
-   // quantum phase estimation (here trivial)
-    DEBUG_CALL(cout<<"\nApply Phi\n"<<endl);
-	uint mask = 3U;
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
 
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
+    apply_phase_estimation(gState, {bm_psi0, bm_psi1}, {bm_E_new0, bm_E_new1}, t_phase_estimation, n_phase_estimation);
 
-    qi_cx(gState, bm_psi1, bm_E_new1);
-    
-    DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_Phi_inverse(){
-   // quantum phase estimation (here trivial)
-    DEBUG_CALL(cout<<"\nApply Phi inverse\n"<<endl);
-	uint mask = 3U;
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
 
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
+    apply_phase_estimation_inverse(gState, {bm_psi0, bm_psi1}, {bm_E_new0, bm_E_new1}, t_phase_estimation, n_phase_estimation);
 
-    qi_cx(gState, bm_psi1, bm_E_new1);
-
-    DEBUG_CALL(cout<<"\napply Phi_diag inverse:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
 }
+
 
 uint draw_C(){
     if (rangen.doub()<0.5)
@@ -653,20 +804,20 @@ void metro_step(uint s){
         E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
         if(s>0U and s%reset_each ==0U){
             E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
-            qi_reset(gState, {bm_E_new0, bm_E_new1});
-            X_measures.push_back(measure_X());
-////            X_measures.push_back(0.0);
-            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
-            DEBUG_CALL(sparse_print(gState));
-            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-//            reset_non_state_qbits();
-            qi_reset(gState, {bm_E_new0, bm_E_new1});
-            apply_Phi();
-            measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
-            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
-            DEBUG_CALL(sparse_print(gState));
-            apply_Phi_inverse();
+//            qi_reset(gState, {bm_E_new0, bm_E_new1});
+//            X_measures.push_back(measure_X());
+//////            X_measures.push_back(0.0);
+//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+//            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+//            DEBUG_CALL(sparse_print(gState));
+//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+////            reset_non_state_qbits();
+//            qi_reset(gState, {bm_E_new0, bm_E_new1});
+//            apply_Phi();
+//            measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+//            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+//            DEBUG_CALL(sparse_print(gState));
+//            apply_Phi_inverse();
         }
 
         return;
@@ -698,19 +849,19 @@ void metro_step(uint s){
                 DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
-                qi_reset(gState, {bm_E_new0, bm_E_new1});
-                X_measures.push_back(measure_X());
-////                X_measures.push_back(0.);
-                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
-                DEBUG_CALL(sparse_print(gState));
-                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
- ////               reset_non_state_qbits();
-                qi_reset(gState, {bm_E_new0, bm_E_new1});
-                apply_Phi();
-                measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
-                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
-                DEBUG_CALL(sparse_print(gState));
-                apply_Phi_inverse();
+//                qi_reset(gState, {bm_E_new0, bm_E_new1});
+//                X_measures.push_back(measure_X());
+//////                X_measures.push_back(0.);
+//                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+//                DEBUG_CALL(sparse_print(gState));
+//                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+// ////               reset_non_state_qbits();
+//                qi_reset(gState, {bm_E_new0, bm_E_new1});
+//                apply_Phi();
+//                measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+//                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+//                DEBUG_CALL(sparse_print(gState));
+//                apply_Phi_inverse();
             }
             break;
         }
@@ -731,32 +882,151 @@ void metro_step(uint s){
 }
 
 
+struct arg_list{
+    double beta = 0.0;
+    int metro_steps = 0;
+    int reset_each = 0;
+    string outfile = "";
+    int max_reverse_attempts = 100;
+    unsigned long long int seed = 0;
+    double pe_time = 2.*atan(1.0);
+    int pe_steps = 10; 
+    
+
+    friend ostream& operator<<(ostream& o, const arg_list& al);
+};
+
+ostream& operator<<(ostream& o, const arg_list& al){
+    o<<"beta: "<<al.beta<<endl;
+    o<<"metro steps: "<<al.metro_steps<<endl;
+    o<<"reset each: "<<al.reset_each<<endl;
+    o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
+    o<<"seed: "<<al.seed<<endl;
+    o<<"out datafile: "<<al.outfile<<endl;
+    o<<"time of PE evolution: "<<al.pe_time<<endl;
+    o<<"steps of PE evolution: "<<al.pe_steps<<endl;
+    return o;
+}
+
+arg_list args;
+
+void parse_arguments(arg_list& args, int argc, char** argv){
+    int fixed_args = 4;
+    map<string,int> argmap;
+    map<int,string> argmap_inv;
+    char *end;
+    int base_strtoull = 10;
+
+    // fixed arguments
+    args.beta = stod(argv[1],NULL);
+    args.metro_steps = atoi(argv[2]);
+    args.reset_each = atoi(argv[3]);
+    args.outfile = argv[4];
+
+    // floating arguments
+    for(int i = fixed_args+1; i < argc; ++i){
+        argmap[argv[i]]=i;
+        argmap_inv[i]=argv[i];
+    }
+    int tmp_idx;
+
+    // (int) max_reverse_attempts
+    tmp_idx = argmap["--max-reverse"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--max-reverse' flag"; 
+       
+       args.max_reverse_attempts = atoi(argmap_inv[tmp_idx+1].c_str()); 
+    }
+
+    // (unsigned long long) seed
+    tmp_idx = argmap["--seed"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--seed' flag"; 
+       
+       args.seed = strtoull(argmap_inv[tmp_idx+1].c_str(), &end, base_strtoull); 
+    }
+
+    // (double) pe_time
+    tmp_idx = argmap["--PE-time"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--PE-time' flag"; 
+       
+       args.pe_time *= stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+    }
+
+    // (int) pe_steps
+    tmp_idx = argmap["--PE-steps"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--PE-steps' flag"; 
+       
+       args.pe_steps = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+    }
+
+
+    // argument checking
+    if(args.beta <= 0.0){
+        throw "ERROR: argument <beta> invalid";
+    }
+
+    if(args.metro_steps <= 0){
+        throw "ERROR: argument <metro steps> invalid";
+    }
+
+    if(args.reset_each <=0){
+        throw "ERROR: argument <reset each> non positive";
+    }
+    
+    if(args.outfile == ""){
+        throw "ERROR: argument <output file path> empty";
+    }
+
+    if(args.max_reverse_attempts <=0){
+        throw "ERROR: argument <max reverse attempts> non positive";
+    }
+
+    if(args.pe_time <=0){
+        throw "ERROR: argument <time of PE evolution> non positive";
+    }
+
+    if(args.pe_steps <=0){
+        throw "ERROR: argument <steps of PE evolution> non positive";
+    }
+}
+
 
 int main(int argc, char** argv){
-    if(argc < 6){
-        cout<<"arguments: <beta> <eps> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random]"<<endl;
+    if(argc < 5){
+        cout<<"arguments: <beta> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <time of PE evolution>=pi/2] [--PE-steps <steps of PE evolution>=10]"<<endl;
         exit(1);
     }
-    beta = stod(argv[1]);
-    eps = stod(argv[2]);
-    metro_steps = (uint)atoi(argv[3]);
-    reset_each = (uint)atoi(argv[4]);
-    string outfilename(argv[5]);
-    max_reverse_attempts = (argc>=8 && strcmp(argv[6],"--max-reverse")==0)? (uint)atoi(argv[7]) : 20U;
-    char *end;
-    if(argc>=10 && strcmp(argv[8],"--seed")==0){
-        iseed = strtoull(argv[9], &end, 10);
+
+    parse_arguments(args, argc, argv);
+    cout<<"arguments:\n"<<args<<endl;
+
+    beta = args.beta;
+    metro_steps = (uint)args.metro_steps;
+    reset_each = (uint)args.reset_each;
+    string outfilename(args.outfile);
+    max_reverse_attempts = (uint)args.max_reverse_attempts;
+    t_phase_estimation = args.pe_time;
+    n_phase_estimation = args.pe_steps;
+    iseed = args.seed;
+    if(iseed>0)
         rangen.set_seed(iseed);
-    }
+    
     iseed = rangen.get_seed();
 
-    f1 = exp(-beta*eps);
-    f2 = exp(-2.*beta*eps);
+    f1 = exp(-beta);
+    f2 = exp(-2.*beta);
 
     
     // Banner
     print_banner();
-    printf("parameters:\n%-12s\t %.6lg\n%-12s\t %.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n%-12s\t%llu\n\n","beta",beta,"eps",eps,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts,"initial random seed:",iseed);
+//    printf("parameters:\n%-12s\t%.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n%-12s\t%llu\n\n","beta",beta,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts,"initial random seed:",iseed);
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
@@ -773,8 +1043,11 @@ int main(int argc, char** argv){
 
     fprintf(fil, "# it E X\n");
 
-    for(uint ei = 0; ei < X_measures.size(); ++ei){
-        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
+//    for(uint ei = 0; ei < E_measures.size(); ++ei){
+//        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
+//    }
+    for(uint ei = 0; ei < E_measures.size(); ++ei){
+        fprintf(fil, "%d %.16lg\n", ei, E_measures[ei]);
     }
     fclose(fil);
 

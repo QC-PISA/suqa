@@ -544,6 +544,19 @@ int main(int argc, char** argv){
     cout<<"after:"<<endl;
     sparse_print(state);
 
+    cout<<"\nOther case:"<<endl;
+    state = vector<Complex>(16, 0.0);
+    state[1]=1.0;
+    cout<<"before:"<<endl;
+    sparse_print(state);
+    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
+    cout<<"after:"<<endl;
+    sparse_print(state);
+    cout<<"bring back (inverse pe)"<<endl;
+    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
+    cout<<"after:"<<endl;
+    sparse_print(state);
+
     cout<<"all fine :)\n"<<endl;
 
 //    FILE * fil = fopen(outfilename.c_str(), "w");
