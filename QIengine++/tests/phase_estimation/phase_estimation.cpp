@@ -391,11 +391,11 @@ struct evolution{
 
 };
 
-void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target, const uint& m){
+void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target, const int& m){
     for(uint i = 0U; i < state.size(); ++i){
         // for the swap, not only q_target:1 but also q_control:1
         if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i]*=rphase_m[m];
+            state[i] *= (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
         }
     }
 }
@@ -410,8 +410,8 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
 	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
         if((i_0 & mask) == cmask){
       
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
+            uint i_1 = i_0 | (1U << qstate[0]);
+            uint i_2 = i_0 | (1U << qstate[1]);
 //            uint i_3 = i_0 | 3U;
 
             Complex a_0 = state[i_0];
@@ -429,6 +429,16 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
 
 }
 
+void qi_qft(vector<Complex>& state, const vector<uint>& qact){
+    if(qact.size()!=2)
+        throw "ERROR: qft(inverse) not implemented for nqubits != 2";
+
+    qi_h(state, qact[1]);
+    qi_crm(state, qact[0], qact[1], -2);
+    qi_h(state, qact[0]);
+
+}
+
 void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
 
     qi_h(state, qact[0]);
@@ -437,24 +447,45 @@ void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
 
 }
 
-void apply_phase_estimation(vector<Complex>& state, const double& t, const uint& n){
-    cout<<"apply_phase_estimation()"<<endl;
-    qi_h(state,{2,3});        
+void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
+    DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
+
+    qi_h(state,q_target);
 
     // apply CUs
     double dt = t/(double)n;
 
-    for(uint ti = 0; ti < n; ++ti){
-        qi_cu_on2(state, dt, 3, {0, 1});
-    }
-    for(uint ti = 0; ti < n; ++ti){
-        qi_cu_on2(state, dt, 2, {0, 1});
-        qi_cu_on2(state, dt, 2, {0, 1});
+    for(int trg = q_target.size() - 1; trg > -1; --trg){
+        for(uint ti = 0; ti < n; ++ti){
+            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+                qi_cu_on2(state, dt, q_target[trg], q_state);
+            }
+        }
     }
     
     // apply QFT^{-1}
-    qi_qft_inverse(state, {2, 3}); 
+    qi_qft_inverse(state, q_target); 
 
+}
+
+void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
+    DEBUG_CALL(cout<<"apply_phase_estimation_inverse()"<<endl);
+
+    // apply QFT
+    qi_qft(state, q_target); 
+
+    // apply CUs
+    double dt = t/(double)n;
+
+    for(uint trg = 0; trg < q_target.size(); ++trg){
+        for(uint ti = 0; ti < n; ++ti){
+            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+                qi_cu_on2(state, -dt, q_target[trg], q_state);
+            }
+        }
+    }
+    
+    qi_h(state,q_target);
 }
 
 int main(int argc, char** argv){
@@ -467,37 +498,49 @@ int main(int argc, char** argv){
 //    std::fill_n(gState.begin(), gState.size(), 0.0);
 //    gState[0] = 1.0; 
 
-    double t = stod(argv[1]);
+    double t = 2.*atan(1.)*stod(argv[1]);
     uint n = (uint)atoi(argv[2]);
     cout<<"Test phase estimation\n"<<endl;
     vector<Complex> state(16,0.0);
-    state[0]=1.0;
-    cout<<"Case 0:"<<endl;
 
+    cout<<"\nCase 0:"<<endl;
+    state[0]=1.0;
     cout<<"before:"<<endl;
     sparse_print(state);
-    apply_phase_estimation(state, t, n);
+    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
+    cout<<"after:"<<endl;
+    sparse_print(state);
+    cout<<"bring back (inverse pe)"<<endl;
+    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
     cout<<"after:"<<endl;
     sparse_print(state);
 
-    cout<<"Case 1:"<<endl;
+    cout<<"\nCase 1:"<<endl;
     state = vector<Complex>(16, 0.0);
     state[1]=twosqinv;
     state[2]=-twosqinv;
 
     cout<<"before:"<<endl;
     sparse_print(state);
-    apply_phase_estimation(state, t, n);
+    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
+    cout<<"after:"<<endl;
+    sparse_print(state);
+    cout<<"bring back (inverse pe)"<<endl;
+    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
     cout<<"after:"<<endl;
     sparse_print(state);
 
-    cout<<"Case 2:"<<endl;
+    cout<<"\nCase 2:"<<endl;
     state = vector<Complex>(16, 0.0);
     state[1]=twosqinv;
     state[2]=twosqinv;
     cout<<"before:"<<endl;
     sparse_print(state);
-    apply_phase_estimation(state, t, n);
+    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
+    cout<<"after:"<<endl;
+    sparse_print(state);
+    cout<<"bring back (inverse pe)"<<endl;
+    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
     cout<<"after:"<<endl;
     sparse_print(state);
 
