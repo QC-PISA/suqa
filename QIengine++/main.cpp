@@ -438,6 +438,7 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 //     DEBUG_CALL(sparse_print(gState));
 // 
 // 
+//     qi_mcx(gState, {bm_psi0,bm_psi1}, {0,0},bm_E_old0);
 //     qi_cx(gState, bm_psi1, bm_E_old1);
 // 
 //     DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
@@ -482,6 +483,7 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 //     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
 //     DEBUG_CALL(sparse_print(gState));
 // 
+//     qi_mcx(gState, {bm_psi0,bm_psi1}, {0,0},bm_E_old0);
 //     qi_cx(gState, bm_psi1, bm_E_old1);
 // 
 //     DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
@@ -526,6 +528,7 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 //     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
 //     DEBUG_CALL(sparse_print(gState));
 // 
+//     qi_mcx(gState, {bm_psi0,bm_psi1}, {0,0},bm_E_new0);
 //     qi_cx(gState, bm_psi1, bm_E_new1);
 //     
 //     DEBUG_CALL(cout<<"\napply Phi_diag:\n"<<endl);
@@ -570,6 +573,7 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 //     DEBUG_CALL(cout<<"\napply S:\n"<<endl);
 //     DEBUG_CALL(sparse_print(gState));
 // 
+//     qi_mcx(gState, {bm_psi0,bm_psi1}, {0,0},bm_E_new0);
 //     qi_cx(gState, bm_psi1, bm_E_new1);
 // 
 //     DEBUG_CALL(cout<<"\napply Phi_diag inverse:\n"<<endl);
@@ -592,8 +596,8 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 //     DEBUG_CALL(cout<<"\napply S_dag:\n"<<endl);
 //     DEBUG_CALL(sparse_print(gState));
 // }
-//
-//
+
+
 
 void apply_Phi_old(){
 
