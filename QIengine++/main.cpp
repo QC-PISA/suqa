@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cassert>
 #include "include/Rand.hpp"
+#include <chrono>
 
 #ifndef NDEBUG
     #define DEBUG_CALL(x) x
@@ -805,24 +806,24 @@ void metro_step(uint s){
         DEBUG_CALL(double tmp_E=c_E_news[0]+2*c_E_news[1]);
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
-        E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
+//        E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
         if(s>0U and s%reset_each ==0U){
             E_measures.push_back(c_E_news[0]+2*c_E_news[1]);
-//            qi_reset(gState, {bm_E_new0, bm_E_new1});
-//            X_measures.push_back(measure_X());
-//////            X_measures.push_back(0.0);
-//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-//            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
-//            DEBUG_CALL(sparse_print(gState));
-//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-////            reset_non_state_qbits();
-//            qi_reset(gState, {bm_E_new0, bm_E_new1});
-//            apply_Phi();
-//            measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
-//            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
-//            DEBUG_CALL(sparse_print(gState));
-//            apply_Phi_inverse();
-        }
+            qi_reset(gState, {bm_E_new0, bm_E_new1});
+            X_measures.push_back(measure_X());
+////            X_measures.push_back(0.0);
+            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+            DEBUG_CALL(sparse_print(gState));
+            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+//            reset_non_state_qbits();
+            qi_reset(gState, {bm_E_new0, bm_E_new1});
+            apply_Phi();
+            measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+            DEBUG_CALL(sparse_print(gState));
+            apply_Phi_inverse();
+      }
 
         return;
     }
@@ -846,26 +847,26 @@ void metro_step(uint s){
         apply_Phi_inverse();
         
         if(Eold_meas == Enew_meas){
-            E_measures.push_back(Eold_meas);
+//            E_measures.push_back(Eold_meas);
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
             if(s>0U and s%reset_each == 0U){
                 E_measures.push_back(Eold_meas);
                 DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
-//                qi_reset(gState, {bm_E_new0, bm_E_new1});
-//                X_measures.push_back(measure_X());
-//////                X_measures.push_back(0.);
-//                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
-//                DEBUG_CALL(sparse_print(gState));
-//                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-// ////               reset_non_state_qbits();
-//                qi_reset(gState, {bm_E_new0, bm_E_new1});
-//                apply_Phi();
-//                measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
-//                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
-//                DEBUG_CALL(sparse_print(gState));
-//                apply_Phi_inverse();
+                qi_reset(gState, {bm_E_new0, bm_E_new1});
+                X_measures.push_back(measure_X());
+////                X_measures.push_back(0.);
+                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
+                DEBUG_CALL(sparse_print(gState));
+                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+ ////               reset_non_state_qbits();
+                qi_reset(gState, {bm_E_new0, bm_E_new1});
+                apply_Phi();
+                measure_qbits(gState, {bm_E_new0, bm_E_new1}, c_E_news);
+                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
+                DEBUG_CALL(sparse_print(gState));
+                apply_Phi_inverse();
             }
             break;
         }
@@ -1009,7 +1010,6 @@ int main(int argc, char** argv){
     }
 
     parse_arguments(args, argc, argv);
-    cout<<"arguments:\n"<<args<<endl;
 
     beta = args.beta;
     metro_steps = (uint)args.metro_steps;
@@ -1030,7 +1030,9 @@ int main(int argc, char** argv){
     
     // Banner
     print_banner();
-//    printf("parameters:\n%-12s\t%.6lg\n%-12s\t%d\n%-12s\t%d\n%-12s\t%d\n%-12s\t%llu\n\n","beta",beta,"metro steps",metro_steps,"reset each",reset_each,"max reverse attempts",max_reverse_attempts,"initial random seed:",iseed);
+    cout<<"arguments:\n"<<args<<endl;
+
+    auto t_start = std::chrono::high_resolution_clock::now();
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
@@ -1047,12 +1049,12 @@ int main(int argc, char** argv){
 
     fprintf(fil, "# it E X\n");
 
-//    for(uint ei = 0; ei < E_measures.size(); ++ei){
-//        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
-//    }
     for(uint ei = 0; ei < E_measures.size(); ++ei){
-        fprintf(fil, "%d %.16lg\n", ei, E_measures[ei]);
+        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
     }
+//    for(uint ei = 0; ei < E_measures.size(); ++ei){
+//        fprintf(fil, "%d %.16lg\n", ei, E_measures[ei]);
+//    }
     fclose(fil);
 
     cout<<"\n\tSuqa!\n"<<endl;
@@ -1096,6 +1098,10 @@ int main(int argc, char** argv){
 //        measure_qbit(gState, 1U, ctest);
 //        sparse_print(gState);
 //    }
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double secs_passed = (1./1000.)*std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	cout<<"All [DONE] in "<<secs_passed<<" seconds"<<endl;
 
     return 0;
 }
