@@ -54,6 +54,7 @@ uint reset_each;
 unsigned long long iseed = 0ULL;
 double t_phase_estimation;
 int n_phase_estimation;
+string Xmatstem="";
 
 uint gCi;
 uint c_acc = 0;
@@ -378,7 +379,6 @@ void qi_cu_on3(vector<Complex>& state, const double& dt, const uint& q_control, 
             Complex a_6 = state[i_6];
             Complex a_7 = state[i_7];
 
-            //TODO: make me
             double dtp = dt/4.; 
             // apply 1/.4 (Id +X2 X1)
             state[i_0] = exp(-dtp*iu)*(cos(dtp)*a_0 -sin(dtp)*iu*a_6);
@@ -604,43 +604,124 @@ void apply_U_inverse(){
     DEBUG_CALL(sparse_print(gState));
 }
 
+Complex SXmat[8][8];
+
 double measure_X(){
-    //TODO: make me
-//	uint mask = 3U;
-//	vector<uint> classics(2);
-//	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//        if((i_0 & mask) == 0U){
-//            uint i_1 = i_0 | 1U;
-//            uint i_2 = i_0 | 2U;
-//
-//            Complex a_0 = gState[i_0];
-//            Complex a_1 = gState[i_1];
-//            Complex a_2 = gState[i_2];
-//            
-//            gState[i_0] = a_1;
-//            gState[i_1] = Sa*a_0 + Sb*a_2;
-//            gState[i_2] = -Sb*a_0 + Sa*a_2;
-//        }
-//    }
-//    measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
-//    for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//        if((i_0 & mask) == 0U){
-//            uint i_1 = i_0 | 1U;
-//            uint i_2 = i_0 | 2U;
-//
-//            Complex a_0 = gState[i_0];
-//            Complex a_1 = gState[i_1];
-//            Complex a_2 = gState[i_2];
-//
-//            gState[i_0] = Sa*a_1 - Sb*a_2;
-//            gState[i_1] = a_0;
-//            gState[i_2] = Sb*a_1 + Sa*a_2;
-//        }
-//    }
-//    uint meas = classics[0] + 2*classics[1];
+    if(Xmatstem==""){
+        return 0.0;
+    }
+
+	uint mask = 7U;
+	vector<uint> classics(3);
+
+    vector<double> vals(8);
+
+    FILE * fil_re = fopen((Xmatstem+"_vecs_re").c_str(),"r"); 
+    FILE * fil_im = fopen((Xmatstem+"_vecs_im").c_str(),"r"); 
+    FILE * fil_vals = fopen((Xmatstem+"_vals").c_str(),"r"); 
+    double tmp_re,tmp_im;
+    for(int i=0; i<8; ++i){
+        fscanf(fil_vals, "%lg",&vals[i]);
+//        cout<<"vals = "<<vals[i]<<endl;
+        for(int j=0; j<8; ++j){
+            fscanf(fil_re, "%lg",&tmp_re);
+            fscanf(fil_im, "%lg",&tmp_im);
+            SXmat[i][j] = tmp_re+tmp_im*iu;
+//            cout<<real(SXmat[i][j])<<imag(SXmat[i][j])<<" ";
+        }
+        fscanf(fil_re, "\n");
+        fscanf(fil_im, "\n");
+//        cout<<endl;
+    }
+
+    fclose(fil_vals);
+    fclose(fil_re);
+    fclose(fil_im);
+
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+      
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+            uint i_3 = i_0 | 3U;
+            uint i_4 = i_0 | 4U;
+            uint i_5 = i_0 | 5U;
+            uint i_6 = i_0 | 6U;
+            uint i_7 = i_0 | 7U;
+
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            Complex a_3 = gState[i_3];
+            Complex a_4 = gState[i_4];
+            Complex a_5 = gState[i_5];
+            Complex a_6 = gState[i_6];
+            Complex a_7 = gState[i_7];
+
+            vector<uint> iss = {i_0, i_1, i_2, i_3, i_4, i_5, i_6, i_7};
+            vector<Complex> ass = {a_0, a_1, a_2, a_3, a_4, a_5, a_6, a_7};
+
+
+            for(int r=0; r<8; ++r){
+                gState[iss[r]]=0.0;
+                for(int c=0; c<8; ++c){
+                     gState[iss[r]] += SXmat[r][c]*ass[c];
+                }
+            }
+            
+
+//            gState[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_6);
+//            gState[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_7);
+//            gState[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_4);
+//            gState[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_5);
+//            gState[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_2);
+//            gState[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_3);
+//            gState[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_0);
+//            gState[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_1);
+
+        }
+    }
+    measure_qbits(gState, {bm_psi0,bm_psi1,bm_psi2}, classics);
+
+	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+      
+            uint i_1 = i_0 | 1U;
+            uint i_2 = i_0 | 2U;
+            uint i_3 = i_0 | 3U;
+            uint i_4 = i_0 | 4U;
+            uint i_5 = i_0 | 5U;
+            uint i_6 = i_0 | 6U;
+            uint i_7 = i_0 | 7U;
+
+
+            Complex a_0 = gState[i_0];
+            Complex a_1 = gState[i_1];
+            Complex a_2 = gState[i_2];
+            Complex a_3 = gState[i_3];
+            Complex a_4 = gState[i_4];
+            Complex a_5 = gState[i_5];
+            Complex a_6 = gState[i_6];
+            Complex a_7 = gState[i_7];
+
+            vector<uint> iss = {i_0, i_1, i_2, i_3, i_4, i_5, i_6, i_7};
+            vector<Complex> ass = {a_0, a_1, a_2, a_3, a_4, a_5, a_6, a_7};
+
+            for(int r=0; r<8; ++r){
+                gState[iss[r]]=0.0;
+                for(int c=0; c<8; ++c){
+                     gState[iss[r]] += conj(SXmat[c][r])*ass[c];
+                }
+            }
+        }
+    }
+
+    uint meas = classics[0] + 2*classics[1] + 4*classics[2];
+    return vals[meas];
 //    switch(meas){
 //        case 0:
-//            return 0;
+//            return vals[0];
 //            break;
 //        case 1:
 //            return phi;
@@ -651,7 +732,7 @@ double measure_X(){
 //        default:
 //            throw "Error!";
 //    }
-    return 0.0;
+//    return 0.0;
 }
 
 // double measure_X(){
@@ -789,6 +870,7 @@ struct arg_list{
     unsigned long long int seed = 0;
     double pe_time = 4.*atan(1.0);
     int pe_steps = 10; 
+    string Xmatstem = "";
     
 
     friend ostream& operator<<(ostream& o, const arg_list& al);
@@ -803,6 +885,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
     o<<"out datafile: "<<al.outfile<<endl;
     o<<"time of PE evolution: "<<al.pe_time<<endl;
     o<<"steps of PE evolution: "<<al.pe_steps<<endl;
+    o<<"file stem for X measure: "<<al.Xmatstem<<endl;
     return o;
 }
 
@@ -864,6 +947,14 @@ void parse_arguments(arg_list& args, int argc, char** argv){
        args.pe_steps = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
     }
 
+    // (int) pe_steps
+    tmp_idx = argmap["--X-mat-stem"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--X-mat-stem' flag"; 
+       
+       args.Xmatstem = argmap_inv[tmp_idx+1]; 
+    }
 
     // argument checking
     if(args.beta <= 0.0){
@@ -898,7 +989,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
 
 int main(int argc, char** argv){
     if(argc < 5){
-        cout<<"arguments: <beta> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <time of PE evolution>=pi/2] [--PE-steps <steps of PE evolution>=10]"<<endl;
+        cout<<"arguments: <beta> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <time of PE evolution>=pi/2] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>]"<<endl;
         exit(1);
     }
 
@@ -911,6 +1002,7 @@ int main(int argc, char** argv){
     max_reverse_attempts = (uint)args.max_reverse_attempts;
     t_phase_estimation = args.pe_time;
     n_phase_estimation = args.pe_steps;
+    Xmatstem = args.Xmatstem;
     iseed = args.seed;
     if(iseed>0)
         rangen.set_seed(iseed);

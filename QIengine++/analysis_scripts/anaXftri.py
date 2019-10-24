@@ -2,9 +2,17 @@ import matplotlib.pyplot as plt
 import sys
 import numpy as np
 
-if len(sys.argv)<2:
+if len(sys.argv)<3:
     print("needs file stem")
     sys.exit(1)
+
+matstem = sys.argv[2]
+
+z=1./np.sqrt(2)
+
+S_H=np.array([[z,0,0,-z,0,0,0,0],[0,z,-z,0,0,0,0,0],[0,0,0,0,z,0,0,-z],[0,0,0,0,0,z,-z,0],[.5,0,0,.5,0,-.5,-.5,0],[0,.5,.5,0,-.5,0,0,-.5],[.5,0,0,.5,0,.5,.5,0],[0,.5,.5,0,.5,0,0,.5]])
+
+Xmat = np.loadtxt(matstem+"_matrix_re")+np.loadtxt(matstem+"_matrix_im")*1j
 
 fig = plt.figure(figsize=(8, 6))
 ax1 = fig.add_subplot(211)
@@ -54,7 +62,7 @@ if aa[0].shape[1]>2:
             break
         thermpart = int(ndata-int(ndata/kappas[i])*kappas[i])
         ssX.append([np.std(np.mean(ael[thermpart:,2].reshape((int(ndata/kappas[i]),kappas[i])), axis = 1))/np.sqrt(ndata/kappas[i]) for ael in aa])
-    X_exact = 0.*1./Z(bs)
+    X_exact = 1./Z(bs) * np.array([np.real(np.trace(np.diag(np.exp(-b, Hs)).dot(S_H.dot(Xmat.dot(np.conjugate(S_H.T)))))) for b in bs])
     ax1.plot(bs,X_exact, label=r'$\langle X \rangle(\beta)$ (exact)')
 #    plot(bs,(np.exp(-bs)+5./2.*np.exp(-bs*0.0)+5./2.*np.exp(-2*bs))/Z(bs), label=r'X operator')
     ax1.errorbar(bs,vsX,ssX[0],linestyle="",capsize=3, label=r'$\langle X \rangle(\beta)$ (data)', ecolor='g')
