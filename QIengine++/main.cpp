@@ -548,8 +548,8 @@ void apply_C_inverse(const uint &Ci){
 }
 
 const uint anc_regs = (1U <<bm_E_old0)  |(1U <<bm_E_new0) |(1U <<bm_acc);
-const uint E_old_acc_regs = (1U <<bm_E_old0) |(1U <<bm_acc);
-//const uint E_new_acc_regs = (1U <<bm_E_new0) |(1U <<bm_acc);
+//const uint E_old_acc_regs = (1U <<bm_E_old0) |(1U <<bm_acc);
+const uint E_new_acc_regs = (1U <<bm_E_new0) |(1U <<bm_acc);
 
 void apply_W(){
     DEBUG_CALL(cout<<"\n\nApply W"<<endl);
@@ -557,34 +557,7 @@ void apply_W(){
     uint mask = anc_regs;
     // Ei = 0, Ek = 1
     //(1U <<bm_E_new0) |(1U <<bm_acc);
-    uint case1a = E_old_acc_regs;
-//    // Ei = 1, Ek = 2
-//    //(1U <<bm_E_old0) |(1U <<bm_E_new1) |(1U <<bm_acc);
-//    uint case1b = 100U;
-//    // Ei = 0, Ek = 2
-//    //(1U <<bm_E_new1) |(1U <<bm_acc);
-//    uint case2 = 96U;
-//    for(uint i = 0U; i < gState.size(); ++i){
-//        if(((i & mask) == case1a) || ((i & mask) == case1b)){
-//            uint j = i & ~(1U << bm_acc);
-//            
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//            apply_2x2mat(gState[j], gState[i], sqrt(1.-f1), sqrt(f1), sqrt(f1), -sqrt(1.-f1));
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//        }else if((i & mask) == case2){
-//            uint j = i & ~(1U << bm_acc);
-//
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case2: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//            apply_2x2mat(gState[j], gState[i], sqrt(1.-f2), sqrt(f2), sqrt(f2), -sqrt(1.-f2));
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//        }else if((i >> bm_acc) & 1U){
-//            uint j = i & ~(1U << bm_acc);
-//
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//            std::swap(gState[i],gState[j]);
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//        }
-//    }
+    uint case1a = E_new_acc_regs;
     for(uint i = 0U; i < gState.size(); ++i){
         if(((i & mask) == case1a)){
             uint j = i & ~(1U << bm_acc);
