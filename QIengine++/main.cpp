@@ -9,6 +9,8 @@
 #include <cassert>
 #include "include/Rand.hpp"
 #include <chrono>
+#include "include/parser.hpp"
+#include "include/suqa_gates.hpp"
 
 #ifndef NDEBUG
     #define DEBUG_CALL(x) x
@@ -32,8 +34,6 @@ void print_banner(){
 }
 
 
-typedef complex<double> Complex;
-const Complex iu(0, 1);
 
 /* Hamiltonian
  *
@@ -75,7 +75,6 @@ const double mphi_inv = -1./phi;
 const double Sa = phi/sqrt(2.+phi);
 const double Sb = 1/sqrt(2.+phi);
 const double S_10=Sa, S_12=Sb, S_20=-Sb, S_22=Sa;
-const double twosqinv = 1./sqrt(2.);
 
 
 // constants
@@ -97,166 +96,6 @@ enum bm_idxs {  bm_psi0,
 std::ostream& operator<<(std::ostream& s, const Complex& c){
     s<<"("<<real(c)<<", "<<imag(c)<<")";
     return s;
-}
-
-template<class T>
-void print(vector<T> v){
-    for(const auto& el : v)
-        cout<<el<<" ";
-    cout<<endl;
-}
-
-void sparse_print(vector<Complex> v){
-    for(uint i=0; i<v.size(); ++i){
-        if(norm(v[i])>1e-8)
-            cout<<"i="<<i<<" -> "<<v[i]<<"; ";
-    }
-    cout<<endl;
-}
-
-double vnorm(const vector<Complex>& v){
-    double ret = 0.0;
-    for(const auto& el : v)
-        ret += norm(el);
-    
-    return sqrt(ret);
-}
-
-void vnormalize(vector<Complex>& v){
-    double vec_norm = vnorm(v);
-    for(auto& el : v)
-        el/=vec_norm;
-}
-
-template<class T>
-void apply_2x2mat(T& x1, T& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
-
-            T x1_next = m11 * x1 + m12 * x2;
-            T x2_next = m21 * x1 + m22 * x2;
-            x1 = x1_next;
-            x2 = x2_next;
-}
-
-void qi_reset(vector<Complex>& state, const uint& q){
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i >> q) & 1U){ // checks q-th digit in i
-            uint j = i & ~(1U << q); // j has 0 on q-th digit
-            state[j]+=state[i];
-            state[i]= {0.0, 0.0};
-        }
-    }
-    vnormalize(state);
-}  
-
-void qi_reset(vector<Complex>& state, const vector<uint>& qs){
-    uint mask=0U;
-    for(const auto& q : qs)
-        mask |= 1U << q;
-
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) != 0U){ // checks q-th digit in i
-            state[i & ~mask]+=state[i];
-            state[i]= 0.0;
-        }
-    }
-    vnormalize(state);
-}  
-
-void qi_x(vector<Complex>& state, const uint& q){
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i >> q) & 1U){ // checks q-th digit in i
-            uint j = i & ~(1U << q); // j has 0 on q-th digit
-            std::swap(state[i],state[j]);
-        }
-    }
-}  
-
-void qi_x(vector<Complex>& state, const vector<uint>& qs){
-    for(const auto& q : qs)
-        qi_x(state, q);
-}  
-
-void qi_h(vector<Complex>& state, const uint& q){
-	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-        if((i_0 & (1U << q)) == 0U){
-            uint i_1 = i_0 | (1U << q);
-            Complex a_0 = state[i_0];
-            Complex a_1 = state[i_1];
-            state[i_0] = twosqinv*(a_0+a_1);
-            state[i_1] = twosqinv*(a_0-a_1);
-        }
-    }
-}  
-
-void qi_h(vector<Complex>& state, const vector<uint>& qs){
-    for(const auto& q : qs)
-        qi_h(state, q);
-}  
-
-
-void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_target){
-    for(uint i = 0U; i < state.size(); ++i){
-        // for the swap, not only q_target:1 but also q_control:1
-        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            uint j = i & ~(1U << q_target);
-            std::swap(state[i],state[j]);
-        }
-    }
-}  
-  
-
-void qi_cx(vector<Complex>& state, const uint& q_control, const uint& q_mask, const uint& q_target){
-    uint mask_qs = 1U << q_target;
-    uint mask = mask_qs | (1U << q_control);
-    if(q_mask) mask_qs |= (1U << q_control);
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask_qs){
-            uint j = i & ~(1U << q_target);
-            std::swap(state[i],state[j]);
-        }
-    }
-}  
-
-void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const uint& q_target){
-    uint mask = 1U << q_target;
-    for(const auto& q : q_controls)
-        mask |= 1U << q;
-
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask){
-            uint j = i & ~(1U << q_target);
-            std::swap(state[i],state[j]);
-        }
-    }
-}  
-
-
-void qi_mcx(vector<Complex>& state, const vector<uint>& q_controls, const vector<uint>& q_mask, const uint& q_target){
-    uint mask = 1U << q_target;
-    for(const auto& q : q_controls)
-        mask |= 1U << q;
-    uint mask_qs = 1U << q_target;
-    for(uint k = 0U; k < q_controls.size(); ++k){
-        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
-    }
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask_qs){
-            uint j = i & ~(1U << q_target);
-            std::swap(state[i],state[j]);
-        }
-    }
-}  
-void qi_swap(vector<Complex>& state, const uint& q1, const uint& q2){
-        // swap gate: 00->00, 01->10, 10->01, 11->11
-        // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
-        uint mask_q = (1U << q1);
-        uint mask = mask_q | (1U << q2);
-        for(uint i = 0U; i < state.size(); ++i){
-            if((i & mask) == mask_q){
-                uint j = (i & ~(1U << q1)) | (1U << q2);
-                std::swap(state[i],state[j]);
-            }
-        }
 }
 
 // Simulation procedures
@@ -861,131 +700,6 @@ void metro_step(uint s){
 }
 
 
-struct arg_list{
-    double beta = 0.0;
-    int metro_steps = 0;
-    int reset_each = 0;
-    string outfile = "";
-    int max_reverse_attempts = 100;
-    unsigned long long int seed = 0;
-    double pe_time = 4.*atan(1.0);
-    int pe_steps = 10; 
-    string Xmatstem = "";
-    
-
-    friend ostream& operator<<(ostream& o, const arg_list& al);
-};
-
-ostream& operator<<(ostream& o, const arg_list& al){
-    o<<"beta: "<<al.beta<<endl;
-    o<<"metro steps: "<<al.metro_steps<<endl;
-    o<<"reset each: "<<al.reset_each<<endl;
-    o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
-    o<<"seed: "<<al.seed<<endl;
-    o<<"out datafile: "<<al.outfile<<endl;
-    o<<"time of PE evolution: "<<al.pe_time<<endl;
-    o<<"steps of PE evolution: "<<al.pe_steps<<endl;
-    o<<"file stem for X measure: "<<al.Xmatstem<<endl;
-    return o;
-}
-
-arg_list args;
-
-void parse_arguments(arg_list& args, int argc, char** argv){
-    int fixed_args = 4;
-    map<string,int> argmap;
-    map<int,string> argmap_inv;
-    char *end;
-    int base_strtoull = 10;
-
-    // fixed arguments
-    args.beta = stod(argv[1],NULL);
-    args.metro_steps = atoi(argv[2]);
-    args.reset_each = atoi(argv[3]);
-    args.outfile = argv[4];
-
-    // floating arguments
-    for(int i = fixed_args+1; i < argc; ++i){
-        argmap[argv[i]]=i;
-        argmap_inv[i]=argv[i];
-    }
-    int tmp_idx;
-
-    // (int) max_reverse_attempts
-    tmp_idx = argmap["--max-reverse"];
-    if(tmp_idx>=fixed_args){
-       if(tmp_idx+1>= argc)
-           throw "ERROR: set value after '--max-reverse' flag"; 
-       
-       args.max_reverse_attempts = atoi(argmap_inv[tmp_idx+1].c_str()); 
-    }
-
-    // (unsigned long long) seed
-    tmp_idx = argmap["--seed"];
-    if(tmp_idx>=fixed_args){
-       if(tmp_idx+1>= argc)
-           throw "ERROR: set value after '--seed' flag"; 
-       
-       args.seed = strtoull(argmap_inv[tmp_idx+1].c_str(), &end, base_strtoull); 
-    }
-
-    // (double) pe_time
-    tmp_idx = argmap["--PE-time"];
-    if(tmp_idx>=fixed_args){
-       if(tmp_idx+1>= argc)
-           throw "ERROR: set value after '--PE-time' flag"; 
-       
-       args.pe_time *= stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
-    }
-
-    // (int) pe_steps
-    tmp_idx = argmap["--PE-steps"];
-    if(tmp_idx>=fixed_args){
-       if(tmp_idx+1>= argc)
-           throw "ERROR: set value after '--PE-steps' flag"; 
-       
-       args.pe_steps = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
-    }
-
-    // (int) pe_steps
-    tmp_idx = argmap["--X-mat-stem"];
-    if(tmp_idx>=fixed_args){
-       if(tmp_idx+1>= argc)
-           throw "ERROR: set value after '--X-mat-stem' flag"; 
-       
-       args.Xmatstem = argmap_inv[tmp_idx+1]; 
-    }
-
-    // argument checking
-    if(args.beta <= 0.0){
-        throw "ERROR: argument <beta> invalid";
-    }
-
-    if(args.metro_steps <= 0){
-        throw "ERROR: argument <metro steps> invalid";
-    }
-
-    if(args.reset_each <=0){
-        throw "ERROR: argument <reset each> non positive";
-    }
-    
-    if(args.outfile == ""){
-        throw "ERROR: argument <output file path> empty";
-    }
-
-    if(args.max_reverse_attempts <=0){
-        throw "ERROR: argument <max reverse attempts> non positive";
-    }
-
-    if(args.pe_time <=0){
-        throw "ERROR: argument <time of PE evolution> non positive";
-    }
-
-    if(args.pe_steps <=0){
-        throw "ERROR: argument <steps of PE evolution> non positive";
-    }
-}
-
 
 int main(int argc, char** argv){
     if(argc < 5){
@@ -1023,8 +737,8 @@ int main(int argc, char** argv){
     // known eigenstate of the system: psi=0, E_old = 0
     
     std::fill_n(gState.begin(), gState.size(), 0.0);
-    gState[0] = twosqinv; 
-    gState[3] = -twosqinv; 
+    gState[0] = TWOSQINV; 
+    gState[3] = -TWOSQINV; 
     for(uint s = 0U; s < metro_steps; ++s){
         metro_step(s);
     }

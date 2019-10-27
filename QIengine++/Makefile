@@ -9,7 +9,7 @@ release: main
 debug: CXXFLAGS += -g
 debug: main
 	
-main: main.cpp
+main: main.cpp include/parser.hpp include/suqa_gates.hpp
 	$(CXX) $(CXXFLAGS) main.cpp -o main
 
 clean:
