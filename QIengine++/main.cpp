@@ -30,7 +30,8 @@ void print_banner(){
 "    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
 "    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
 "                                          \n" 
-"\nSimulator for Universal Quantum Algorithms\n"); 
+"\nSimulator for Universal Quantum Algorithms\n" 
+"          by Giuseppe Clemente            \n"); 
 }
 
 
