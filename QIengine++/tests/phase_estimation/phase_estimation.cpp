@@ -61,10 +61,18 @@ const double S_10=Sa, S_12=Sb, S_20=-Sb, S_22=Sa;
 const double twosqinv = 1./sqrt(2.);
 
 
-// constants
-const Complex rphase_m[3] = {exp((2*M_PI)*iu), exp((2*M_PI/2.)*iu), exp((2*M_PI/4.)*iu)};
-
 // Utilities
+vector<Complex> rphase_m;
+
+void fill_rphase(const uint& nlevels){
+    rphase_m.resize(nlevels);
+    uint c=1;
+    for(uint i=0; i<nlevels; ++i){
+        rphase_m[i] = exp((2.0*M_PI/(double)c)*iu);
+        c<<=1;
+    }
+}
+
 
 pcg rangen;
 
@@ -430,13 +438,30 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
 }
 
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
-    if(qact.size()!=2)
-        throw "ERROR: qft(inverse) not implemented for nqubits != 2";
+    uint qsize = qact.size();
 
-    qi_h(state, qact[1]);
-    qi_crm(state, qact[0], qact[1], -2);
-    qi_h(state, qact[0]);
+    for(uint outer_i=qsize-1; outer_i>=0; outer_i--){
+        qi_h(state, qact[outer_i]);
+        for(uint inner_i=outer_i-1; inner_i>=0; inner_i--){
+            qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+        }
+    }
+//    es: qsize=2
+//    o=1,i=0 -> 2
+//    o=0, x
+//    es: qsize=3
+//    h(2)
+//    o=2,i=1 -> 2
+//    o=2,i=0 -> 3
+//    h(1)
+//    o=1,i=0 -> 2
+//    h(0)
+//    o=0, x
+//    qi_h(state, qact[1]);
+//    qi_crm(state, qact[0], qact[1], -2);
+//    qi_h(state, qact[0]);
 
+    
 }
 
 void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
@@ -445,9 +470,34 @@ void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
     qi_crm(state, qact[0], qact[1], 2);
     qi_h(state, qact[1]);
 
+    uint qsize = qact.size();
+
+    for(uint outer_i=0; outer_i<qsize; outer_i++){
+        for(uint inner_i=0; inner_i<outer_i; inner_i++){
+            qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+        qi_h(state, qact[outer_i]);
+        }
+    }
+    // es: qact.size()=2
+    // o=0, x
+    // h(0)
+    // o=1,i=0 -> 2
+    // h(1)
+    //
+    // es: qact.size()=3
+    // o=0, x
+    // h(0)
+    // o=1,i=0 -> 2
+    // o=1, x
+    // h(1)
+    // o=2,i=0 -> 3
+    // o=2,i=1 -> 2
+    // o=2, x 
+    // h(2)
 }
 
 void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
+   
     DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
 
     qi_h(state,q_target);
@@ -489,8 +539,8 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 }
 
 int main(int argc, char** argv){
-    if(argc < 2){
-        cout<<"./phase_estimation <t> <n>"<<endl;
+    if(argc < 4){
+        cout<<"./phase_estimation <t> <n> <eneqbts> <nlevels> <lev1> <lev2> ... <levk>"<<endl;
         exit(1);
     }
 
@@ -500,8 +550,23 @@ int main(int argc, char** argv){
 
     double t = 2.*atan(1.)*stod(argv[1]);
     uint n = (uint)atoi(argv[2]);
-    cout<<"Test phase estimation\n"<<endl;
-    vector<Complex> state(16,0.0);
+    uint eneqbits = (uint)atoi(argv[3]);
+    uint nlevels = (uint)atoi(argv[4]);
+    vector<double> elevels(nlevels);
+    assert((uint)argc==5+nlevels);
+    for(uint i=0; i<nlevels; ++i){
+       elevels[i] = stod(argv[5+i],NULL);
+    }
+    uint stateqbits = (uint)log2(nlevels);
+    fill_rphase(nlevels);
+    
+    cout<<"state qbits = "<<stateqbits<<endl;
+    cout<<"energy qbits = "<<eneqbits<<endl;
+    
+
+
+    cout<<"\nTest phase estimation\n"<<endl;
+    vector<Complex> state(eneqbits+stateqbits,0.0);
 
     cout<<"\nCase 0:"<<endl;
     state[0]=1.0;
