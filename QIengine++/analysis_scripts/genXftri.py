@@ -1,9 +1,13 @@
 import numpy as np
 import sys
 
-filestem=sys.argv[1]
+if(len(sys.argv)<3):
+    print("usage: python "+sys.argv[0]+" <size> <filestem>")
+    sys.exit(1)
+size = int(sys.argv[1])
+filestem=sys.argv[2]
 
-a=np.random.random((8,8))+np.random.random((8,8))*1j
+a=np.random.random((size*2,size*2))+np.random.random((size*2,size*2))*1j
 x = a+np.conjugate(a.T)
 
 
