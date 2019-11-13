@@ -272,7 +272,7 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
     for(const auto& qs : qstate){
         mask |= (1U << qs);
     }
-    sparse_print(state);
+//    sparse_print(state);
 
 	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
         if((i_0 & mask) == cmask){
@@ -286,11 +286,11 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
             Complex a_2 = state[i_2];
             Complex a_3 = state[i_3];
             
+            state[i_0] = conj(Umat[0][0])*a_0+conj(Umat[1][0])*a_1+conj(Umat[2][0])*a_2+conj(Umat[3][0])*a_3;
+            state[i_1] = conj(Umat[0][1])*a_0+conj(Umat[1][1])*a_1+conj(Umat[2][1])*a_2+conj(Umat[3][1])*a_3;
+            state[i_2] = conj(Umat[0][2])*a_0+conj(Umat[1][2])*a_1+conj(Umat[2][2])*a_2+conj(Umat[3][2])*a_3;
+            state[i_3] = conj(Umat[0][3])*a_0+conj(Umat[1][3])*a_1+conj(Umat[2][3])*a_2+conj(Umat[3][3])*a_3;
 
-            state[i_0] = Umat[0][0]*a_0+Umat[0][1]*a_1+Umat[0][2]*a_2+Umat[0][3]*a_3;
-            state[i_1] = Umat[1][0]*a_0+Umat[1][1]*a_1+Umat[1][2]*a_2+Umat[1][3]*a_3;
-            state[i_2] = Umat[2][0]*a_0+Umat[2][1]*a_1+Umat[2][2]*a_2+Umat[2][3]*a_3;
-            state[i_3] = Umat[3][0]*a_0+Umat[3][1]*a_1+Umat[3][2]*a_2+Umat[3][3]*a_3;
 
             a_0 = state[i_0];
             a_1 = state[i_1];
@@ -307,13 +307,13 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
             a_2 = state[i_2];
             a_3 = state[i_3];
 
-            state[i_0] = conj(Umat[0][0])*a_0+conj(Umat[1][0])*a_1+conj(Umat[2][0])*a_2+conj(Umat[3][0])*a_3;
-            state[i_1] = conj(Umat[0][1])*a_0+conj(Umat[1][1])*a_1+conj(Umat[2][1])*a_2+conj(Umat[3][1])*a_3;
-            state[i_2] = conj(Umat[0][2])*a_0+conj(Umat[1][2])*a_1+conj(Umat[2][2])*a_2+conj(Umat[3][2])*a_3;
-            state[i_3] = conj(Umat[0][3])*a_0+conj(Umat[1][3])*a_1+conj(Umat[2][3])*a_2+conj(Umat[3][3])*a_3;
+            state[i_0] = Umat[0][0]*a_0+Umat[0][1]*a_1+Umat[0][2]*a_2+Umat[0][3]*a_3;
+            state[i_1] = Umat[1][0]*a_0+Umat[1][1]*a_1+Umat[1][2]*a_2+Umat[1][3]*a_3;
+            state[i_2] = Umat[2][0]*a_0+Umat[2][1]*a_1+Umat[2][2]*a_2+Umat[2][3]*a_3;
+            state[i_3] = Umat[3][0]*a_0+Umat[3][1]*a_1+Umat[3][2]*a_2+Umat[3][3]*a_3;
+
         }
     }
-    sparse_print(state);
 }
 
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
@@ -354,8 +354,8 @@ void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
-        qi_h(state, qact[outer_i]);
         }
+        qi_h(state, qact[outer_i]);
     }
     // es: qact.size()=2
     // o=0, x
@@ -381,8 +381,8 @@ void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state,
 
     qi_h(state,q_target);
 
-    cout<<"spp"<<endl;
-    sparse_print(state);
+//    cout<<"spp"<<endl;
+//    sparse_print(state);
 
     // apply CUs
     double dt = t/(double)n;
@@ -409,7 +409,7 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
     // apply QFT
     qi_qft(state, q_target); 
 
-    sparse_print(state);
+//    sparse_print(state);
 
     // apply CUs
     double dt = t/(double)n;
@@ -463,12 +463,25 @@ int main(int argc, char** argv){
         for(uint j=0;j<nlevels; ++j){
             double val_r, val_i;
             fscanf(Umat_file, "%lg %lg ", &val_r, &val_i); 
-            Umat[j][i]=val_r+val_i*iu;
-            cout<<"Umat["<<j<<"]["<<i<<"] = "<<real(Umat[j][i])<<"+"<<imag(Umat[j][i])<<"i"<<endl;
+            Umat[i][j]=val_r+val_i*iu;
+            cout<<"Umat["<<i<<"]["<<j<<"] = "<<real(Umat[i][j])<<"+"<<imag(Umat[i][j])<<"i"<<endl;
         }
         fscanf(Umat_file,"\n");
     }
     fclose(Umat_file);
+    for(uint i=0;i<nlevels; ++i){
+        Complex tmpval=0.0;
+        for(uint j=0;j<nlevels; ++j){
+            tmpval+=conj(Umat[j][i])*Umat[j][i];
+        }
+        if(abs(real(tmpval)-1.0)>1e-8 or abs(imag(tmpval))>1e-8){
+            cout<<real(tmpval)<<", "<<imag(tmpval)<<endl;
+            throw std::runtime_error("ERROR: Umat matrix non unitary");
+        }
+    }
+
+    //check unitarity
+    
 
     vector<double> Hlams(nlevels);
     FILE * Hlams_file = fopen(Hlams_filename.c_str(),"r");
