@@ -22,62 +22,16 @@ const Complex iu(0, 1);
 
 /* Hamiltonian
  *
- * H = eps {{1, 0, 0}, {0, 1, 1}, {0, 1, 1}}
+ * H = eps {{0.5, 0, 0}, {0, 1, 1}, {0, 1, 1}}
  *
  */
-
-
-// simulation parameters
-double beta;
-double eps;
-double f1;
-double f2;
-const uint nqubits = 7;
-const uint Dim = (uint)pow(2.0, nqubits); // simulation hyperparameters
-uint max_reverse_attempts;
-uint metro_steps;
-uint reset_each;
-unsigned long long iseed = 0ULL;
-
-uint gCi;
-uint c_acc = 0;
-
-
-// Global state of the system.
-// Ordering (less to most significant)
-// psi[0], psi[1], E_old[0], E_old[1], E_new[0], E_new[1], acc //, qaux[0]
-vector<Complex> gState(Dim,0.0);
-
-//vector<double> energy_measures;
-vector<double> X_measures;
-vector<double> E_measures;
-
-// Operator X parameter
-const double phi = (1.+sqrt(5.))/2.;
-const double mphi_inv = -1./phi;
-const double Sa = phi/sqrt(2.+phi);
-const double Sb = 1/sqrt(2.+phi);
-const double S_10=Sa, S_12=Sb, S_20=-Sb, S_22=Sa;
 const double twosqinv = 1./sqrt(2.);
 
 
 // constants
-const Complex rphase_m[3] = {exp((2*M_PI)*iu), exp((2*M_PI/2.)*iu), exp((2*M_PI/4.)*iu)};
+const Complex rphase_m[5] = {exp((2*M_PI)*iu), exp((2*M_PI/2.)*iu), exp((2*M_PI/4.)*iu), exp((2*M_PI/8.)*iu), exp((2*M_PI/16.)*iu)};
 
 // Utilities
-
-pcg rangen;
-
-// bit masks
-enum bm_idxs {  bm_psi0, 
-                bm_psi1,
-                bm_E_old0,
-                bm_E_old1,
-                bm_E_new0,
-                bm_E_new1,
-                bm_acc};
-
-
 std::ostream& operator<<(std::ostream& s, const Complex& c){
     s<<"("<<real(c)<<", "<<imag(c)<<")";
     return s;
@@ -241,156 +195,6 @@ void qi_swap(vector<Complex>& state, const uint& q1, const uint& q2){
             }
         }
 }
-
-// Simulation procedures
-
-void check_unused(){
-    uint mask1 = 3U;
-    uint mask2 = 12U;
-    for(uint i = 0U; i < gState.size(); ++i){
-        if( (i & mask1) == mask1){
-            assert(norm(gState[i])<1e-8);
-        }
-        if( (i & mask2) == mask2){
-            assert(norm(gState[i])<1e-8);
-        }
-    } 
-}
-
-void reset_non_state_qbits(){
-    DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-    qi_reset(gState, {bm_E_old0, bm_E_old1, bm_E_new0, bm_E_new1, bm_acc});
-    DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-}
-
-
-void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
-    double prob1 = 0.0;
-
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i >> q) & 1U){
-            prob1+=norm(state[i]); 
-        }
-    }
-    c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
-    
-    if(c){ // set to 0 coeffs with bm_acc 0
-        for(uint i = 0U; i < state.size(); ++i){
-            if(((i >> q) & 1U) == 0U)
-                state[i] = {0.0, 0.0};        
-        }
-    }else{ // set to 0 coeffs with bm_acc 1
-        for(uint i = 0U; i < state.size(); ++i){
-            if(((i >> q) & 1U) == 1U)
-                state[i] = {0.0, 0.0};        
-        }
-    }
-    vnormalize(state);
-}
-
-//TODO: can be optimized for multiple qbits measures?
-void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>& cs){
-    for(uint k = 0U; k < qs.size(); ++k)
-        measure_qbit(state, qs[k], cs[k]);
-}
-
-void apply_Phi(){
-   // quantum phase estimation (here trivial)
-    DEBUG_CALL(cout<<"\nApply Phi old\n"<<endl);
-	uint mask = 3U;
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-
-    qi_cx(gState, bm_psi1, bm_E_old1);
-
-    DEBUG_CALL(cout<<"\napply Phi_diag old:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S_dag old:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-}
-
-void apply_Phi_inverse(){
-   // quantum phase estimation (here trivial)
-    DEBUG_CALL(cout<<"\nApply Phi old inverse\n"<<endl);
-	uint mask = 3U;
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 - twosqinv*a_2;
-            gState[i_2] = twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-    qi_cx(gState, bm_psi1, bm_E_old1);
-
-    DEBUG_CALL(cout<<"\napply Phi_diag old inverse:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            
-            gState[i_0] = a_0;
-            gState[i_1] = twosqinv*a_1 + twosqinv*a_2;
-            gState[i_2] = -twosqinv*a_1 + twosqinv*a_2;
-        }
-    }
-    DEBUG_CALL(cout<<"\napply S_dag old inverse:\n"<<endl);
-    DEBUG_CALL(sparse_print(gState));
-}
-
-struct evolution{
-    vector<uint> state_qbits;
-
-
-};
-
 void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target, const int& m){
     for(uint i = 0U; i < state.size(); ++i){
         // for the swap, not only q_target:1 but also q_control:1
@@ -412,39 +216,109 @@ void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, 
       
             uint i_1 = i_0 | (1U << qstate[0]);
             uint i_2 = i_0 | (1U << qstate[1]);
-//            uint i_3 = i_0 | 3U;
+            uint i_3 = i_1 | i_2;
 
             Complex a_0 = state[i_0];
             Complex a_1 = state[i_1];
             Complex a_2 = state[i_2];
-//           Complex a_3 = state[i_3];
+            Complex a_3 = state[i_3];
             
 
             state[i_0] = exp(-dt*iu)*a_0;
             state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
             state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-//            state[i_3] = a_3;
+            state[i_3] = exp(-dt*iu)*a_3;
         }
     }
 
 }
 
+void qi_u_on2(vector<Complex>& state, const double& dt, const vector<uint>& qstate){
+	uint mask = 0U; // (1U << qstate[0]) | (1U << qstate[0])
+    for(const auto& qs : qstate){
+        mask |= (1U << qs);
+    }
+
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & mask) == 0U){
+      
+            uint i_1 = i_0 | (1U << qstate[0]);
+            uint i_2 = i_0 | (1U << qstate[1]);
+            uint i_3 = i_1 | i_2;
+
+            Complex a_0 = state[i_0];
+            Complex a_1 = state[i_1];
+            Complex a_2 = state[i_2];
+            Complex a_3 = state[i_3];
+            
+
+            state[i_0] = exp(-dt*iu)*a_0;
+            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
+            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] = exp(-dt*iu)*a_3;
+        }
+    }
+
+}
+
+
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
-    if(qact.size()!=2)
-        throw "ERROR: qft(inverse) not implemented for nqubits != 2";
+    int qsize = qact.size();
 
-    qi_h(state, qact[1]);
-    qi_crm(state, qact[0], qact[1], -2);
-    qi_h(state, qact[0]);
+    for(int outer_i=qsize-1; outer_i>=0; outer_i--){
+        qi_h(state, qact[outer_i]);
+        for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
+            qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+        }
+    }
+//    es: qsize=2
+//    o=1,i=0 -> 2
+//    o=0, x
+//    es: qsize=3
+//    h(2)
+//    o=2,i=1 -> 2
+//    o=2,i=0 -> 3
+//    h(1)
+//    o=1,i=0 -> 2
+//    h(0)
+//    o=0, x
+//    qi_h(state, qact[1]);
+//    qi_crm(state, qact[0], qact[1], -2);
+//    qi_h(state, qact[0]);
 
+    
 }
 
 void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
 
-    qi_h(state, qact[0]);
-    qi_crm(state, qact[0], qact[1], 2);
-    qi_h(state, qact[1]);
+//    qi_h(state, qact[0]);
+//    qi_crm(state, qact[0], qact[1], 2);
+//    qi_h(state, qact[1]);
 
+    int qsize = qact.size();
+
+    for(int outer_i=0; outer_i<qsize; outer_i++){
+        for(int inner_i=0; inner_i<outer_i; inner_i++){
+            qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+        }
+        qi_h(state, qact[outer_i]);
+    }
+    // es: qact.size()=2
+    // o=0, x
+    // h(0)
+    // o=1,i=0 -> 2
+    // h(1)
+    //
+    // es: qact.size()=3
+    // o=0, x
+    // h(0)
+    // o=1,i=0 -> 2
+    // o=1, x
+    // h(1)
+    // o=2,i=0 -> 3
+    // o=2,i=1 -> 2
+    // o=2, x 
+    // h(2)
 }
 
 void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
@@ -452,16 +326,22 @@ void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state,
 
     qi_h(state,q_target);
 
+    cout<<"after h"<<endl;
+    sparse_print(state);
+
     // apply CUs
-    double dt = t/(double)n;
+//    double dt = t/(double)n;
 
     for(int trg = q_target.size() - 1; trg > -1; --trg){
-        for(uint ti = 0; ti < n; ++ti){
-            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-                qi_cu_on2(state, dt, q_target[trg], q_state);
-            }
-        }
+//        for(uint ti = 0; ti < n; ++ti){
+        qi_cu_on2(state, pow(2,q_target.size()-1-trg)*t, q_target[trg], q_state);
+//            for(uint itrs = 0; itrs < (uint)pow(2,q_target.size()-trg); ++itrs){
+//                qi_cu_on2(state, dt, q_target[trg], q_state);
+//            }
+//        }
     }
+    cout<<"after CUs"<<endl;
+    sparse_print(state);
     
     // apply QFT^{-1}
     qi_qft_inverse(state, q_target); 
@@ -475,22 +355,23 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
     qi_qft(state, q_target); 
 
     // apply CUs
-    double dt = t/(double)n;
+//    double dt = t/(double)n;
 
     for(uint trg = 0; trg < q_target.size(); ++trg){
-        for(uint ti = 0; ti < n; ++ti){
-            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-                qi_cu_on2(state, -dt, q_target[trg], q_state);
-            }
-        }
+//        for(uint ti = 0; ti < n; ++ti){
+        qi_cu_on2(state, -pow(2,q_target.size()-1-trg)*t, q_target[trg], q_state);
+//            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+//                qi_cu_on2(state, -dt, q_target[trg], q_state);
+//            }
+//        }
     }
     
     qi_h(state,q_target);
 }
 
 int main(int argc, char** argv){
-    if(argc < 2){
-        cout<<"./phase_estimation <t> <n>"<<endl;
+    if(argc < 4){
+        cout<<"./phase_estimation <t> <n> <k>"<<endl;
         exit(1);
     }
 
@@ -500,63 +381,81 @@ int main(int argc, char** argv){
 
     double t = 2.*atan(1.)*stod(argv[1]);
     uint n = (uint)atoi(argv[2]);
+    uint k = (uint)atoi(argv[3]);
     cout<<"Test phase estimation\n"<<endl;
-    vector<Complex> state(16,0.0);
+    
+    uint totsdim = (uint)pow(2,2+k);
+    vector<Complex> state(totsdim,0.0);
 
-    cout<<"\nCase 0:"<<endl;
+    vector<uint> enestates(k);
+    for(uint ki=0; ki<k; ++ki){
+        enestates[ki]=2+ki;
+    }
+
+    cout<<"\npre-cases:"<<endl;
     state[0]=1.0;
     cout<<"before:"<<endl;
     sparse_print(state);
-    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
-    cout<<"after:"<<endl;
-    sparse_print(state);
-    cout<<"bring back (inverse pe)"<<endl;
-    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
+    qi_u_on2(state, t, {0,1});
     cout<<"after:"<<endl;
     sparse_print(state);
 
-    cout<<"\nCase 1:"<<endl;
-    state = vector<Complex>(16, 0.0);
-    state[1]=twosqinv;
-    state[2]=-twosqinv;
 
+    cout<<"\nCase 0:"<<endl;
+    state = vector<Complex>(totsdim, 0.0);
+    state[0]=1.0;
     cout<<"before:"<<endl;
     sparse_print(state);
-    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
+    apply_phase_estimation(state, {0, 1}, enestates, t, n);
     cout<<"after:"<<endl;
     sparse_print(state);
     cout<<"bring back (inverse pe)"<<endl;
-    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
+    apply_phase_estimation_inverse(state, {0, 1}, enestates, t, n);
     cout<<"after:"<<endl;
     sparse_print(state);
 
-    cout<<"\nCase 2:"<<endl;
-    state = vector<Complex>(16, 0.0);
-    state[1]=twosqinv;
-    state[2]=twosqinv;
-    cout<<"before:"<<endl;
-    sparse_print(state);
-    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
-    cout<<"after:"<<endl;
-    sparse_print(state);
-    cout<<"bring back (inverse pe)"<<endl;
-    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
-    cout<<"after:"<<endl;
-    sparse_print(state);
-
-    cout<<"\nOther case:"<<endl;
-    state = vector<Complex>(16, 0.0);
-    state[1]=1.0;
-    cout<<"before:"<<endl;
-    sparse_print(state);
-    apply_phase_estimation(state, {0, 1}, {2, 3}, t, n);
-    cout<<"after:"<<endl;
-    sparse_print(state);
-    cout<<"bring back (inverse pe)"<<endl;
-    apply_phase_estimation_inverse(state, {0, 1}, {2, 3}, t, n);
-    cout<<"after:"<<endl;
-    sparse_print(state);
-
+//    cout<<"\nCase 1:"<<endl;
+//    state = vector<Complex>(totsdim, 0.0);
+//    state[1]=twosqinv;
+//    state[2]=-twosqinv;
+//
+//    cout<<"before:"<<endl;
+//    sparse_print(state);
+//    apply_phase_estimation(state, {0, 1}, enestates, t, n);
+//    cout<<"after:"<<endl;
+//    sparse_print(state);
+//    cout<<"bring back (inverse pe)"<<endl;
+//    apply_phase_estimation_inverse(state, {0, 1}, enestates, t, n);
+//    cout<<"after:"<<endl;
+//    sparse_print(state);
+//
+//    cout<<"\nCase 2:"<<endl;
+//    state = vector<Complex>(totsdim, 0.0);
+//    state[1]=twosqinv;
+//    state[2]=twosqinv;
+//    cout<<"before:"<<endl;
+//    sparse_print(state);
+//    apply_phase_estimation(state, {0, 1}, enestates, t, n);
+//    cout<<"after:"<<endl;
+//    sparse_print(state);
+//    cout<<"bring back (inverse pe)"<<endl;
+//    apply_phase_estimation_inverse(state, {0, 1}, enestates, t, n);
+//    cout<<"after:"<<endl;
+//    sparse_print(state);
+//
+//    cout<<"\nOther case:"<<endl;
+//    state = vector<Complex>(totsdim, 0.0);
+//    state[1]=1.0;
+//    cout<<"before:"<<endl;
+//    sparse_print(state);
+//    apply_phase_estimation(state, {0, 1}, enestates, t, n);
+//    cout<<"after:"<<endl;
+//    sparse_print(state);
+//    cout<<"bring back (inverse pe)"<<endl;
+//    apply_phase_estimation_inverse(state, {0, 1}, enestates, t, n);
+//    cout<<"after:"<<endl;
+//    sparse_print(state);
+//
     cout<<"all fine :)\n"<<endl;
 
 //    FILE * fil = fopen(outfilename.c_str(), "w");
@@ -564,7 +463,7 @@ int main(int argc, char** argv){
 //    fprintf(fil, "# it E X\n");
 //
 //    for(uint ei = 0; ei < X_measures.size(); ++ei){
-//        fprintf(fil, "%d %.16lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
+//        fprintf(fil, "%d %.32lg %.16lg\n", ei, E_measures[ei], X_measures[ei]);
 //    }
 //    fclose(fil);
 
