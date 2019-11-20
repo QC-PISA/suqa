@@ -13,7 +13,7 @@ struct arg_list{
     string outfile = "";
     int max_reverse_attempts = 100;
     unsigned long long int seed = 0;
-    double pe_time = 4.*atan(1.0);
+    double pe_time_factor = 1.0;
     int pe_steps = 10; 
     string Xmatstem = "";
     
@@ -28,7 +28,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
     o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
     o<<"seed: "<<al.seed<<endl;
     o<<"out datafile: "<<al.outfile<<endl;
-    o<<"time of PE evolution: "<<al.pe_time<<endl;
+    o<<"time of PE evolution: "<<al.pe_time_factor<<endl;
     o<<"steps of PE evolution: "<<al.pe_steps<<endl;
     o<<"file stem for X measure: "<<al.Xmatstem<<endl;
     return o;
@@ -74,13 +74,13 @@ void parse_arguments(arg_list& args, int argc, char** argv){
        args.seed = strtoull(argmap_inv[tmp_idx+1].c_str(), &end, base_strtoull); 
     }
 
-    // (double) pe_time
+    // (double) pe_time_factor
     tmp_idx = argmap["--PE-time"];
     if(tmp_idx>=fixed_args){
        if(tmp_idx+1>= argc)
            throw "ERROR: set value after '--PE-time' flag"; 
        
-       args.pe_time *= stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+       args.pe_time_factor *= stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
     }
 
     // (int) pe_steps
@@ -122,7 +122,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <max reverse attempts> non positive";
     }
 
-    if(args.pe_time <=0){
+    if(args.pe_time_factor <=0){
         throw "ERROR: argument <time of PE evolution> non positive";
     }
 

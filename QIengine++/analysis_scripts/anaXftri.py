@@ -3,14 +3,17 @@ import sys
 import numpy as np
 
 if len(sys.argv)<3:
-    print("needs file stem")
+    print("usage: python3 "+sys.argv[0]+" <data stem> <mat stem>")
     sys.exit(1)
 
 matstem = sys.argv[2]
 
-z=1./np.sqrt(2)
+savedata=("--savedata" in sys.argv)
+    
 
-S_H=np.array([[z,0,0,-z,0,0,0,0],[0,z,-z,0,0,0,0,0],[0,0,0,0,z,0,0,-z],[0,0,0,0,0,z,-z,0],[.5,0,0,.5,0,-.5,-.5,0],[0,.5,.5,0,-.5,0,0,-.5],[.5,0,0,.5,0,.5,.5,0],[0,.5,.5,0,.5,0,0,.5]])
+z2=1./np.sqrt(2)
+
+S_H=np.array([[z2,0,0,-z2,0,0,0,0],[0,z2,-z2,0,0,0,0,0],[0,0,0,0,z2,0,0,-z2],[0,0,0,0,0,z2,-z2,0],[.5,0,0,.5,0,-.5,-.5,0],[0,.5,.5,0,-.5,0,0,-.5],[.5,0,0,.5,0,.5,.5,0],[0,.5,.5,0,.5,0,0,.5]])
 
 Xmat = np.loadtxt(matstem+"_matrix_re")+np.loadtxt(matstem+"_matrix_im")*1j
 
@@ -25,6 +28,8 @@ ax2.set_xlabel(r"Discrepancy")
 
 bs=np.array([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 kappas = np.array([1,2,4,8,16,20,40,60,80,100,150,200,250,300,400])
+
+outdata=[]
 
 aa=[]
 for vl in bs:
@@ -44,6 +49,12 @@ Hs=np.array([0.,0.,0.,0.,0.,0.,1.,1.])
 def Z(b):
     return np.sum(np.exp(-np.outer(b, Hs)), axis=1)
 ene_exact=np.sum(np.exp(-np.outer(bs, Hs))*Hs, axis=1)/Z(bs)
+
+if(savedata):
+    dataE=np.vstack((bs,ene_exact,vs,ss)).T
+    dataE=np.vstack((np.concatenate((np.array([len(bs),len(kappas),0.0]),kappas)),dataE))
+    np.savetxt(sys.argv[1]+"_anadata_E.txt",dataE)
+
 ax1.plot(bs,ene_exact, label=r'$\langle E \rangle(\beta)$ (exact)')
 ax1.errorbar(bs,vs,ss[0],linestyle="",capsize=3, label=r'$\langle E \rangle(\beta)$  (data)', ecolor="r")
 for sss in ss[1:]:
@@ -62,7 +73,11 @@ if aa[0].shape[1]>2:
             break
         thermpart = int(ndata-int(ndata/kappas[i])*kappas[i])
         ssX.append([np.std(np.mean(ael[thermpart:,2].reshape((int(ndata/kappas[i]),kappas[i])), axis = 1))/np.sqrt(ndata/kappas[i]) for ael in aa])
-    X_exact = 1./Z(bs) * np.array([np.real(np.trace(np.diag(np.exp(-b, Hs)).dot(S_H.dot(Xmat.dot(np.conjugate(S_H.T)))))) for b in bs])
+    X_exact = 1./Z(bs) * np.array([np.real(np.trace(np.diag(np.exp(-b*Hs)).dot(S_H.dot(Xmat.dot(np.conjugate(S_H.T)))))) for b in bs])
+    if(savedata):
+        dataX=np.vstack((bs,X_exact, vsX, ssX)).T
+        dataX=np.vstack((np.concatenate((np.array([len(bs),len(kappas),0.0]),kappas)),dataX))
+        np.savetxt(sys.argv[1]+"_anadata_X.txt",dataX)
     ax1.plot(bs,X_exact, label=r'$\langle X \rangle(\beta)$ (exact)')
 #    plot(bs,(np.exp(-bs)+5./2.*np.exp(-bs*0.0)+5./2.*np.exp(-2*bs))/Z(bs), label=r'X operator')
     ax1.errorbar(bs,vsX,ssX[0],linestyle="",capsize=3, label=r'$\langle X \rangle(\beta)$ (data)', ecolor='g')
@@ -72,6 +87,7 @@ if aa[0].shape[1]>2:
     ax2.errorbar(bs,vsX-X_exact, ssX[0],linestyle="",capsize=3, label=r'$\langle X \rangle_{data} - \langle X \rangle_{exact}$', ecolor='g')
     for sss in ssX[1:]:
         ax2.errorbar(bs,vsX-X_exact,sss,linestyle="",capsize=3, ecolor="g")
+
 ax1.legend()
 ax2.legend()
 plt.tight_layout()

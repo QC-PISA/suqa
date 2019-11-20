@@ -53,6 +53,7 @@ uint metro_steps;
 uint reset_each;
 unsigned long long iseed = 0ULL;
 double t_phase_estimation;
+double t_PE_factor;
 int n_phase_estimation;
 string Xmatstem="";
 
@@ -477,30 +478,30 @@ double measure_X(){
     fclose(fil_re);
     fclose(fil_im);
 
+    vector<uint> iss(8);
+    vector<Complex> ass(8);
+    
 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
         if((i_0 & mask) == 0U){
       
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-            uint i_3 = i_0 | 3U;
-            uint i_4 = i_0 | 4U;
-            uint i_5 = i_0 | 5U;
-            uint i_6 = i_0 | 6U;
-            uint i_7 = i_0 | 7U;
+            iss[0] = i_0;
+            iss[1] = i_0 | 1U;
+            iss[2] = i_0 | 2U;
+            iss[3] = i_0 | 3U;
+            iss[4] = i_0 | 4U;
+            iss[5] = i_0 | 5U;
+            iss[6] = i_0 | 6U;
+            iss[7] = i_0 | 7U;
 
 
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            Complex a_3 = gState[i_3];
-            Complex a_4 = gState[i_4];
-            Complex a_5 = gState[i_5];
-            Complex a_6 = gState[i_6];
-            Complex a_7 = gState[i_7];
-
-            vector<uint> iss = {i_0, i_1, i_2, i_3, i_4, i_5, i_6, i_7};
-            vector<Complex> ass = {a_0, a_1, a_2, a_3, a_4, a_5, a_6, a_7};
-
+            ass[0] = gState[iss[0]];
+            ass[1] = gState[iss[1]];
+            ass[2] = gState[iss[2]];
+            ass[3] = gState[iss[3]];
+            ass[4] = gState[iss[4]];
+            ass[5] = gState[iss[5]];
+            ass[6] = gState[iss[6]];
+            ass[7] = gState[iss[7]];
 
             for(int r=0; r<8; ++r){
                 gState[iss[r]]=0.0;
@@ -525,27 +526,24 @@ double measure_X(){
 
 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
         if((i_0 & mask) == 0U){
-      
-            uint i_1 = i_0 | 1U;
-            uint i_2 = i_0 | 2U;
-            uint i_3 = i_0 | 3U;
-            uint i_4 = i_0 | 4U;
-            uint i_5 = i_0 | 5U;
-            uint i_6 = i_0 | 6U;
-            uint i_7 = i_0 | 7U;
+            iss[0] = i_0;
+            iss[1] = i_0 | 1U;
+            iss[2] = i_0 | 2U;
+            iss[3] = i_0 | 3U;
+            iss[4] = i_0 | 4U;
+            iss[5] = i_0 | 5U;
+            iss[6] = i_0 | 6U;
+            iss[7] = i_0 | 7U;
 
 
-            Complex a_0 = gState[i_0];
-            Complex a_1 = gState[i_1];
-            Complex a_2 = gState[i_2];
-            Complex a_3 = gState[i_3];
-            Complex a_4 = gState[i_4];
-            Complex a_5 = gState[i_5];
-            Complex a_6 = gState[i_6];
-            Complex a_7 = gState[i_7];
-
-            vector<uint> iss = {i_0, i_1, i_2, i_3, i_4, i_5, i_6, i_7};
-            vector<Complex> ass = {a_0, a_1, a_2, a_3, a_4, a_5, a_6, a_7};
+            ass[0] = gState[iss[0]];
+            ass[1] = gState[iss[1]];
+            ass[2] = gState[iss[2]];
+            ass[3] = gState[iss[3]];
+            ass[4] = gState[iss[4]];
+            ass[5] = gState[iss[5]];
+            ass[6] = gState[iss[6]];
+            ass[7] = gState[iss[7]];
 
             for(int r=0; r<8; ++r){
                 gState[iss[r]]=0.0;
@@ -703,7 +701,7 @@ void metro_step(uint s){
 
 int main(int argc, char** argv){
     if(argc < 5){
-        cout<<"arguments: <beta> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <time of PE evolution>=pi/2] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>]"<<endl;
+        cout<<"arguments: <beta> <metro steps> <reset each> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>]"<<endl;
         exit(1);
     }
 
@@ -714,7 +712,8 @@ int main(int argc, char** argv){
     reset_each = (uint)args.reset_each;
     string outfilename(args.outfile);
     max_reverse_attempts = (uint)args.max_reverse_attempts;
-    t_phase_estimation = args.pe_time;
+    t_PE_factor = args.pe_time_factor;
+    t_phase_estimation = t_PE_factor*4.*atan(1.0);
     n_phase_estimation = args.pe_steps;
     Xmatstem = args.Xmatstem;
     iseed = args.seed;
@@ -723,8 +722,8 @@ int main(int argc, char** argv){
     
     iseed = rangen.get_seed();
 
-    f1 = exp(-beta);
-    f2 = exp(-2.*beta);
+    f1 = exp(-beta*t_PE_factor);
+    f2 = exp(-2.*beta*t_PE_factor);
 
     
     // Banner
