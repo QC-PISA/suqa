@@ -18,14 +18,6 @@ void print(vector<T> v){
     cout<<endl;
 }
 
-void sparse_print(vector<Complex> v){
-    for(uint i=0; i<v.size(); ++i){
-        if(norm(v[i])>1e-8)
-            cout<<"i="<<i<<" -> "<<v[i]<<"; ";
-    }
-    cout<<endl;
-}
-
 double vnorm(const vector<Complex>& v){
     double ret = 0.0;
     for(const auto& el : v)

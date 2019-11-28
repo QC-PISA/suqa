@@ -8,8 +8,10 @@ using namespace std;
 
 struct arg_list{
     double beta = 0.0;
+    double h = 0.0;
     int metro_steps = 0;
     int reset_each = 0;
+    int ene_qbits = 0;
     string outfile = "";
     int max_reverse_attempts = 100;
     unsigned long long int seed = 0;
@@ -17,14 +19,15 @@ struct arg_list{
     int pe_steps = 10; 
     string Xmatstem = "";
     
-
     friend ostream& operator<<(ostream& o, const arg_list& al);
 };
 
 ostream& operator<<(ostream& o, const arg_list& al){
     o<<"beta: "<<al.beta<<endl;
+    o<<"h: "<<al.h<<endl;
     o<<"metro steps: "<<al.metro_steps<<endl;
     o<<"reset each: "<<al.reset_each<<endl;
+    o<<"num E qbits "<<al.ene_qbits<<endl;
     o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
     o<<"seed: "<<al.seed<<endl;
     o<<"out datafile: "<<al.outfile<<endl;
@@ -34,10 +37,8 @@ ostream& operator<<(ostream& o, const arg_list& al){
     return o;
 }
 
-arg_list args;
-
 void parse_arguments(arg_list& args, int argc, char** argv){
-    int fixed_args = 4;
+    int fixed_args = 6;
     map<string,int> argmap;
     map<int,string> argmap_inv;
     char *end;
@@ -45,9 +46,11 @@ void parse_arguments(arg_list& args, int argc, char** argv){
 
     // fixed arguments
     args.beta = stod(argv[1],NULL);
-    args.metro_steps = atoi(argv[2]);
-    args.reset_each = atoi(argv[3]);
-    args.outfile = argv[4];
+    args.h = stod(argv[2],NULL);
+    args.metro_steps = atoi(argv[3]);
+    args.reset_each = atoi(argv[4]);
+    args.ene_qbits = atoi(argv[5]);
+    args.outfile = argv[6];
 
     // floating arguments
     for(int i = fixed_args+1; i < argc; ++i){

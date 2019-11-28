@@ -2,6 +2,7 @@
 
 CXX = g++
 CXXFLAGS = -Wall -Wextra -std=c++11
+INCLUDES = $(wildcard include/*)
 
 release: CXXFLAGS += -O3 -DNDEBUG
 release: main
@@ -9,7 +10,7 @@ release: main
 debug: CXXFLAGS += -g
 debug: main
 	
-main: main.cpp include/parser.hpp include/suqa_gates.hpp
+main: main.cpp $(INCLUDES)
 	$(CXX) $(CXXFLAGS) main.cpp -o main
 
 clean:
