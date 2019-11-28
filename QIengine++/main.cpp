@@ -47,7 +47,7 @@ arg_list args;
 
 int main(int argc, char** argv){
     if(argc < 6){
-        cout<<"arguments: <beta> <h> <metro steps> <reset each> <num_E_qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>]"<<endl;
+        cout<<"arguments: <beta> <h> <metro steps> <reset each> <num_E_qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>]"<<endl;
         exit(1);
     }
 
@@ -61,7 +61,7 @@ int main(int argc, char** argv){
     string outfilename(args.outfile);
     qms::max_reverse_attempts = (uint)args.max_reverse_attempts;
     qms::t_PE_factor = args.pe_time_factor;
-    qms::t_phase_estimation = qms::t_PE_factor*4.*atan(1.0);
+    qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
     qms::n_phase_estimation = args.pe_steps;
     qms::Xmatstem = args.Xmatstem;
     qms::iseed = args.seed;

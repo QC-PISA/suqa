@@ -73,13 +73,10 @@ void fill_W_utils(double beta, double t_PE_factor){
 
     // energy goes from 0 to (ene_levels-1)*t_PE_factor
     W_fs.resize(ene_levels);
-    double c = 4.0*beta/(t_PE_factor*ene_levels);
+    double c = beta/(t_PE_factor*ene_levels);
     for(uint i=0; i<ene_levels; ++i){
         W_fs[i] = exp(-(double)(i*c));
     }
-
-    cout<<"W_fs[0] = "<<W_fs[0]<<endl;
-    cout<<"W_fs[1] = "<<W_fs[1]<<endl;
 
     // mask cases
     W_case_masks = vector<vector<uint>>(ene_levels); 
