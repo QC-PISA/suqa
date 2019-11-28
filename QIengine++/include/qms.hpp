@@ -109,13 +109,10 @@ void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
 
     for(uint i = 0U; i < state.size(); ++i){
         if((i >> q) & 1U){
-            cout<<"s("<<i<<") = "<<norm(state[i])<<endl;
             prob1+=norm(state[i]); 
         }
     }
-    cout<<"prob1 = "<<prob1<<endl;
     c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
-    cout<<"c = "<<c<<endl;
     
     if(c){ // set to 0 coeffs with bm_acc 0
         for(uint i = 0U; i < state.size(); ++i){
@@ -388,7 +385,6 @@ void apply_W(){
             if(matching){
                 uint j = i & ~(1U << bm_acc);
                 const double fdE = W_fs[dE];
-                cout<<"dE = "<<dE<<", fdE = "<<fdE<<endl;
                 DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
                 apply_2x2mat(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
                 DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
