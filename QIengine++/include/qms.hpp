@@ -74,8 +74,12 @@ void fill_W_utils(double beta, double t_PE_factor){
     // energy goes from 0 to (ene_levels-1)*t_PE_factor
     W_fs.resize(ene_levels);
     double c = 4.0*beta/(t_PE_factor*ene_levels);
-    for(uint i=0; i<ene_levels; ++i)
-        W_fs[i] = exp(-i*c);
+    for(uint i=0; i<ene_levels; ++i){
+        W_fs[i] = exp(-(double)(i*c));
+    }
+
+    cout<<"W_fs[0] = "<<W_fs[0]<<endl;
+    cout<<"W_fs[1] = "<<W_fs[1]<<endl;
 
     // mask cases
     W_case_masks = vector<vector<uint>>(ene_levels); 
@@ -105,10 +109,13 @@ void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
 
     for(uint i = 0U; i < state.size(); ++i){
         if((i >> q) & 1U){
+            cout<<"s("<<i<<") = "<<norm(state[i])<<endl;
             prob1+=norm(state[i]); 
         }
     }
+    cout<<"prob1 = "<<prob1<<endl;
     c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
+    cout<<"c = "<<c<<endl;
     
     if(c){ // set to 0 coeffs with bm_acc 0
         for(uint i = 0U; i < state.size(); ++i){
@@ -249,21 +256,25 @@ void qi_cu_on3(vector<Complex>& state, const double& dt, const uint& q_control, 
 
 }
 
-// TODO: generalize to higher D
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
-    if(qact.size()==1)
-        qi_h(state, qact[0]);
-    else if(qact.size()==2){
-        qi_h(state, qact[1]);
-        qms::qi_crm(state, qact[0], qact[1], -2);
-        qi_h(state, qact[0]);
-    }else{
-        throw std::runtime_error("ERROR: qft(inverse) not implemented for nqubits !=1,2");
+    int qsize = qact.size();
+    for(int outer_i=qsize-1; outer_i>=0; outer_i--){
+        qi_h(state, qact[outer_i]);
+        for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
+            qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+        }
     }
 }
 
+
 void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
-    qi_qft(state, qact);
+    int qsize = qact.size();
+    for(int outer_i=0; outer_i<qsize; outer_i++){
+        for(int inner_i=0; inner_i<outer_i; inner_i++){
+            qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+        }
+        qi_h(state, qact[outer_i]);
+    }
 }
 
 void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
@@ -366,6 +377,7 @@ void apply_C_inverse(const uint &Ci){
 
 void apply_W(){
     DEBUG_CALL(cout<<"\n\nApply W"<<endl);
+
     
     for(uint i = 0U; i < gState.size(); ++i){
         for(uint dE=1; dE<ene_levels; ++dE){
@@ -376,6 +388,7 @@ void apply_W(){
             if(matching){
                 uint j = i & ~(1U << bm_acc);
                 const double fdE = W_fs[dE];
+                cout<<"dE = "<<dE<<", fdE = "<<fdE<<endl;
                 DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
                 apply_2x2mat(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
                 DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
@@ -399,9 +412,16 @@ void apply_U(){
     apply_C(gCi);
     DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
     DEBUG_CALL(sparse_print(gState));
+
+
+
+
     apply_Phi();
     DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
     DEBUG_CALL(sparse_print(gState));
+
+
+
     apply_W();
     DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -579,9 +599,11 @@ void metro_step(uint s){
     DEBUG_CALL(cout<<"\n\nAfter first phase estimation"<<endl);
     DEBUG_CALL(sparse_print(gState));
 
+
     gCi = draw_C();
     DEBUG_CALL(cout<<"\n\ndrawn C = "<<gCi<<endl);
     apply_U();
+
 
     measure_qbit(gState, bm_acc, c_acc);
 

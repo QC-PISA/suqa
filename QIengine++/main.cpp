@@ -73,6 +73,7 @@ int main(int argc, char** argv){
     qms::state_qbits = 3;
     qms::nqubits = qms::state_qbits + 2*qms::ene_qbits + 1;
     qms::Dim = (uint)pow(2, qms::nqubits);
+    cout<<"Dim = "<<qms::Dim<<endl;
     qms::ene_levels = (uint)pow(2, qms::ene_qbits);
     
     // Banner
