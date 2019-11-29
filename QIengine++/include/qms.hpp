@@ -91,6 +91,17 @@ void fill_W_utils(double beta, double t_PE_factor){
     }
 }
 
+uint creg_to_uint(const vector<uint>& c_reg){
+    if(c_reg.size()<1)
+        throw std::runtime_error("ERROR: size of register zero.");
+
+    uint ret = c_reg[0];
+    for(uint j=1U; j<c_reg.size(); ++j)
+       ret += c_reg[j] << j; 
+
+    return ret;
+}
+
 void reset_non_state_qbits(vector<Complex>& state){
     DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -109,7 +120,9 @@ void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
             prob1+=norm(state[i]); 
         }
     }
-    c = (uint)(rangen.doub() < prob1); // prob1=1 -> c = 1 surely
+    double rdoub = rangen.doub();
+    DEBUG_CALL(cout<<"prob1 = "<<prob1<<", rdoub = "<<rdoub<<endl);
+    c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
     
     if(c){ // set to 0 coeffs with bm_acc 0
         for(uint i = 0U; i < state.size(); ++i){
@@ -374,24 +387,27 @@ void apply_W(){
 
     
     for(uint i = 0U; i < gState.size(); ++i){
-        for(uint dE=1; dE<ene_levels; ++dE){
-            bool matching = false;
+        bool matching = false;
+        uint dE;
+        for(dE=1; dE<ene_levels; ++dE){
             for(uint k=0; k<W_case_masks[dE].size() && !matching; ++k){
                 matching = ((i & W_mask) == W_case_masks[dE][k]);
             }
-            if(matching){
-                uint j = i & ~(1U << bm_acc);
-                const double fdE = W_fs[dE];
-                DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-                apply_2x2mat(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
-                DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-            }else if((i >> bm_acc) & 1U){
-                uint j = i & ~(1U << bm_acc);
+            if(matching)
+                break;
+        }
+        if(matching){
+            uint j = i & ~(1U << bm_acc);
+            const double fdE = W_fs[dE];
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+            apply_2x2mat(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+        }else if((i >> bm_acc) & 1U){
+            uint j = i & ~(1U << bm_acc);
 
-                DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-                std::swap(gState[i],gState[j]);
-                DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-            }
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+            std::swap(gState[i],gState[j]);
+            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }
     }
 }
@@ -602,13 +618,15 @@ void metro_step(uint s){
 
     if (c_acc == 1U){
         DEBUG_CALL(cout<<"accepted"<<endl);
-        vector<uint> c_E_news(1,0), c_E_olds(1,0);
+        double Enew_meas_d;
+        vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         measure_qbits(gState, bm_enes_new, c_E_news);
-        DEBUG_CALL(double tmp_E=c_E_news[0]);
+        DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
         if(s>0U and s%reset_each ==0U){
-            E_measures.push_back(c_E_news[0]);
+            Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
+            E_measures.push_back(Enew_meas_d);
             qi_reset(gState, bm_enes_new);
             X_measures.push_back(measure_X());
 ////            X_measures.push_back(0.0);
@@ -637,19 +655,21 @@ void metro_step(uint s){
     uint iters = max_reverse_attempts;
     while(iters > 0){
         apply_Phi();
-        double Eold_meas, Enew_meas;
-        vector<uint> c_E_olds(1,0), c_E_news(1,0);
+        uint Eold_meas, Enew_meas;
+        double Eold_meas_d;
+        vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
         measure_qbits(gState, bm_enes_old, c_E_olds);
-        Eold_meas = c_E_olds[0];
+        Eold_meas = creg_to_uint(c_E_olds);
+        Eold_meas_d = Eold_meas/(double)(t_PE_factor*ene_levels);
         measure_qbits(gState, bm_enes_new, c_E_news);
-        Enew_meas = c_E_news[0];
+        Enew_meas = creg_to_uint(c_E_news);
         apply_Phi_inverse();
         
         if(Eold_meas == Enew_meas){
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
             if(s>0U and s%reset_each == 0U){
-                E_measures.push_back(Eold_meas);
-                DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas<<endl); 
+                E_measures.push_back(Eold_meas_d);
+                DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas_d<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
                 qi_reset(gState, bm_enes_new);
