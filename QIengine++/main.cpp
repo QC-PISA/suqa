@@ -42,12 +42,18 @@ void print_banner(){
 double beta;
 double h;
 
+void init_state(){
+    qms::gState.resize(qms::Dim);
+    std::fill_n(qms::gState.begin(), qms::gState.size(), 0.0);
+    qms::gState[0] = TWOSQINV; 
+    qms::gState[3] = -TWOSQINV; 
+}
 
 arg_list args;
 
 int main(int argc, char** argv){
     if(argc < 6){
-        cout<<"arguments: <beta> <h> <metro steps> <reset each> <num_E_qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>]"<<endl;
+        cout<<"arguments: <beta> <h> <metro steps> <reset each> <num_E_qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]"<<endl;
         exit(1);
     }
 
@@ -64,6 +70,7 @@ int main(int argc, char** argv){
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
     qms::n_phase_estimation = args.pe_steps;
     qms::Xmatstem = args.Xmatstem;
+    qms::record_reverse= args.record_reverse;
     qms::iseed = args.seed;
     if(qms::iseed>0)
         qms::rangen.set_seed(qms::iseed);
@@ -89,24 +96,56 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-    qms::gState.resize(qms::Dim);
-    std::fill_n(qms::gState.begin(), qms::gState.size(), 0.0);
-    qms::gState[0] = TWOSQINV; 
-    qms::gState[3] = -TWOSQINV; 
+    init_state();
+
+    uint perc_mstep = qms::metro_steps/20;
+
+    bool take_measure;
+    uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
-        qms::metro_step(s);
+        take_measure = (s>s0 and (s-s0)%qms::reset_each ==0U);
+        int ret = qms::metro_step(take_measure);
+
+        if(ret<0){ // failed rethermalization, reinitialize state
+            init_state();
+            //ensure new rethermalization
+            s0 = s+1; 
+        }
+        if(s%perc_mstep==0){
+#ifdef NDEBUG
+            cout<<("\riteration: "+to_string(s)+"/"+to_string(qms::metro_steps));
+            cout.flush();
+#else
+            cout<<("iteration: "+to_string(s)+"/"+to_string(qms::metro_steps))<<endl;
+#endif
+        }
     }
+    cout<<endl;
 
     cout<<"all fine :)\n"<<endl;
 
     FILE * fil = fopen(outfilename.c_str(), "w");
 
-    fprintf(fil, "# it E X\n");
+    fprintf(fil, "# it E%s\n",(qms::Xmatstem!="")?" A":"");
 
     for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
-        fprintf(fil, "%d %.16lg %.16lg\n", ei, qms::E_measures[ei], qms::X_measures[ei]);
+        if(qms::Xmatstem!=""){
+            fprintf(fil, "%d %.16lg %.16lg\n", ei, qms::E_measures[ei], qms::X_measures[ei]);
+        }else{
+            fprintf(fil, "%d %.16lg\n", ei, qms::E_measures[ei]);
+        }
     }
     fclose(fil);
+
+    if(qms::record_reverse){
+        FILE * fil_rev = fopen((outfilename+"_revcounts").c_str(), "w");
+
+
+        for(uint i = 0; i < qms::reverse_counters.size(); ++i){
+            fprintf(fil_rev, "%d %d\n", i, (int)qms::reverse_counters[i]);
+        }
+        fclose(fil_rev);
+    }
 
     cout<<"\n\tSuqa!\n"<<endl;
 

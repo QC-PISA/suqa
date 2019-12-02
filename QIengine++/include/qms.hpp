@@ -21,6 +21,9 @@ uint gCi;
 uint c_acc = 0;
 string Xmatstem="";
 
+bool record_reverse=false;
+vector<uint> reverse_counters;
+
 
 vector<Complex> gState;
 //vector<double> energy_measures;
@@ -598,7 +601,15 @@ double measure_X(){
 // }
 
 
-void metro_step(uint s){
+int metro_step(bool take_measure){
+    // return values:
+    // 1 -> step accepted, not measured
+    // 2 -> step accepted, measured
+    // 3 -> step rejected and restored, not measured
+    // 4 -> step rejected and restored, measured
+    // -1 -> step rejected non restored 
+    int ret=0;
+    
     DEBUG_CALL(cout<<"initial state"<<endl);
     DEBUG_CALL(sparse_print(gState));
     reset_non_state_qbits(gState);
@@ -624,7 +635,7 @@ void metro_step(uint s){
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
         DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
         apply_Phi_inverse();
-        if(s>0U and s%reset_each ==0U){
+        if(take_measure){
             Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
             E_measures.push_back(Enew_meas_d);
             qi_reset(gState, bm_enes_new);
@@ -641,9 +652,12 @@ void metro_step(uint s){
             DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
             DEBUG_CALL(sparse_print(gState));
             apply_Phi_inverse();
-      }
 
-        return;
+            ret = 2; // step accepted, measured
+        }else{
+            ret = 1; // step accepted, not measured
+        }
+        return ret;
     }
     //else
 
@@ -652,8 +666,8 @@ void metro_step(uint s){
 
     DEBUG_CALL(cout<<"\n\nBefore reverse attempts"<<endl);
     DEBUG_CALL(sparse_print(gState));
-    uint iters = max_reverse_attempts;
-    while(iters > 0){
+    uint iters = 0;
+    while(iters < max_reverse_attempts){
         apply_Phi();
         uint Eold_meas, Enew_meas;
         double Eold_meas_d;
@@ -667,7 +681,7 @@ void metro_step(uint s){
         
         if(Eold_meas == Enew_meas){
             DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-            if(s>0U and s%reset_each == 0U){
+            if(take_measure){
                 E_measures.push_back(Eold_meas_d);
                 DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas_d<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
@@ -683,6 +697,10 @@ void metro_step(uint s){
                 DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
                 DEBUG_CALL(sparse_print(gState));
                 apply_Phi_inverse();
+
+                ret=4;
+            }else{
+                ret=3;
             }
             break;
         }
@@ -693,13 +711,23 @@ void metro_step(uint s){
         measure_qbit(gState, bm_acc, c_acc_trash); 
         apply_U_inverse(); 
 
-        iters--;
+        iters++;
     }
 
-    if (iters == 0){
-        cout<<"not converged :("<<endl;
-        exit(1);
+    if(record_reverse){
+        reverse_counters.push_back(iters);
     }
+
+    if (iters == max_reverse_attempts){
+        DEBUG_CALL(cout<<("not converged in "+to_string(max_reverse_attempts)+" steps :(")<<endl);
+
+        ret = -1;
+        return ret;
+    }else{
+        return ret;
+    }
+
+    return 0;
 }
 
 

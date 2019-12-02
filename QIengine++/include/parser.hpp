@@ -18,6 +18,7 @@ struct arg_list{
     double pe_time_factor = 1.0;
     int pe_steps = 10; 
     string Xmatstem = "";
+    bool record_reverse = false;
     
     friend ostream& operator<<(ostream& o, const arg_list& al);
 };
@@ -34,6 +35,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
     o<<"time of PE evolution: "<<al.pe_time_factor<<endl;
     o<<"steps of PE evolution: "<<al.pe_steps<<endl;
     o<<"file stem for X measure: "<<al.Xmatstem<<endl;
+    o<<"record reverse: "<<al.record_reverse<<endl;
     return o;
 }
 
@@ -58,6 +60,17 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         argmap_inv[i]=argv[i];
     }
     int tmp_idx;
+
+    // flagged arguments without value
+
+    // (bool) record_reverse
+    tmp_idx = argmap["--record-reverse"];
+    if(tmp_idx>=fixed_args){
+        args.record_reverse = true;
+    }
+
+
+    // flagged arguments without value
 
     // (int) max_reverse_attempts
     tmp_idx = argmap["--max-reverse"];
@@ -103,6 +116,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
        
        args.Xmatstem = argmap_inv[tmp_idx+1]; 
     }
+
 
     // argument checking
     if(args.beta <= 0.0){

@@ -29,21 +29,32 @@ ax2.set_xlabel(r"Discrepancy")
 bs=np.array([0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
 kappas = np.array([1,2,4,8,16,20,40,60,80,100,150,200,250,300,400])
 
+
 outdata=[]
 
 aa=[]
 for vl in bs:
     print("beta = ", vl)
     aa.append(np.loadtxt(sys.argv[1]+"_b_"+str(vl)))
-ndata = aa[0].shape[0]
+
+
+ndatas = [ae.shape[0] for ae in aa]
+ndata= int(np.min(ndatas))
+print("ndatas_min = ",ndata)
+for i in range(len(aa)):
+    print(aa[i].shape)
+    aa[i]=aa[i][int(aa[i].shape[0]-ndata):,:]
+
 vs=[np.mean(ael[:,1]) for ael in aa]
 ss=[]
 for i in range(len(kappas)):
     if(ndata/kappas[i] < 50):
+        kappas=kappas[:i]
         break
-    thermpart = int(ndata-int(ndata/kappas[i])*kappas[i])
-    print("cut: ",thermpart, ", blocksize: ",kappas[i], ", numblocks: ",int(ndata/kappas[i]))
-    ss.append([np.std(np.mean(ael[thermpart:,1].reshape((int(ndata/kappas[i]),kappas[i])), axis = 1))/np.sqrt(ndata/kappas[i]) for ael in aa])
+    numblocks = int(ndata/kappas[i])
+    thermpart = int(ndata-numblocks*kappas[i])
+    print("ndata: ",ndata,", cut: ",thermpart, ", blocksize: ",kappas[i], ", numblocks: ",numblocks)
+    ss.append([np.std(np.mean(ael[thermpart:,1].reshape((numblocks,kappas[i])), axis = 1))/np.sqrt(numblocks) for ael in aa])
 
 Hs=np.array([0.,0.,0.,0.,0.,0.,1.,1.])
 def Z(b):
