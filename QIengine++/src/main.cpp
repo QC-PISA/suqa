@@ -93,7 +93,8 @@ int main(int argc, char** argv){
     qms::fill_rphase(qms::ene_qbits+1);
     qms::fill_bitmap();
     qms::fill_W_utils(beta, qms::t_PE_factor);
-    qms::init_measure_structs();
+    if(qms::Xmatstem!="")
+        qms::init_measure_structs();
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
