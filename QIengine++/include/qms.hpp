@@ -3,6 +3,8 @@
 #include "include/io.hpp"
 #include "include/suqa_gates.hpp"
 
+void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate);
+
 namespace qms{
 
 uint state_qbits;
@@ -157,115 +159,6 @@ void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target,
     }
 }
 
-void qi_cu_on2(vector<Complex>& state, const double& dt, const uint& q_control, const vector<uint>& qstate){
-    uint cmask = (1U << q_control);
-	uint mask = cmask; // (1U << qstate[0]) | (1U << qstate[0])
-    for(const auto& qs : qstate){
-        mask |= (1U << qs);
-    }
-
-	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-        if((i_0 & mask) == cmask){
-      
-            uint i_1 = i_0 | (1U << qstate[0]);
-            uint i_2 = i_0 | (1U << qstate[1]);
-            uint i_3 = i_1 | i_2;
-
-            Complex a_0 = state[i_0];
-            Complex a_1 = state[i_1];
-            Complex a_2 = state[i_2];
-            Complex a_3 = state[i_3];
-            
-            state[i_0] = exp(-dt*iu)*a_0;
-            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
-            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] = exp(-dt*iu)*a_3;
-        }
-    }
-
-}
-
-void qi_cu_on3(vector<Complex>& state, const double& dt, const uint& q_control, const vector<uint>& qstate){
-    uint cmask = (1U << q_control);
-	uint mask = cmask; // (1U << qstate[0]) | (1U << qstate[0])
-    for(const auto& qs : qstate){
-        mask |= (1U << qs);
-    }
-
-	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-        if((i_0 & mask) == cmask){
-      
-            uint i_1 = i_0 | (1U << qstate[0]);
-            uint i_2 = i_0 | (1U << qstate[1]);
-            uint i_3 = i_1 | i_2;
-            uint i_4 = i_0 | (1U << qstate[2]);
-            uint i_5 = i_4 | i_1;
-            uint i_6 = i_4 | i_2;
-            uint i_7 = i_4 | i_3;
-
-
-            Complex a_0 = state[i_0];
-            Complex a_1 = state[i_1];
-            Complex a_2 = state[i_2];
-            Complex a_3 = state[i_3];
-            Complex a_4 = state[i_4];
-            Complex a_5 = state[i_5];
-            Complex a_6 = state[i_6];
-            Complex a_7 = state[i_7];
-
-            double dtp = dt/4.; 
-            // apply 1/.4 (Id +X2 X1)
-            state[i_0] = exp(-dtp*iu)*(cos(dtp)*a_0 -sin(dtp)*iu*a_6);
-            state[i_1] = exp(-dtp*iu)*(cos(dtp)*a_1 -sin(dtp)*iu*a_7);
-            state[i_2] = exp(-dtp*iu)*(cos(dtp)*a_2 -sin(dtp)*iu*a_4);
-            state[i_3] = exp(-dtp*iu)*(cos(dtp)*a_3 -sin(dtp)*iu*a_5);
-            state[i_4] = exp(-dtp*iu)*(cos(dtp)*a_4 -sin(dtp)*iu*a_2);
-            state[i_5] = exp(-dtp*iu)*(cos(dtp)*a_5 -sin(dtp)*iu*a_3);
-            state[i_6] = exp(-dtp*iu)*(cos(dtp)*a_6 -sin(dtp)*iu*a_0);
-            state[i_7] = exp(-dtp*iu)*(cos(dtp)*a_7 -sin(dtp)*iu*a_1);
-
-            a_0 = state[i_0];
-            a_1 = state[i_1];
-            a_2 = state[i_2];
-            a_3 = state[i_3];
-            a_4 = state[i_4];
-            a_5 = state[i_5];
-            a_6 = state[i_6];
-            a_7 = state[i_7];
-
-            // apply 1/.4 (X2 X0)
-            state[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_5);
-            state[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_4);
-            state[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_7);
-            state[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_6);
-            state[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_1);
-            state[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_0);
-            state[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_3);
-            state[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_2);
-
-            a_0 = state[i_0];
-            a_1 = state[i_1];
-            a_2 = state[i_2];
-            a_3 = state[i_3];
-            a_4 = state[i_4];
-            a_5 = state[i_5];
-            a_6 = state[i_6];
-            a_7 = state[i_7];
-
-            // apply 1/.4 (X1 X0)
-            state[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_3);
-            state[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_2);
-            state[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_1);
-            state[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_0);
-            state[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_7);
-            state[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_6);
-            state[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_5);
-            state[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_4);
-        }
-    }
-
-}
-
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
@@ -294,13 +187,9 @@ void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state,
     DEBUG_CALL(sparse_print(state));
 
     // apply CUs
-    double dt = t/(double)n;
-
     for(int trg = q_target.size() - 1; trg > -1; --trg){
-        for(uint ti = 0; ti < n; ++ti){
-            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-                qi_cu_on3(state, dt, q_target[trg], q_state);
-            }
+        for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+            cevolution(state, t, n, q_target[trg], q_state);
         }
     }
     DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
@@ -319,12 +208,10 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 
 
     // apply CUs
-    double dt = t/(double)n;
-
     for(uint trg = 0; trg < q_target.size(); ++trg){
-        for(uint ti = 0; ti < n; ++ti){
-            for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-                qi_cu_on3(state, -dt, q_target[trg], q_state);
+        for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
+            for(uint ti = 0; ti < n; ++ti){
+                cevolution(state, -t, n, q_target[trg], q_state);
             }
         }
     }
