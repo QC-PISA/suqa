@@ -5,7 +5,12 @@
 const std::complex<double> iu(0,1);
 typedef std::complex<double> Complex;
 
-//void cevolution(std::vector<std::complex<double>>& state, const double& dt, const uint& q_control, const std::vector<uint>& qstate){
+/* Quantum evolutor of the state */
+//void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
+//
+//     (void)n; // Trotter not needed
+//     double dt = t;
+// 
 //
 //    if(qstate.size()!=2)
 //        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
@@ -37,7 +42,6 @@ typedef std::complex<double> Complex;
 //
 //}
 
-/* Quantum evolutor of the state */
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
     (void)n; // Trotter not needed

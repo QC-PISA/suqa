@@ -52,8 +52,8 @@ void init_state(){
 arg_list args;
 
 int main(int argc, char** argv){
-    if(argc < 6){
-        cout<<"arguments: <beta> <h> <metro steps> <reset each> <num_E_qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]"<<endl;
+    if(argc < 7){
+        printf("usage: ./%s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -63,6 +63,7 @@ int main(int argc, char** argv){
     h = args.h;
     qms::metro_steps = (uint)args.metro_steps;
     qms::reset_each = (uint)args.reset_each;
+    qms::state_qbits = (uint)args.state_qbits;
     qms::ene_qbits = (uint)args.ene_qbits;
     string outfilename(args.outfile);
     qms::max_reverse_attempts = (uint)args.max_reverse_attempts;
@@ -77,7 +78,6 @@ int main(int argc, char** argv){
     
     qms::iseed = qms::rangen.get_seed();
 
-    qms::state_qbits = 3;
     qms::nqubits = qms::state_qbits + 2*qms::ene_qbits + 1;
     qms::Dim = (uint)pow(2, qms::nqubits);
     qms::ene_levels = (uint)pow(2, qms::ene_qbits);
