@@ -1,5 +1,6 @@
 #include <vector>
 #include <complex>
+#include <string>
 
 const std::complex<double> iu(0,1);
 typedef std::complex<double> Complex;
@@ -36,6 +37,7 @@ typedef std::complex<double> Complex;
 //
 //}
 
+/* Quantum evolutor of the state */
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
     (void)n; // Trotter not needed
@@ -122,10 +124,119 @@ void cevolution(std::vector<std::complex<double>>& state, const double& t, const
     }
 } 
 
+/* Measure facilities */
+uint state_levels;
+std::vector<double> meas_opvals;
+std::vector<std::vector<Complex>> SXmat;
+std::vector<uint> iss;//(state_levels);
+std::vector<Complex> ass;//(state_levels);
+uint meas_mask;
+std::vector<uint> meas_mask_combs;
+
+
+void fill_meas_cache(const std::vector<uint>& bm_states, const std::string opstem){
+    state_levels = (uint)pow(2,bm_states.size());
+
+    iss.resize(state_levels);
+    ass.resize(state_levels);
+
+    meas_opvals.resize(state_levels);
+    SXmat.resize(state_levels,std::vector<Complex>(state_levels));
+
+    FILE * fil_re = fopen((opstem+"_vecs_re").c_str(),"r"); 
+    FILE * fil_im = fopen((opstem+"_vecs_im").c_str(),"r"); 
+    FILE * fil_vals = fopen((opstem+"_vals").c_str(),"r"); 
+    double tmp_re,tmp_im;
+    for(uint i=0; i<state_levels; ++i){
+        fscanf(fil_vals, "%lg",&meas_opvals[i]);
+        for(uint j=0; j<state_levels; ++j){
+            fscanf(fil_re, "%lg",&tmp_re);
+            fscanf(fil_im, "%lg",&tmp_im);
+            SXmat[i][j] = tmp_re+tmp_im*iu;
+        }
+        fscanf(fil_re, "\n");
+        fscanf(fil_im, "\n");
+    }
+
+    fclose(fil_vals);
+    fclose(fil_re);
+    fclose(fil_im);
+
+    meas_mask = 0U;
+    for(const auto& bm : bm_states){
+        meas_mask |= (1U<<bm);
+    }
+    meas_mask_combs.resize(state_levels,0);
+    for(uint lvl=0; lvl<state_levels; ++lvl){
+        for(uint bmi=0; bmi<bm_states.size(); ++bmi){
+            meas_mask_combs[lvl] |= ((lvl>>bmi & 1U) << bm_states[bmi]);
+        }
+    }
+}
+
+double get_meas_opvals(const uint& creg_vals){
+    return meas_opvals[creg_vals];
+}
  
+void apply_measure_rotation(std::vector<Complex>& state){
+
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & meas_mask) == 0U){
+      
+            for(uint lvl=0; lvl<state_levels; ++lvl){
+                iss[lvl] = i_0 | meas_mask_combs[lvl];
+                ass[lvl] = state[iss[lvl]];
+            }
+
+            for(uint r=0; r<state_levels; ++r){
+                state[iss[r]]=0.0;
+                for(uint c=0; c<state_levels; ++c){
+                     state[iss[r]] += SXmat[r][c]*ass[c];
+                }
+            }
+        }
+    }
+}
+
+void apply_measure_antirotation(std::vector<Complex>& state){
+
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & meas_mask) == 0U){
+      
+            for(uint lvl=0; lvl<state_levels; ++lvl){
+                iss[lvl] = i_0 | meas_mask_combs[lvl];
+                ass[lvl] = state[iss[lvl]];
+            }
+
+            for(uint r=0; r<state_levels; ++r){
+                state[iss[r]]=0.0;
+                for(uint c=0; c<state_levels; ++c){
+                     state[iss[r]] += conj(SXmat[c][r])*ass[c];
+                }
+            }
+        }
+    }
+}
+
+/* Metropolis update step */
+std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
+std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
+
+void qi_h(std::vector<Complex>& state, const uint& q);
 
 
+void apply_C(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci){
+    if(Ci==0U){
+        qi_h(state,bm_states[0]);
+    }else if(Ci==1U){
+        qi_h(state,bm_states[1]);
+    }else if(Ci==2U){
+        qi_h(state,bm_states[2]);
+    }else{
+        throw std::runtime_error("Error!");
+    }
+}
 
-
-
-
+void apply_C_inverse(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci){
+    apply_C(state, bm_states, Ci);
+}

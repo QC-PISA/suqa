@@ -3,11 +3,27 @@
 #include "include/io.hpp"
 #include "include/suqa_gates.hpp"
 
+
+// defined in src/evolution.cpp
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate);
+
+void fill_meas_cache(const std::vector<uint>& bm_states, const std::string opstem);
+
+void apply_measure_rotation(std::vector<Complex>& state);
+void apply_measure_antirotation(std::vector<Complex>& state);
+double get_meas_opvals(const uint& creg_vals);
+
+void apply_C(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci);
+
+void apply_C_inverse(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci);
+
+std::vector<double> get_C_weigthsums();
+// end defs
 
 namespace qms{
 
 uint state_qbits;
+uint state_levels;
 uint ene_qbits;
 uint ene_levels;
 uint nqubits;
@@ -247,30 +263,16 @@ void apply_Phi_inverse(){
 
 
 uint draw_C(){
+    vector<double> C_weigthsums = get_C_weigthsums();
     double extract = rangen.doub();
-    if (extract<1./3)
-        return 0U;
-    else if(extract<2./3)
-        return 1U;
-    else
-        return 2U;
-}
-
-void apply_C(const uint &Ci){
-    if(Ci==0U){
-        qi_h(gState,bm_states[0]);
-    }else if(Ci==1U){
-        qi_h(gState,bm_states[1]);
-    }else if(Ci==2U){
-        qi_h(gState,bm_states[2]);
-    }else{
-        throw std::runtime_error("Error!");
+    for(uint Ci =0; Ci < C_weigthsums.size(); ++Ci){
+        if (extract<C_weigthsums[Ci]){
+            return Ci;
+        }
     }
+    return C_weigthsums.size();
 }
 
-void apply_C_inverse(const uint &Ci){
-    apply_C(Ci);
-}
 
 void apply_W(){
     DEBUG_CALL(cout<<"\n\nApply W"<<endl);
@@ -308,7 +310,7 @@ void apply_W_inverse(){
 
 void apply_U(){
     DEBUG_CALL(cout<<"\n\nApply U"<<endl);
-    apply_C(gCi);
+    apply_C(gState, bm_states, gCi);
     DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
     DEBUG_CALL(sparse_print(gState));
 
@@ -333,139 +335,158 @@ void apply_U_inverse(){
     apply_Phi_inverse();
     DEBUG_CALL(cout<<"\n\nAfter inverse second phase estimation"<<endl);
     DEBUG_CALL(sparse_print(gState));
-    apply_C_inverse(gCi);
+    apply_C_inverse(gState,bm_states,gCi);
     DEBUG_CALL(cout<<"\n\nAfter apply C inverse = "<<gCi<<endl);
     DEBUG_CALL(sparse_print(gState));
 }
 
 
-Complex SXmat[8][8];
+void init_measure_structs(){
+    fill_meas_cache(bm_states, Xmatstem);
+}
 
 double measure_X(){
     if(Xmatstem==""){
         return 0.0;
     }
 
-	uint mask = 7U;
-	vector<uint> classics(3);
-
-    vector<double> vals(8);
-
-    FILE * fil_re = fopen((Xmatstem+"_vecs_re").c_str(),"r"); 
-    FILE * fil_im = fopen((Xmatstem+"_vecs_im").c_str(),"r"); 
-    FILE * fil_vals = fopen((Xmatstem+"_vals").c_str(),"r"); 
-    double tmp_re,tmp_im;
-    for(int i=0; i<8; ++i){
-        fscanf(fil_vals, "%lg",&vals[i]);
-//        cout<<"vals = "<<vals[i]<<endl;
-        for(int j=0; j<8; ++j){
-            fscanf(fil_re, "%lg",&tmp_re);
-            fscanf(fil_im, "%lg",&tmp_im);
-            SXmat[i][j] = tmp_re+tmp_im*iu;
-//            cout<<real(SXmat[i][j])<<imag(SXmat[i][j])<<" ";
-        }
-        fscanf(fil_re, "\n");
-        fscanf(fil_im, "\n");
-//        cout<<endl;
-    }
-
-    fclose(fil_vals);
-    fclose(fil_re);
-    fclose(fil_im);
-
-    vector<uint> iss(8);
-    vector<Complex> ass(8);
+	vector<uint> classics(state_qbits);
     
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-      
-            iss[0] = i_0;
-            iss[1] = i_0 | 1U;
-            iss[2] = i_0 | 2U;
-            iss[3] = i_0 | 3U;
-            iss[4] = i_0 | 4U;
-            iss[5] = i_0 | 5U;
-            iss[6] = i_0 | 6U;
-            iss[7] = i_0 | 7U;
+    apply_measure_rotation(gState);
 
-
-            ass[0] = gState[iss[0]];
-            ass[1] = gState[iss[1]];
-            ass[2] = gState[iss[2]];
-            ass[3] = gState[iss[3]];
-            ass[4] = gState[iss[4]];
-            ass[5] = gState[iss[5]];
-            ass[6] = gState[iss[6]];
-            ass[7] = gState[iss[7]];
-
-            for(int r=0; r<8; ++r){
-                gState[iss[r]]=0.0;
-                for(int c=0; c<8; ++c){
-                     gState[iss[r]] += SXmat[r][c]*ass[c];
-                }
-            }
-            
-
-//            gState[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_6);
-//            gState[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_7);
-//            gState[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_4);
-//            gState[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_5);
-//            gState[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_2);
-//            gState[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_3);
-//            gState[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_0);
-//            gState[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_1);
-
-        }
-    }
     measure_qbits(gState, bm_states, classics);
 
-	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-        if((i_0 & mask) == 0U){
-            iss[0] = i_0;
-            iss[1] = i_0 | 1U;
-            iss[2] = i_0 | 2U;
-            iss[3] = i_0 | 3U;
-            iss[4] = i_0 | 4U;
-            iss[5] = i_0 | 5U;
-            iss[6] = i_0 | 6U;
-            iss[7] = i_0 | 7U;
+    apply_measure_antirotation(gState);
 
-
-            ass[0] = gState[iss[0]];
-            ass[1] = gState[iss[1]];
-            ass[2] = gState[iss[2]];
-            ass[3] = gState[iss[3]];
-            ass[4] = gState[iss[4]];
-            ass[5] = gState[iss[5]];
-            ass[6] = gState[iss[6]];
-            ass[7] = gState[iss[7]];
-
-            for(int r=0; r<8; ++r){
-                gState[iss[r]]=0.0;
-                for(int c=0; c<8; ++c){
-                     gState[iss[r]] += conj(SXmat[c][r])*ass[c];
-                }
-            }
-        }
+    uint meas = 0U;
+    for(uint i=0; i<state_qbits; ++i){
+        meas |= (classics[i] << i);
     }
 
-    uint meas = classics[0] + 2*classics[1] + 4*classics[2];
-    return vals[meas];
-//    switch(meas){
-//        case 0:
-//            return vals[0];
-//            break;
-//        case 1:
-//            return phi;
-//            break;
-//        case 2:
-//            return mphi_inv;
-//            break;
-//        default:
-//            throw "Error!";
-//    }
-//    return 0.0;
+    return get_meas_opvals(meas);
 }
+
+
+// double measure_X(){
+//     if(Xmatstem==""){
+//         return 0.0;
+//     }
+// 
+// 	uint meas_mask = 0U;
+//     for(const auto& bm : bm_states){
+//         meas_mask |= (1U<<bm);
+//     }
+// 	vector<uint> classics(state_qbits);
+// 
+//     vector<double> vals(state_levels);
+// 
+//     FILE * fil_re = fopen((Xmatstem+"_vecs_re").c_str(),"r"); 
+//     FILE * fil_im = fopen((Xmatstem+"_vecs_im").c_str(),"r"); 
+//     FILE * fil_vals = fopen((Xmatstem+"_vals").c_str(),"r"); 
+//     double tmp_re,tmp_im;
+//     for(int i=0; i<8; ++i){
+//         fscanf(fil_vals, "%lg",&vals[i]);
+// //        cout<<"vals = "<<vals[i]<<endl;
+//         for(int j=0; j<8; ++j){
+//             fscanf(fil_re, "%lg",&tmp_re);
+//             fscanf(fil_im, "%lg",&tmp_im);
+//             SXmat[i][j] = tmp_re+tmp_im*iu;
+// //            cout<<real(SXmat[i][j])<<imag(SXmat[i][j])<<" ";
+//         }
+//         fscanf(fil_re, "\n");
+//         fscanf(fil_im, "\n");
+// //        cout<<endl;
+//     }
+// 
+//     fclose(fil_vals);
+//     fclose(fil_re);
+//     fclose(fil_im);
+// 
+//     vector<uint> iss(state_levels);
+//     vector<Complex> ass(state_levels);
+//     
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & meas_mask) == 0U){
+//       
+//             iss[0] = i_0;
+//             iss[1] = i_0 | 1U;
+//             iss[2] = i_0 | 2U;
+//             iss[3] = i_0 | 3U;
+//             iss[4] = i_0 | 4U;
+//             iss[5] = i_0 | 5U;
+//             iss[6] = i_0 | 6U;
+//             iss[7] = i_0 | 7U;
+// 
+// 
+//             ass[0] = gState[iss[0]];
+//             ass[1] = gState[iss[1]];
+//             ass[2] = gState[iss[2]];
+//             ass[3] = gState[iss[3]];
+//             ass[4] = gState[iss[4]];
+//             ass[5] = gState[iss[5]];
+//             ass[6] = gState[iss[6]];
+//             ass[7] = gState[iss[7]];
+// 
+// 
+//             for(int r=0; r<8; ++r){
+//                 gState[iss[r]]=0.0;
+//                 for(int c=0; c<8; ++c){
+//                      gState[iss[r]] += SXmat[r][c]*ass[c];
+//                 }
+//             }
+//             
+// 
+//         }
+//     }
+//     measure_qbits(gState, bm_states, classics);
+// 
+// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
+//         if((i_0 & meas_mask) == 0U){
+//             iss[0] = i_0;
+//             iss[1] = i_0 | 1U;
+//             iss[2] = i_0 | 2U;
+//             iss[3] = i_0 | 3U;
+//             iss[4] = i_0 | 4U;
+//             iss[5] = i_0 | 5U;
+//             iss[6] = i_0 | 6U;
+//             iss[7] = i_0 | 7U;
+// 
+// 
+//             ass[0] = gState[iss[0]];
+//             ass[1] = gState[iss[1]];
+//             ass[2] = gState[iss[2]];
+//             ass[3] = gState[iss[3]];
+//             ass[4] = gState[iss[4]];
+//             ass[5] = gState[iss[5]];
+//             ass[6] = gState[iss[6]];
+//             ass[7] = gState[iss[7]];
+// 
+//             for(int r=0; r<8; ++r){
+//                 gState[iss[r]]=0.0;
+//                 for(int c=0; c<8; ++c){
+//                      gState[iss[r]] += conj(SXmat[c][r])*ass[c];
+//                 }
+//             }
+//         }
+//     }
+// 
+//     uint meas = classics[0] + 2*classics[1] + 4*classics[2];
+//     return vals[meas];
+// //    switch(meas){
+// //        case 0:
+// //            return vals[0];
+// //            break;
+// //        case 1:
+// //            return phi;
+// //            break;
+// //        case 2:
+// //            return mphi_inv;
+// //            break;
+// //        default:
+// //            throw "Error!";
+// //    }
+// //    return 0.0;
+// }
 
 // double measure_X(){
 // 	vector<uint> classics(2);

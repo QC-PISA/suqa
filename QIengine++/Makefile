@@ -16,14 +16,14 @@ debug: main
 $(OBJDIR)/%.o: $(SRC)/%.cpp $(INCLUDES)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 
 	
-# evolution.o: $(SRC)/evolution.cpp $(INCLUDES)
-# 	$(CXX) $(CXXFLAGS) -c $(SRC)/evolution.cpp -o $(OBJDIR)/evolution.o
+# system.o: $(SRC)/system.cpp $(INCLUDES)
+# 	$(CXX) $(CXXFLAGS) -c $(SRC)/system.cpp -o $(OBJDIR)/system.o
 # 
 # main.o: $(SRC)/main.cpp $(INCLUDES)
 # 	$(CXX) $(CXXFLAGS) -c $(SRC)/main.cpp
 
-main: $(OBJDIR)/evolution.o $(OBJDIR)/main.o
-	$(CXX) $(CXXFLAGS) $(OBJDIR)/evolution.o $(OBJDIR)/main.o -o main
+main: $(OBJDIR)/system.o $(OBJDIR)/main.o
+	$(CXX) $(CXXFLAGS) $(OBJDIR)/system.o $(OBJDIR)/main.o -o main
 
 
 clean:

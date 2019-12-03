@@ -81,6 +81,7 @@ int main(int argc, char** argv){
     qms::nqubits = qms::state_qbits + 2*qms::ene_qbits + 1;
     qms::Dim = (uint)pow(2, qms::nqubits);
     qms::ene_levels = (uint)pow(2, qms::ene_qbits);
+    qms::state_levels = (uint)pow(2, qms::state_qbits);
     
     // Banner
     print_banner();
@@ -92,6 +93,7 @@ int main(int argc, char** argv){
     qms::fill_rphase(qms::ene_qbits+1);
     qms::fill_bitmap();
     qms::fill_W_utils(beta, qms::t_PE_factor);
+    qms::init_measure_structs();
 
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
