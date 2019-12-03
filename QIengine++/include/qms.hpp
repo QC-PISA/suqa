@@ -265,8 +265,8 @@ void apply_Phi_inverse(){
 uint draw_C(){
     vector<double> C_weigthsums = get_C_weigthsums();
     double extract = rangen.doub();
-    for(uint Ci =0; Ci < C_weigthsums.size(); ++Ci){
-        if (extract<C_weigthsums[Ci]){
+    for(uint Ci =0U; Ci < C_weigthsums.size(); ++Ci){
+        if(extract<C_weigthsums[Ci]){
             return Ci;
         }
     }
@@ -342,6 +342,7 @@ void apply_U_inverse(){
 
 
 void init_measure_structs(){
+    
     fill_meas_cache(bm_states, Xmatstem);
 }
 
@@ -365,149 +366,6 @@ double measure_X(){
 
     return get_meas_opvals(meas);
 }
-
-
-// double measure_X(){
-//     if(Xmatstem==""){
-//         return 0.0;
-//     }
-// 
-// 	uint meas_mask = 0U;
-//     for(const auto& bm : bm_states){
-//         meas_mask |= (1U<<bm);
-//     }
-// 	vector<uint> classics(state_qbits);
-// 
-//     vector<double> vals(state_levels);
-// 
-//     FILE * fil_re = fopen((Xmatstem+"_vecs_re").c_str(),"r"); 
-//     FILE * fil_im = fopen((Xmatstem+"_vecs_im").c_str(),"r"); 
-//     FILE * fil_vals = fopen((Xmatstem+"_vals").c_str(),"r"); 
-//     double tmp_re,tmp_im;
-//     for(int i=0; i<8; ++i){
-//         fscanf(fil_vals, "%lg",&vals[i]);
-// //        cout<<"vals = "<<vals[i]<<endl;
-//         for(int j=0; j<8; ++j){
-//             fscanf(fil_re, "%lg",&tmp_re);
-//             fscanf(fil_im, "%lg",&tmp_im);
-//             SXmat[i][j] = tmp_re+tmp_im*iu;
-// //            cout<<real(SXmat[i][j])<<imag(SXmat[i][j])<<" ";
-//         }
-//         fscanf(fil_re, "\n");
-//         fscanf(fil_im, "\n");
-// //        cout<<endl;
-//     }
-// 
-//     fclose(fil_vals);
-//     fclose(fil_re);
-//     fclose(fil_im);
-// 
-//     vector<uint> iss(state_levels);
-//     vector<Complex> ass(state_levels);
-//     
-// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//         if((i_0 & meas_mask) == 0U){
-//       
-//             iss[0] = i_0;
-//             iss[1] = i_0 | 1U;
-//             iss[2] = i_0 | 2U;
-//             iss[3] = i_0 | 3U;
-//             iss[4] = i_0 | 4U;
-//             iss[5] = i_0 | 5U;
-//             iss[6] = i_0 | 6U;
-//             iss[7] = i_0 | 7U;
-// 
-// 
-//             ass[0] = gState[iss[0]];
-//             ass[1] = gState[iss[1]];
-//             ass[2] = gState[iss[2]];
-//             ass[3] = gState[iss[3]];
-//             ass[4] = gState[iss[4]];
-//             ass[5] = gState[iss[5]];
-//             ass[6] = gState[iss[6]];
-//             ass[7] = gState[iss[7]];
-// 
-// 
-//             for(int r=0; r<8; ++r){
-//                 gState[iss[r]]=0.0;
-//                 for(int c=0; c<8; ++c){
-//                      gState[iss[r]] += SXmat[r][c]*ass[c];
-//                 }
-//             }
-//             
-// 
-//         }
-//     }
-//     measure_qbits(gState, bm_states, classics);
-// 
-// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//         if((i_0 & meas_mask) == 0U){
-//             iss[0] = i_0;
-//             iss[1] = i_0 | 1U;
-//             iss[2] = i_0 | 2U;
-//             iss[3] = i_0 | 3U;
-//             iss[4] = i_0 | 4U;
-//             iss[5] = i_0 | 5U;
-//             iss[6] = i_0 | 6U;
-//             iss[7] = i_0 | 7U;
-// 
-// 
-//             ass[0] = gState[iss[0]];
-//             ass[1] = gState[iss[1]];
-//             ass[2] = gState[iss[2]];
-//             ass[3] = gState[iss[3]];
-//             ass[4] = gState[iss[4]];
-//             ass[5] = gState[iss[5]];
-//             ass[6] = gState[iss[6]];
-//             ass[7] = gState[iss[7]];
-// 
-//             for(int r=0; r<8; ++r){
-//                 gState[iss[r]]=0.0;
-//                 for(int c=0; c<8; ++c){
-//                      gState[iss[r]] += conj(SXmat[c][r])*ass[c];
-//                 }
-//             }
-//         }
-//     }
-// 
-//     uint meas = classics[0] + 2*classics[1] + 4*classics[2];
-//     return vals[meas];
-// //    switch(meas){
-// //        case 0:
-// //            return vals[0];
-// //            break;
-// //        case 1:
-// //            return phi;
-// //            break;
-// //        case 2:
-// //            return mphi_inv;
-// //            break;
-// //        default:
-// //            throw "Error!";
-// //    }
-// //    return 0.0;
-// }
-
-// double measure_X(){
-// 	vector<uint> classics(2);
-//     measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
-//     uint meas = classics[0] + 2*classics[1];
-//     switch(meas){
-//         case 0:
-//             return 1.0;
-//             break;
-//         case 1:
-//             return 2.0;
-//             break;
-//         case 2:
-//             return 3.0;
-//             break;
-//         default:
-//             throw "Error!";
-//     }
-//     return 0.0;
-// }
-
 
 int metro_step(bool take_measure){
     // return values:

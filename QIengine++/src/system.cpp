@@ -2,131 +2,148 @@
 #include <complex>
 #include <string>
 
-const std::complex<double> iu(0,1);
 typedef std::complex<double> Complex;
+const Complex iu(0,1);
+
+const double TWOSQINV = 1./sqrt(2.);
+
+void init_state(std::vector<Complex>& state, uint Dim){
+    state.resize(Dim);
+    std::fill_n(state.begin(), state.size(), 0.0);
+    state[0] = 1; //TWOSQINV; 
+//    state[3] = -TWOSQINV; 
+}
+
 
 /* Quantum evolutor of the state */
-//void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
-//
-//     (void)n; // Trotter not needed
-//     double dt = t;
-// 
-//
-//    if(qstate.size()!=2)
-//        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-//
-//    uint cmask = (1U << q_control);
-//	uint mask = cmask;
-//    for(const auto& qs : qstate){
-//        mask |= (1U << qs);
-//    }
-//
-//	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//        if((i_0 & mask) == cmask){
-//      
-//            uint i_1 = i_0 | (1U << qstate[0]);
-//            uint i_2 = i_0 | (1U << qstate[1]);
-//            uint i_3 = i_1 | i_2;
-//
-//            std::complex<double> a_0 = state[i_0];
-//            std::complex<double> a_1 = state[i_1];
-//            std::complex<double> a_2 = state[i_2];
-//            std::complex<double> a_3 = state[i_3];
-//            
-//            state[i_0] = exp(-dt*iu)*a_0;
-//            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
-//            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-//            state[i_3] = exp(-dt*iu)*a_3;
-//        }
-//    }
-//
-//}
-
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
-    (void)n; // Trotter not needed
-    double dt = t;
+     (void)n; // Trotter not needed
+     double dt = t;
+ 
 
-    if(qstate.size()!=3)
+    if(qstate.size()!=2)
         throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-     uint cmask = (1U << q_control);
-    uint mask = cmask; // (1U << qstate[0]) | (1U << qstate[0])
-     for(const auto& qs : qstate){
-         mask |= (1U << qs);
-     }
 
-    for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-         if((i_0 & mask) == cmask){
-       
-             uint i_1 = i_0 | (1U << qstate[0]);
-             uint i_2 = i_0 | (1U << qstate[1]);
-             uint i_3 = i_1 | i_2;
-             uint i_4 = i_0 | (1U << qstate[2]);
-             uint i_5 = i_4 | i_1;
-             uint i_6 = i_4 | i_2;
-             uint i_7 = i_4 | i_3;
-
-
-             Complex a_0 = state[i_0];
-             Complex a_1 = state[i_1];
-             Complex a_2 = state[i_2];
-             Complex a_3 = state[i_3];
-             Complex a_4 = state[i_4];
-             Complex a_5 = state[i_5];
-             Complex a_6 = state[i_6];
-             Complex a_7 = state[i_7];
-
-             double dtp = dt/4.; 
-             // apply 1/.4 (Id +X2 X1)
-             state[i_0] = exp(-dtp*iu)*(cos(dtp)*a_0 -sin(dtp)*iu*a_6);
-             state[i_1] = exp(-dtp*iu)*(cos(dtp)*a_1 -sin(dtp)*iu*a_7);
-             state[i_2] = exp(-dtp*iu)*(cos(dtp)*a_2 -sin(dtp)*iu*a_4);
-             state[i_3] = exp(-dtp*iu)*(cos(dtp)*a_3 -sin(dtp)*iu*a_5);
-             state[i_4] = exp(-dtp*iu)*(cos(dtp)*a_4 -sin(dtp)*iu*a_2);
-             state[i_5] = exp(-dtp*iu)*(cos(dtp)*a_5 -sin(dtp)*iu*a_3);
-             state[i_6] = exp(-dtp*iu)*(cos(dtp)*a_6 -sin(dtp)*iu*a_0);
-             state[i_7] = exp(-dtp*iu)*(cos(dtp)*a_7 -sin(dtp)*iu*a_1);
-
-             a_0 = state[i_0];
-             a_1 = state[i_1];
-             a_2 = state[i_2];
-             a_3 = state[i_3];
-             a_4 = state[i_4];
-             a_5 = state[i_5];
-             a_6 = state[i_6];
-             a_7 = state[i_7];
-
-             // apply 1/.4 (X2 X0)
-             state[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_5);
-             state[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_4);
-             state[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_7);
-             state[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_6);
-             state[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_1);
-             state[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_0);
-             state[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_3);
-             state[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_2);
-
-             a_0 = state[i_0];
-             a_1 = state[i_1];
-             a_2 = state[i_2];
-             a_3 = state[i_3];
-             a_4 = state[i_4];
-             a_5 = state[i_5];
-             a_6 = state[i_6];
-             a_7 = state[i_7];
-
-             // apply 1/.4 (X1 X0)
-             state[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_3);
-             state[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_2);
-             state[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_1);
-             state[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_0);
-             state[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_7);
-             state[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_6);
-             state[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_5);
-             state[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_4);
-         }
+    uint cmask = (1U << q_control);
+	uint mask = cmask;
+    for(const auto& qs : qstate){
+        mask |= (1U << qs);
     }
-} 
+
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & mask) == cmask){
+      
+            uint i_1 = i_0 | (1U << qstate[0]);
+            uint i_2 = i_0 | (1U << qstate[1]);
+            uint i_3 = i_1 | i_2;
+
+            std::complex<double> a_0 = state[i_0];
+            std::complex<double> a_1 = state[i_1];
+            std::complex<double> a_2 = state[i_2];
+            std::complex<double> a_3 = state[i_3];
+            
+            state[i_0] = exp(-dt*iu)*a_0;
+            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
+            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] = exp(-dt*iu)*a_3;
+        }
+    }
+
+}
+
+
+/* Hamiltonian
+ *
+ * H = 1/4 (1 + X1 X0 + X2 X0 + X2 X1)
+ *
+ */
+
+//void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
+//
+//    (void)n; // Trotter not needed
+//    double dt = t;
+//
+//    if(qstate.size()!=3)
+//        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+//     uint cmask = (1U << q_control);
+//    uint mask = cmask; // (1U << qstate[0]) | (1U << qstate[0])
+//     for(const auto& qs : qstate){
+//         mask |= (1U << qs);
+//     }
+//
+//    for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+//         if((i_0 & mask) == cmask){
+//       
+//             uint i_1 = i_0 | (1U << qstate[0]);
+//             uint i_2 = i_0 | (1U << qstate[1]);
+//             uint i_3 = i_1 | i_2;
+//             uint i_4 = i_0 | (1U << qstate[2]);
+//             uint i_5 = i_4 | i_1;
+//             uint i_6 = i_4 | i_2;
+//             uint i_7 = i_4 | i_3;
+//
+//
+//             Complex a_0 = state[i_0];
+//             Complex a_1 = state[i_1];
+//             Complex a_2 = state[i_2];
+//             Complex a_3 = state[i_3];
+//             Complex a_4 = state[i_4];
+//             Complex a_5 = state[i_5];
+//             Complex a_6 = state[i_6];
+//             Complex a_7 = state[i_7];
+//
+//             double dtp = dt/4.; 
+//             // apply 1/.4 (Id +X2 X1)
+//             state[i_0] = exp(-dtp*iu)*(cos(dtp)*a_0 -sin(dtp)*iu*a_6);
+//             state[i_1] = exp(-dtp*iu)*(cos(dtp)*a_1 -sin(dtp)*iu*a_7);
+//             state[i_2] = exp(-dtp*iu)*(cos(dtp)*a_2 -sin(dtp)*iu*a_4);
+//             state[i_3] = exp(-dtp*iu)*(cos(dtp)*a_3 -sin(dtp)*iu*a_5);
+//             state[i_4] = exp(-dtp*iu)*(cos(dtp)*a_4 -sin(dtp)*iu*a_2);
+//             state[i_5] = exp(-dtp*iu)*(cos(dtp)*a_5 -sin(dtp)*iu*a_3);
+//             state[i_6] = exp(-dtp*iu)*(cos(dtp)*a_6 -sin(dtp)*iu*a_0);
+//             state[i_7] = exp(-dtp*iu)*(cos(dtp)*a_7 -sin(dtp)*iu*a_1);
+//
+//             a_0 = state[i_0];
+//             a_1 = state[i_1];
+//             a_2 = state[i_2];
+//             a_3 = state[i_3];
+//             a_4 = state[i_4];
+//             a_5 = state[i_5];
+//             a_6 = state[i_6];
+//             a_7 = state[i_7];
+//
+//             // apply 1/.4 (X2 X0)
+//             state[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_5);
+//             state[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_4);
+//             state[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_7);
+//             state[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_6);
+//             state[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_1);
+//             state[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_0);
+//             state[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_3);
+//             state[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_2);
+//
+//             a_0 = state[i_0];
+//             a_1 = state[i_1];
+//             a_2 = state[i_2];
+//             a_3 = state[i_3];
+//             a_4 = state[i_4];
+//             a_5 = state[i_5];
+//             a_6 = state[i_6];
+//             a_7 = state[i_7];
+//
+//             // apply 1/.4 (X1 X0)
+//             state[i_0] = (cos(dtp)*a_0 -sin(dtp)*iu*a_3);
+//             state[i_1] = (cos(dtp)*a_1 -sin(dtp)*iu*a_2);
+//             state[i_2] = (cos(dtp)*a_2 -sin(dtp)*iu*a_1);
+//             state[i_3] = (cos(dtp)*a_3 -sin(dtp)*iu*a_0);
+//             state[i_4] = (cos(dtp)*a_4 -sin(dtp)*iu*a_7);
+//             state[i_5] = (cos(dtp)*a_5 -sin(dtp)*iu*a_6);
+//             state[i_6] = (cos(dtp)*a_6 -sin(dtp)*iu*a_5);
+//             state[i_7] = (cos(dtp)*a_7 -sin(dtp)*iu*a_4);
+//         }
+//    }
+//} 
 
 /* Measure facilities */
 uint state_levels;
@@ -223,24 +240,37 @@ void apply_measure_antirotation(std::vector<Complex>& state){
 }
 
 /* Metropolis update step */
-std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
-std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
+//std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
+//void qi_h(std::vector<Complex>& state, const uint& q);
+//void apply_C(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci){
+//    if(Ci==0U){
+//        qi_h(state,bm_states[0]);
+//    }else if(Ci==1U){
+//        qi_h(state,bm_states[1]);
+//    }else if(Ci==2U){
+//        qi_h(state,bm_states[2]);
+//    }else{
+//        throw std::runtime_error("Error!");
+//    }
+//}
 
-void qi_h(std::vector<Complex>& state, const uint& q);
+std::vector<double> C_weigthsums = {1./2, 1.0};
+void qi_cx(std::vector<Complex>& state, const uint& q_control, const uint& q_mask, const uint& q_target);
+void qi_swap(std::vector<Complex>& state, const uint& q1, const uint& q2);
 
 
 void apply_C(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci){
     if(Ci==0U){
-        qi_h(state,bm_states[0]);
+        qi_cx(state,bm_states[1], 0, bm_states[0]);
     }else if(Ci==1U){
-        qi_h(state,bm_states[1]);
-    }else if(Ci==2U){
-        qi_h(state,bm_states[2]);
+        qi_swap(state,bm_states[1],bm_states[0]);
     }else{
-        throw std::runtime_error("Error!");
+        throw "Error!";
     }
 }
 
 void apply_C_inverse(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci){
     apply_C(state, bm_states, Ci);
 }
+
+std::vector<double> get_C_weigthsums(){ return C_weigthsums; }

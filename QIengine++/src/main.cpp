@@ -26,30 +26,20 @@ void print_banner(){
 "    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
 "    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
 "                                          \n" 
-"\nSimulator for Universal Quantum Algorithms\n");
+"\nSimulator for Universal Quantum Algorithms\n\n");
 }
 
-
-
-/* Hamiltonian
- *
- * H = 1/4 (1 + X1 X0 + X2 X0 + X2 X1)
- *
- */
 
 
 // simulation parameters
 double beta;
 double h;
 
-void init_state(){
-    qms::gState.resize(qms::Dim);
-    std::fill_n(qms::gState.begin(), qms::gState.size(), 0.0);
-    qms::gState[0] = TWOSQINV; 
-    qms::gState[3] = -TWOSQINV; 
-}
+// defined in src/system.cpp
+void init_state(std::vector<Complex>& state, uint Dim);
 
 arg_list args;
+
 
 int main(int argc, char** argv){
     if(argc < 7){
@@ -99,7 +89,7 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-    init_state();
+    init_state(qms::gState, qms::Dim);
 
     uint perc_mstep = qms::metro_steps/20;
 
@@ -110,17 +100,12 @@ int main(int argc, char** argv){
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
-            init_state();
+            init_state(qms::gState, qms::Dim);
             //ensure new rethermalization
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
-#ifdef NDEBUG
-            cout<<("\riteration: "+to_string(s)+"/"+to_string(qms::metro_steps));
-            cout.flush();
-#else
             cout<<("iteration: "+to_string(s)+"/"+to_string(qms::metro_steps))<<endl;
-#endif
         }
     }
     cout<<endl;
