@@ -1,0 +1,45 @@
+\documentclass{article}
+\usepackage{graphicx}
+
+\title{SUQA: Simulator for Universal Quantum Algorithms}
+\author{G.~Clemente and M.~Cardinali}
+
+\begin{document}
+\maketitle
+
+\section{Notes on the implementation}
+
+
+\subsection{time factor for the phase estimation}
+
+We assume all physical energies to lie in a certain range $E\in \lbrack 0, E_{max}\rbrack$
+
+Moreover, we define the time factor (variable $\bar{t}$) as the factor in front
+of $2 \pi$ used for the phase estimation process:
+
+$$t = 2 \pi \bar{t}$$
+
+Given an eigenstate $v$ of the Hamiltonian, for which $e^{i H t}v = e^{i E t}v \equiv e^{2\pi i (E \bar{t})}$,
+the phase estimation process reads the value $\bar{E} \equiv E \bar{t}$, which is therefore measured in the range $\lbrack 0, 1\rbrack$,
+while the energy measured in the energy register, since is encoded as an integer
+$\widetilde{E} \in \lbrack 0, L_{E}-1\rbrack$,
+where $L_{E}=2^ne$ is the number of energy levels and $ne$ is the number of qubits used for representing energies, is related to 
+the energy $\bar{E}$ by a rescaling:
+
+$$\bar{E} = \widetilde{E}/L_{E}.$$
+
+This value is, in turn, related to the true energy of the system by the following relation:
+
+\begin{equation}\label{eq:trueE}
+    E =  \frac{\widetilde{E}}{\bar{t} L_{E}}.
+\end{equation}
+
+Since $\bar{E}$ bust be less than $1$ in order to not overlap measures of distinct energy values, we must take
+
+$$\bar{t} < \frac{1}{E_{max}}.$$
+
+
+N.B.: all the measures used in the code (i.e., for the acceptance computation) must be rescaled to the physical value
+using the relation~\ref{eq:trueE}.
+
+\end{document}

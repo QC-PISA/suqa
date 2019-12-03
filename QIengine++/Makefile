@@ -1,5 +1,18 @@
-release: main.cpp
-	g++ -Wall -Wextra -std=c++11 -O3 main.cpp -o main -DNDEBUG
+.PHONY: release debug clean 
 
-debug: main.cpp
-	g++ -Wall -Wextra -std=c++11 -g main.cpp -o main
+CXX = g++
+CXXFLAGS = -Wall -Wextra -std=c++11
+INCLUDES = $(wildcard include/*)
+
+release: CXXFLAGS += -O3 -DNDEBUG
+release: main
+	
+debug: CXXFLAGS += -g
+debug: main
+	
+main: main.cpp $(INCLUDES)
+	$(CXX) $(CXXFLAGS) main.cpp -o main
+
+clean:
+	rm -rf main
+
