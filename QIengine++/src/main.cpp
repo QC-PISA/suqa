@@ -45,9 +45,9 @@ void save_measures(string outfilename){
     FILE * fil = fopen(outfilename.c_str(), "a");
     for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
         if(qms::Xmatstem!=""){
-            fprintf(fil, "%d %.16lg %.16lg\n", ei, qms::E_measures[ei], qms::X_measures[ei]);
+            fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
         }else{
-            fprintf(fil, "%d %.16lg\n", ei, qms::E_measures[ei]);
+            fprintf(fil, "%.16lg\n", qms::E_measures[ei]);
         }
     }
     fclose(fil);
@@ -109,7 +109,7 @@ int main(int argc, char** argv){
     
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");
-        fprintf(fil, "# it E%s\n",(qms::Xmatstem!="")?" A":"");
+        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
         fclose(fil);
     }
 
