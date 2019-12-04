@@ -5,6 +5,7 @@
 #include <cstring>
 #include <stdio.h>
 #include <bits/stdc++.h>
+#include <unistd.h>
 #include <cmath>
 #include <cassert>
 #include "include/Rand.hpp"
@@ -40,10 +41,23 @@ void init_state(std::vector<Complex>& state, uint Dim);
 
 arg_list args;
 
+void save_measures(string outfilename){
+    FILE * fil = fopen(outfilename.c_str(), "a");
+    for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
+        if(qms::Xmatstem!=""){
+            fprintf(fil, "%d %.16lg %.16lg\n", ei, qms::E_measures[ei], qms::X_measures[ei]);
+        }else{
+            fprintf(fil, "%d %.16lg\n", ei, qms::E_measures[ei]);
+        }
+    }
+    fclose(fil);
+    qms::E_measures.clear();
+    qms::X_measures.clear();
+}
 
 int main(int argc, char** argv){
     if(argc < 7){
-        printf("usage: ./%s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -92,6 +106,12 @@ int main(int argc, char** argv){
     init_state(qms::gState, qms::Dim);
 
     uint perc_mstep = qms::metro_steps/20;
+    
+    if( access( outfilename.c_str(), F_OK ) == -1 ){
+        FILE * fil = fopen(outfilename.c_str(), "w");
+        fprintf(fil, "# it E%s\n",(qms::Xmatstem!="")?" A":"");
+        fclose(fil);
+    }
 
     bool take_measure;
     uint s0 = 0U;
@@ -106,24 +126,16 @@ int main(int argc, char** argv){
         }
         if(s%perc_mstep==0){
             cout<<("iteration: "+to_string(s)+"/"+to_string(qms::metro_steps))<<endl;
+            save_measures(outfilename);
         }
     }
     cout<<endl;
 
+    save_measures(outfilename);
+
     cout<<"all fine :)\n"<<endl;
 
-    FILE * fil = fopen(outfilename.c_str(), "w");
 
-    fprintf(fil, "# it E%s\n",(qms::Xmatstem!="")?" A":"");
-
-    for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
-        if(qms::Xmatstem!=""){
-            fprintf(fil, "%d %.16lg %.16lg\n", ei, qms::E_measures[ei], qms::X_measures[ei]);
-        }else{
-            fprintf(fil, "%d %.16lg\n", ei, qms::E_measures[ei]);
-        }
-    }
-    fclose(fil);
 
     if(qms::record_reverse){
         FILE * fil_rev = fopen((outfilename+"_revcounts").c_str(), "w");

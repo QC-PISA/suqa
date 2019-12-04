@@ -23,7 +23,12 @@ else
     do
         for j in $(LC_NUMERIC=en_US.UTF-8 seq $hl $hs_stepsize $hh)
         do
-            ./main $i $j $num_iters $restart_num $ns $ne "$outfile_stem"_b\_"$i" --max-reverse $max_reverse --PE-time $pe_time --PE-steps $pe_steps --X-mat-stem $X_mat_stem $reverse_count &
+            if [ -z "$X_mat_stem" ]
+            then
+                ./main $i $j $num_iters $restart_num $ns $ne "$outfile_stem"_b\_"$i" --max-reverse $max_reverse --PE-time $pe_time --PE-steps $pe_steps $reverse_count &
+            else
+                ./main $i $j $num_iters $restart_num $ns $ne "$outfile_stem"_b\_"$i" --max-reverse $max_reverse --PE-time $pe_time --PE-steps $pe_steps --X-mat-stem $X_mat_stem $reverse_count &
+            fi
         done
     done
     wait

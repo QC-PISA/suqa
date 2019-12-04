@@ -14,6 +14,11 @@ void init_state(std::vector<Complex>& state, uint Dim){
 //    state[3] = -TWOSQINV; 
 }
 
+/* Hamiltonian
+ *
+ * H = {{1, 0, 0},{0, 1, 1},{0, 1, 1}}; -> E = 1, 2, 0
+ *
+ */
 
 /* Quantum evolutor of the state */
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
@@ -36,17 +41,17 @@ void cevolution(std::vector<std::complex<double>>& state, const double& t, const
       
             uint i_1 = i_0 | (1U << qstate[0]);
             uint i_2 = i_0 | (1U << qstate[1]);
-            uint i_3 = i_1 | i_2;
+//            uint i_3 = i_1 | i_2;
 
             std::complex<double> a_0 = state[i_0];
             std::complex<double> a_1 = state[i_1];
             std::complex<double> a_2 = state[i_2];
-            std::complex<double> a_3 = state[i_3];
+//            std::complex<double> a_3 = state[i_3];
             
             state[i_0] = exp(-dt*iu)*a_0;
             state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
             state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] = exp(-dt*iu)*a_3;
+//            state[i_3] = exp(-dt*iu)*a_3;
         }
     }
 
