@@ -47,25 +47,29 @@ for i in range(len(kappas)):
             break
         thermpart = int(ndata-int(ndata/kappas[i])*kappas[i])
         print("cut: ",thermpart, ", blocksize: ",kappas[i], ", numblocks: ",int(ndata/kappas[i]))
-        ss[i].append(np.std(np.mean(ael[thermpart:].reshape((int(ndata/kappas[i]),kappas[i])), axis = 1))/np.sqrt(ndata/kappas[i]))
+        ss[i].append(np.nanstd(np.mean(ael[thermpart:].reshape((int(ndata/kappas[i]),kappas[i])), axis = 1))/np.sqrt(ndata/kappas[i]))
 
-Hs=np.array([1.,0.,2.])
+Hs=np.array([1.,0.,1./np.sqrt(2.)])
 def Z(b):
     return np.sum(np.exp(-np.outer(b, Hs)),axis=1)
 ene_exact=np.sum(np.exp(-np.outer(bs, Hs))*Hs,axis=1)/Z(bs)
 ax1.plot(bs,ene_exact, label=r'$\langle E \rangle(\beta)$ (exact)')
-ax1.errorbar(bs,vs,ss[0],linestyle="",capsize=3, label=r'$\langle E \rangle(\beta)$  (data)', ecolor="r")
-for sss in ss[1:]:
-    if len(sss) < 1:
-        continue
-    ax1.errorbar(bs,vs,sss,linestyle="",capsize=3, ecolor="r")
+if len(ss)>0:
+    if not len(ss[0]) < len(bs):
+        ax1.errorbar(bs,vs,ss[0],linestyle="",capsize=3, label=r'$\langle E \rangle(\beta)$  (data)', ecolor="r")
+    for sss in ss[1:]:
+        if len(sss) < len(bs):
+            continue
+            ax1.errorbar(bs,vs,sss,linestyle="",capsize=3, ecolor="r")
 
 ax2.plot(bs,0.0*bs, label=r'Baseline')
-ax2.errorbar(bs,vs-ene_exact,ss[0],linestyle="",capsize=3, label=r'$\langle E \rangle(\beta) - \langle E \rangle_{exact}$  (data)', ecolor="r")
-for sss in ss[1:]:
-    if len(sss) < 1:
-        continue
-    ax2.errorbar(bs,vs-ene_exact,sss,linestyle="",capsize=3, ecolor="r")
+if len(ss)>0:
+    if not len(ss[0]) < len(bs):
+        ax2.errorbar(bs,vs-ene_exact,ss[0],linestyle="",capsize=3, label=r'$\langle E \rangle(\beta) - \langle E \rangle_{exact}$  (data)', ecolor="r")
+    for sss in ss[1:]:
+        if len(sss) < len(bs):
+            continue
+        ax2.errorbar(bs,vs-ene_exact,sss,linestyle="",capsize=3, ecolor="r")
 
 if len(aa[0].shape)>=2:
 
