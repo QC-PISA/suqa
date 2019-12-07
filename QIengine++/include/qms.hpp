@@ -204,9 +204,8 @@ void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state,
 
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
-        for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-            cevolution(state, t, n, q_target[trg], q_state);
-        }
+        uint powr = pow(2,q_target.size()-1-trg);
+        cevolution(state, powr*t, powr*n, q_target[trg], q_state);
     }
     DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
     DEBUG_CALL(sparse_print(state));
@@ -225,11 +224,8 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 
     // apply CUs
     for(uint trg = 0; trg < q_target.size(); ++trg){
-        for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-            for(uint ti = 0; ti < n; ++ti){
-                cevolution(state, -t, n, q_target[trg], q_state);
-            }
-        }
+        uint powr = pow(2,q_target.size()-1-trg);
+        cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
     }
     
     qi_h(state,q_target);

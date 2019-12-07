@@ -10,7 +10,7 @@ const double TWOSQINV = 1./sqrt(2.);
 void init_state(std::vector<Complex>& state, uint Dim){
     state.resize(Dim);
     std::fill_n(state.begin(), state.size(), 0.0);
-    state[0] = 1; //TWOSQINV; 
+    state[1] = 1; //TWOSQINV; 
 //    state[3] = -TWOSQINV; 
 }
 
@@ -84,17 +84,17 @@ void cevolution(std::vector<std::complex<double>>& state, const double& t, const
       
             uint i_1 = i_0 | (1U << qstate[0]);
             uint i_2 = i_0 | (1U << qstate[1]);
-//            uint i_3 = i_1 | i_2;
+            uint i_3 = i_1 | i_2;
 
             std::complex<double> a_0 = state[i_0];
             std::complex<double> a_1 = state[i_1];
             std::complex<double> a_2 = state[i_2];
-//            std::complex<double> a_3 = state[i_3];
+            std::complex<double> a_3 = state[i_3];
             
             state[i_0] = a_0;
-            state[i_1] = exp(-dt*iu*TWOSQINV)*a_1; //(cos(dt)*a_1 -sin(dt)*iu*a_2);
-            state[i_2] = exp(-dt*iu)*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-//            state[i_3] = exp(-dt*iu)*a_3;
+            state[i_1] = exp(-dt*iu*(1./sqrt(2)))*a_1; //(cos(dt)*a_1 -sin(dt)*iu*a_2);
+            state[i_2] = exp(-dt*iu*(1./2.))*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] = exp(-dt*iu*(3./4.))*a_3;
         }
     }
 
@@ -303,7 +303,8 @@ void apply_measure_antirotation(std::vector<Complex>& state){
 //    }
 //}
 
-std::vector<double> C_weigthsums = {1./2, 1.0};
+std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
+void qi_x(std::vector<Complex>& state, const std::vector<uint>& q);
 void qi_cx(std::vector<Complex>& state, const uint& q_control, const uint& q_mask, const uint& q_target);
 void qi_swap(std::vector<Complex>& state, const uint& q1, const uint& q2);
 
@@ -313,6 +314,8 @@ void apply_C(std::vector<Complex>& state, const std::vector<uint>& bm_states, co
         qi_cx(state,bm_states[1], 0, bm_states[0]);
     }else if(Ci==1U){
         qi_swap(state,bm_states[1],bm_states[0]);
+    }else if(Ci==2U){
+        qi_x(state,bm_states);
     }else{
         throw "Error!";
     }
