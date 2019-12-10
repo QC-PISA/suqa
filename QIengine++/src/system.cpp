@@ -59,7 +59,7 @@ void init_state(std::vector<Complex>& state, uint Dim){
 
 /* Hamiltonian
  *
- * H = {{0, 0, 0},{0, 1/sqrt(2), 0},{0, 0, 1}}; -> E = 0, 1/sqrt(2), 1
+ * H = E = 0, 1/2, 1/sqrt(2), 3/4
  *
  */
 
