@@ -9,6 +9,7 @@
 #include <cassert>
 #include "include/Rand.hpp"
 #include <chrono>
+#include <unistd.h>
 #include "include/io.hpp"
 #include "include/parser.hpp"
 #include "include/suqa_gates.hpp"
@@ -103,6 +104,14 @@ int main(int argc, char** argv){
 
     uint perc_mstep = qms::metro_steps/20;
 
+    FILE * fil;
+    // manage header
+    if( access(outfilename.c_str(), F_OK) == -1){
+        fil = fopen(outfilename.c_str(), "w");
+        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
+        fclose(fil);
+    }
+
     bool take_measure;
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
@@ -115,6 +124,18 @@ int main(int argc, char** argv){
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
+            fil = fopen(outfilename.c_str(), "a");
+            for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
+                if(qms::Xmatstem!=""){
+                    fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
+                }else{
+                    fprintf(fil, "%.16lg\n", qms::E_measures[ei]);
+                }
+            }
+            fclose(fil);
+            qms::E_measures.clear();
+            qms::X_measures.clear();
+
 #ifdef NDEBUG
             cout<<("\riteration: "+to_string(s)+"/"+to_string(qms::metro_steps));
             cout.flush();
@@ -127,22 +148,10 @@ int main(int argc, char** argv){
 
     cout<<"all fine :)\n"<<endl;
 
-    FILE * fil = fopen(outfilename.c_str(), "w");
 
-    fprintf(fil, "# it E%s\n",(qms::Xmatstem!="")?" A":"");
-
-    for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
-        if(qms::Xmatstem!=""){
-            fprintf(fil, "%d %.16lg %.16lg\n", ei, qms::E_measures[ei], qms::X_measures[ei]);
-        }else{
-            fprintf(fil, "%d %.16lg\n", ei, qms::E_measures[ei]);
-        }
-    }
-    fclose(fil);
 
     if(qms::record_reverse){
         FILE * fil_rev = fopen((outfilename+"_revcounts").c_str(), "w");
-
 
         for(uint i = 0; i < qms::reverse_counters.size(); ++i){
             fprintf(fil_rev, "%d %d\n", i, (int)qms::reverse_counters[i]);
