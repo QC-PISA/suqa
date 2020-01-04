@@ -8,12 +8,12 @@
 #include <unistd.h>
 #include <cmath>
 #include <cassert>
-#include "include/Rand.hpp"
+#include "Rand.hpp"
 #include <chrono>
-#include "include/io.hpp"
-#include "include/parser.hpp"
-#include "include/suqa_gates.hpp"
-#include "include/qms.hpp"
+#include "io.hpp"
+#include "parser.hpp"
+#include "suqa.hpp"
+#include "qms.hpp"
 
 using namespace std;
 

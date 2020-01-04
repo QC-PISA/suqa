@@ -1,7 +1,7 @@
 #pragma once
-#include "include/Rand.hpp"
-#include "include/io.hpp"
-#include "include/suqa_gates.hpp"
+#include "Rand.hpp"
+#include "io.hpp"
+#include "suqa.hpp"
 
 
 // defined in src/evolution.cpp
@@ -126,9 +126,9 @@ uint creg_to_uint(const vector<uint>& c_reg){
 void reset_non_state_qbits(vector<Complex>& state){
     DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
-    qi_reset(state, bm_enes_old);
-    qi_reset(state, bm_enes_new);
-    qi_reset(state, bm_acc);
+    suqa::qi_reset(state, bm_enes_old);
+    suqa::qi_reset(state, bm_enes_new);
+    suqa::qi_reset(state, bm_acc);
     DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
 }
@@ -156,7 +156,7 @@ void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
                 state[i] = {0.0, 0.0};        
         }
     }
-    vnormalize(state);
+    suqa::vnormalize(state);
 }
 
 //TODO: can be optimized for multiple qbits measures?
@@ -178,7 +178,7 @@ void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target,
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
-        qi_h(state, qact[outer_i]);
+        suqa::qi_h(state, qact[outer_i]);
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
             qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
         }
@@ -192,13 +192,13 @@ void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
         }
-        qi_h(state, qact[outer_i]);
+        suqa::qi_h(state, qact[outer_i]);
     }
 }
 
 void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
     DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
-    qi_h(state,q_target);
+    suqa::qi_h(state,q_target);
     DEBUG_CALL(cout<<"after qi_h(state,q_target)"<<endl);
     DEBUG_CALL(sparse_print(state));
 
@@ -228,7 +228,7 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
         cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
     }
     
-    qi_h(state,q_target);
+    suqa::qi_h(state,q_target);
 
 }
 
@@ -288,7 +288,7 @@ void apply_W(){
             uint j = i & ~(1U << bm_acc);
             const double fdE = W_fs[dE];
             DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-            apply_2x2mat(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
+            suqa::apply_2x2mat<Complex>(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
             DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i >> bm_acc) & 1U){
             uint j = i & ~(1U << bm_acc);
@@ -400,7 +400,7 @@ int metro_step(bool take_measure){
         if(take_measure){
             Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
             E_measures.push_back(Enew_meas_d);
-            qi_reset(gState, bm_enes_new);
+            suqa::qi_reset(gState, bm_enes_new);
             X_measures.push_back(measure_X());
 ////            X_measures.push_back(0.0);
             DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
@@ -408,7 +408,7 @@ int metro_step(bool take_measure){
             DEBUG_CALL(sparse_print(gState));
             DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
 //            reset_non_state_qbits();
-            qi_reset(gState, bm_enes_new);
+            suqa::qi_reset(gState, bm_enes_new);
             apply_Phi();
             measure_qbits(gState, bm_enes_new, c_E_news);
             DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
@@ -448,12 +448,12 @@ int metro_step(bool take_measure){
                 DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas_d<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
-                qi_reset(gState, bm_enes_new);
+                suqa::qi_reset(gState, bm_enes_new);
                 X_measures.push_back(measure_X());
                 DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
                 DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-                qi_reset(gState, bm_enes_new);
+                suqa::qi_reset(gState, bm_enes_new);
                 apply_Phi();
                 measure_qbits(gState, bm_enes_new, c_E_news);
                 DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);

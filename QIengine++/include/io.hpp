@@ -26,3 +26,9 @@ void sparse_print(std::vector<std::complex<T>> v){
     std::cout<<std::endl;
 }
 
+template<class T>
+void print(std::vector<T> v){
+    for(const auto& el : v)
+        std::cout<<el<<" ";
+    std::cout<<std::endl;
+}

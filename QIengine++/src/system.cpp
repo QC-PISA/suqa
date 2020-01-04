@@ -1,11 +1,7 @@
 #include <vector>
 #include <complex>
 #include <string>
-
-typedef std::complex<double> Complex;
-const Complex iu(0,1);
-
-const double TWOSQINV = 1./sqrt(2.);
+#include "suqa.hpp"
 
 void init_state(std::vector<Complex>& state, uint Dim){
     state.resize(Dim);
@@ -304,18 +300,14 @@ void apply_measure_antirotation(std::vector<Complex>& state){
 //}
 
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
-void qi_x(std::vector<Complex>& state, const std::vector<uint>& q);
-void qi_cx(std::vector<Complex>& state, const uint& q_control, const uint& q_mask, const uint& q_target);
-void qi_swap(std::vector<Complex>& state, const uint& q1, const uint& q2);
-
 
 void apply_C(std::vector<Complex>& state, const std::vector<uint>& bm_states, const uint &Ci){
     if(Ci==0U){
-        qi_cx(state,bm_states[1], 0, bm_states[0]);
+        suqa::qi_cx(state,bm_states[1], 0, bm_states[0]);
     }else if(Ci==1U){
-        qi_swap(state,bm_states[1],bm_states[0]);
+        suqa::qi_swap(state,bm_states[1],bm_states[0]);
     }else if(Ci==2U){
-        qi_x(state,bm_states);
+        suqa::qi_x(state,bm_states);
     }else{
         throw "Error!";
     }
