@@ -1,7 +1,7 @@
 .PHONY: release debug clean 
 
 CXX = g++
-CXXFLAGS = -Wall -Wextra -std=c++11
+CXXFLAGS = -Wall -Wextra -std=c++11 -I.
 INCLUDES = $(wildcard include/*)
 
 SRC = src
@@ -14,6 +14,7 @@ debug: CXXFLAGS += -g
 debug: main
 
 $(OBJDIR)/%.o: $(SRC)/%.cpp $(INCLUDES)
+	mkdir -p $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 
 	
 main: $(OBJDIR)/system.o $(OBJDIR)/main.o
