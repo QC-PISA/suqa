@@ -72,3 +72,22 @@ __host__ __device__ static __inline__ Complex& operator+=(Complex& el, const Com
     el.y+=incr.y;
     return el;
 }
+
+__host__ __device__ static __inline__ Complex& operator*=(Complex& el, const Complex& fact){
+    double tmpval = el.x;
+    el.x = el.x*fact.x - el.y*fact.y;
+    el.y = tmpval*fact.y + el.y*fact.x;
+    return el;
+}
+
+
+__host__ __device__ static __inline__ Complex exp_argim (double z){
+
+    Complex res;
+
+    sincos (z, &res.y, &res.x);
+
+    return res;
+
+}
+

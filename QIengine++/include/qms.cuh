@@ -141,33 +141,8 @@ void reset_non_state_qbits(ComplexVec& state){
 //    DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 }
-//
-//void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
-//    double prob1 = 0.0;
-//
-//    for(uint i = 0U; i < state.size(); ++i){
-//        if((i >> q) & 1U){
-//            prob1+=norm(state[i]); 
-//        }
-//    }
-//    double rdoub = rangen.doub();
-//    DEBUG_CALL(cout<<"prob1 = "<<prob1<<", rdoub = "<<rdoub<<endl);
-//    c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
-//    
-//    if(c){ // set to 0 coeffs with bm_acc 0
-//        for(uint i = 0U; i < state.size(); ++i){
-//            if(((i >> q) & 1U) == 0U)
-//                state[i] = {0.0, 0.0};        
-//        }
-//    }else{ // set to 0 coeffs with bm_acc 1
-//        for(uint i = 0U; i < state.size(); ++i){
-//            if(((i >> q) & 1U) == 1U)
-//                state[i] = {0.0, 0.0};        
-//        }
-//    }
-//    suqa::vnormalize(state);
-//}
-//
+
+
 ////TODO: can be optimized for multiple qbits measures?
 void measure_qbits(ComplexVec& state, const std::vector<uint>& qs, std::vector<uint>& cs){
     for(uint k = 0U; k < qs.size(); ++k)
@@ -175,74 +150,95 @@ void measure_qbits(ComplexVec& state, const std::vector<uint>& qs, std::vector<u
 }
 
 
-void qi_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
-    //TODO: implement kernel
-//    for(uint i = 0U; i < state.size(); ++i){
-//        // for the swap, not only q_target:1 but also q_control:1
-//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-//            state[i] *= (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
-//        }
-//    }
+__global__ 
+void kernel_qms_crm(Complex *const state, uint len, uint q_control, uint q_target, Complex rphase){
+//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
+     
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i<len){
+        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
+            state[i]*= rphase;
+        }
+        i+=gridDim.x*blockDim.x;
+    }
 }
 
-void qi_qft(ComplexVec& state, const std::vector<uint>& qact){
+
+void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
+    Complex rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
+    if(m>0) rphase.y*=-1;
+
+#if defined(CUDA_HOST)
+    for(uint i = 0U; i < state.size(); ++i){
+        // for the swap, not only q_target:1 but also q_control:1
+        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
+            state[i]*= rphase;
+        }
+    }
+#else // CUDA defined
+    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q_control, q_target, rphase);
+#endif
+    //TODO: implement kernel
+}
+
+void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
         suqa::apply_h(state, qact[outer_i]);
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
-            qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            qms_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
         }
     }
 }
 
 
-void qi_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
-//    int qsize = qact.size();
-//    for(int outer_i=0; outer_i<qsize; outer_i++){
-//        for(int inner_i=0; inner_i<outer_i; inner_i++){
-//            qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
-//        }
-//        suqa::qi_h(state, qact[outer_i]);
-//    }
+void qms_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
+    int qsize = qact.size();
+    for(int outer_i=0; outer_i<qsize; outer_i++){
+        for(int inner_i=0; inner_i<outer_i; inner_i++){
+            qms_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+        }
+        suqa::apply_h(state, qact[outer_i]);
+    }
 }
 
 void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
 //    DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
-//    suqa::qi_h(state,q_target);
+    suqa::apply_h(state,q_target);
 //    DEBUG_CALL(cout<<"after qi_h(state,q_target)"<<endl);
 //    DEBUG_CALL(sparse_print(state));
-//
-//    // apply CUs
-//    for(int trg = q_target.size() - 1; trg > -1; --trg){
-//        uint powr = pow(2,q_target.size()-1-trg);
-//        cevolution(state, powr*t, powr*n, q_target[trg], q_state);
-//    }
+
+    // apply CUs
+    for(int trg = q_target.size() - 1; trg > -1; --trg){
+        uint powr = (1U << (q_target.size()-1-trg));
+        cevolution(state, powr*t, powr*n, q_target[trg], q_state);
+    }
 //    DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
 //    DEBUG_CALL(sparse_print(state));
-//    
-//    // apply QFT^{-1}
-//    qi_qft_inverse(state, q_target); 
+    
+    // apply QFT^{-1}
+    qms_qft_inverse(state, q_target); 
 
 }
 
 void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
 //    DEBUG_CALL(cout<<"apply_phase_estimation_inverse()"<<endl);
-//
-//    // apply QFT
-//    qi_qft(state, q_target); 
-//
-//
-//    // apply CUs
-//    for(uint trg = 0; trg < q_target.size(); ++trg){
-//        uint powr = pow(2,q_target.size()-1-trg);
-//        cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
-//    }
-//    
-//    suqa::qi_h(state,q_target);
-//
+
+    // apply QFT
+    qms_qft(state, q_target); 
+
+
+    // apply CUs
+    for(uint trg = 0; trg < q_target.size(); ++trg){
+        uint powr = (1U << (q_target.size()-1-trg));
+        cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
+    }
+    
+    suqa::apply_h(state,q_target);
+
 }
-//
-//
+
+
 void apply_Phi_old(){
 
     apply_phase_estimation(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
@@ -284,7 +280,7 @@ uint draw_C(){
 void apply_W(){
 //    DEBUG_CALL(cout<<"\n\nApply W"<<endl);
 //
-//    
+    
 //    for(uint i = 0U; i < gState.size(); ++i){
 //        bool matching = false;
 //        uint dE;

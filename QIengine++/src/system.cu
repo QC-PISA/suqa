@@ -78,41 +78,62 @@ void init_state(ComplexVec& state, uint Dim){
  *
  */
 
+__global__ 
+void kernel_cevolution(Complex *const state, uint len, uint mask, uint cmask, uint qstate0, uint qstate1, Complex ph1, Complex ph2, Complex ph3){
+//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
+     
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i_0<len){
+        if((i_0 & mask) == cmask){
+      
+            uint i_1 = i_0 | (1U << qstate0);
+            uint i_2 = i_0 | (1U << qstate1);
+            uint i_3 = i_1 | i_2;
+            
+//            state[i_0] = a_0;
+            state[i_1] *= ph1;
+            state[i_2] *= ph2; //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] *= ph3; //*a_3;
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+
 /* Quantum evolutor of the state */
 void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
-//
-//     (void)n; // Trotter not needed
-//     double dt = t;
-// 
-//
-//    if(qstate.size()!=2)
-//        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-//
-//    uint cmask = (1U << q_control);
-//	uint mask = cmask;
-//    for(const auto& qs : qstate){
-//        mask |= (1U << qs);
-//    }
-//
-//	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//        if((i_0 & mask) == cmask){
-//      
-//            uint i_1 = i_0 | (1U << qstate[0]);
-//            uint i_2 = i_0 | (1U << qstate[1]);
-//            uint i_3 = i_1 | i_2;
-//
-//            Complex a_0 = state[i_0];
-//            Complex a_1 = state[i_1];
-//            Complex a_2 = state[i_2];
-//            Complex a_3 = state[i_3];
-//            
+
+     (void)n; // Trotter not needed
+     double dt = t;
+ 
+
+    if(qstate.size()!=2)
+        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+
+    uint cmask = (1U << q_control);
+	uint mask = cmask;
+    for(const auto& qs : qstate){
+        mask |= (1U << qs);
+    }
+
+#if defined(CUDA_HOST)
+	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+        if((i_0 & mask) == cmask){
+      
+            uint i_1 = i_0 | (1U << qstate[0]);
+            uint i_2 = i_0 | (1U << qstate[1]);
+            uint i_3 = i_1 | i_2;
+            
 //            state[i_0] = a_0;
-//            state[i_1] = exp(-dt*iu*(1./sqrt(2)))*a_1; //(cos(dt)*a_1 -sin(dt)*iu*a_2);
-//            state[i_2] = exp(-dt*iu*(1./2.))*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-//            state[i_3] = exp(-dt*iu*(3./4.))*a_3;
-//        }
-//    }
-//
+            state[i_1] *= exp_argim(-dt*(1./sqrt(2)));
+            state[i_2] *= exp_argim(-dt*(1./2.)); //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] *= exp_argim(-dt*(3./4.)); //*a_3;
+        }
+    }
+#else // CUDA defined
+    //TODO: implement device code
+    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, cmask, qstate0, qstate1,exp_argim(-dt*(1./sqrt(2))), exp_argim(-dt*(1./2)), exp_argim(-dt*(3./4)));
+#endif
 }
 
 
