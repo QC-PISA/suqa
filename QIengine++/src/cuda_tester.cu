@@ -19,6 +19,7 @@
 using namespace std;
 
 #define ITERATIONS 100
+#define MAXBLOCKS 65535
 
 // externs
 uint suqa::threads;
@@ -52,7 +53,7 @@ int main(int argc, char** argv){
     uint Dim = (1U<<qbits);
     suqa::threads = (uint)atoi(argv[2]);
     suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
-    if(suqa::blocks>65535) suqa::blocks=65535;
+    if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
 
     double vec_norm;
 
