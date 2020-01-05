@@ -45,7 +45,7 @@ std::vector<uint> reverse_counters;
 
 pcg rangen;
 
-//vector<Complex> gState;
+ComplexVec gState;
 ////vector<double> energy_measures;
 std::vector<double> X_measures;
 std::vector<double> E_measures;
@@ -126,15 +126,21 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 }
 //XXX: the following two functions commented have parts define in suqa
 
-//void reset_non_state_qbits(vector<Complex>& state){
+void reset_non_state_qbits(ComplexVec& state){
 //    DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//    suqa::qi_reset(state, bm_enes_old);
-//    suqa::qi_reset(state, bm_enes_new);
-//    suqa::qi_reset(state, bm_acc);
+    std::vector<double> rgenerates(ene_qbits);
+
+    for(auto& el : rgenerates) el = rangen.doub();
+    suqa::apply_reset(state, bm_enes_old, rgenerates);
+
+    for(auto& el : rgenerates) el = rangen.doub();
+    suqa::apply_reset(state, bm_enes_new, rgenerates);
+
+    suqa::apply_reset(state, bm_acc, rangen.doub());
 //    DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//}
+}
 //
 //void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
 //    double prob1 = 0.0;
@@ -163,13 +169,14 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 //}
 //
 ////TODO: can be optimized for multiple qbits measures?
-void measure_qbits(std::vector<Complex>& state, const std::vector<uint>& qs, std::vector<uint>& cs){
-//    for(uint k = 0U; k < qs.size(); ++k)
-//        measure_qbit(state, qs[k], cs[k]);
+void measure_qbits(ComplexVec& state, const std::vector<uint>& qs, std::vector<uint>& cs){
+    for(uint k = 0U; k < qs.size(); ++k)
+        suqa::measure_qbit(state, qs[k], cs[k], rangen.doub());
 }
 
 
-void qi_crm(std::vector<Complex>& state, const uint& q_control, const uint& q_target, const int& m){
+void qi_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
+    //TODO: implement kernel
 //    for(uint i = 0U; i < state.size(); ++i){
 //        // for the swap, not only q_target:1 but also q_control:1
 //        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
@@ -178,18 +185,18 @@ void qi_crm(std::vector<Complex>& state, const uint& q_control, const uint& q_ta
 //    }
 }
 
-void qi_qft(std::vector<Complex>& state, const std::vector<uint>& qact){
-//    int qsize = qact.size();
-//    for(int outer_i=qsize-1; outer_i>=0; outer_i--){
-//        suqa::qi_h(state, qact[outer_i]);
-//        for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
-//            qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
-//        }
-//    }
+void qi_qft(ComplexVec& state, const std::vector<uint>& qact){
+    int qsize = qact.size();
+    for(int outer_i=qsize-1; outer_i>=0; outer_i--){
+        suqa::apply_h(state, qact[outer_i]);
+        for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
+            qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+        }
+    }
 }
 
 
-void qi_qft_inverse(std::vector<Complex>& state, const std::vector<uint>& qact){
+void qi_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
 //    int qsize = qact.size();
 //    for(int outer_i=0; outer_i<qsize; outer_i++){
 //        for(int inner_i=0; inner_i<outer_i; inner_i++){
@@ -199,7 +206,7 @@ void qi_qft_inverse(std::vector<Complex>& state, const std::vector<uint>& qact){
 //    }
 }
 
-void apply_phase_estimation(std::vector<Complex>& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
+void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
 //    DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
 //    suqa::qi_h(state,q_target);
 //    DEBUG_CALL(cout<<"after qi_h(state,q_target)"<<endl);
@@ -218,7 +225,7 @@ void apply_phase_estimation(std::vector<Complex>& state, const std::vector<uint>
 
 }
 
-void apply_phase_estimation_inverse(std::vector<Complex>& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
+void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
 //    DEBUG_CALL(cout<<"apply_phase_estimation_inverse()"<<endl);
 //
 //    // apply QFT
@@ -233,43 +240,43 @@ void apply_phase_estimation_inverse(std::vector<Complex>& state, const std::vect
 //    
 //    suqa::qi_h(state,q_target);
 //
-//}
+}
 //
 //
-//void apply_Phi_old(){
-//
-//    apply_phase_estimation(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
-//
+void apply_Phi_old(){
+
+    apply_phase_estimation(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
+
 }
 
 void apply_Phi_old_inverse(){
 
-//    apply_phase_estimation_inverse(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
+    apply_phase_estimation_inverse(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
 
 }
 
 void apply_Phi(){
 
-//    apply_phase_estimation(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation);
+    apply_phase_estimation(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation);
 
 }
 
 void apply_Phi_inverse(){
 
-//    apply_phase_estimation_inverse(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation);
+    apply_phase_estimation_inverse(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation);
 
 }
 
 
 uint draw_C(){
-//    vector<double> C_weigthsums = get_C_weigthsums();
-//    double extract = rangen.doub();
-//    for(uint Ci =0U; Ci < C_weigthsums.size(); ++Ci){
-//        if(extract<C_weigthsums[Ci]){
-//            return Ci;
-//        }
-//    }
-//    return C_weigthsums.size();
+    std::vector<double> C_weigthsums = get_C_weigthsums();
+    double extract = rangen.doub();
+    for(uint Ci =0U; Ci < C_weigthsums.size(); ++Ci){
+        if(extract<C_weigthsums[Ci]){
+            return Ci;
+        }
+    }
+    return C_weigthsums.size();
     return 0; //FIXME: to remove
 }
 
@@ -310,20 +317,20 @@ void apply_W_inverse(){
 
 void apply_U(){
 //    DEBUG_CALL(cout<<"\n\nApply U"<<endl);
-//    apply_C(gState, bm_states, gCi);
+    apply_C(gState, bm_states, gCi);
 //    DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 //
 //
 //
 //
-//    apply_Phi();
+    apply_Phi();
 //    DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 //
 //
 //
-//    apply_W();
+    apply_W();
 //    DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 }
@@ -378,17 +385,17 @@ int metro_step(bool take_measure){
     
 //    DEBUG_CALL(cout<<"initial state"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//    reset_non_state_qbits(gState);
+    reset_non_state_qbits(gState);
 //    DEBUG_CALL(cout<<"state after reset"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//    apply_Phi_old();
+    apply_Phi_old();
 //    DEBUG_CALL(cout<<"\n\nAfter first phase estimation"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 
 
     gCi = draw_C();
 //    DEBUG_CALL(cout<<"\n\ndrawn C = "<<gCi<<endl);
-//    apply_U();
+    apply_U();
 //
 //
 //    measure_qbit(gState, bm_acc, c_acc);

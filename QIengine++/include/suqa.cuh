@@ -44,9 +44,9 @@ void apply_swap(ComplexVec& state, const uint& q1, const uint& q2);
 
 
 /* SUQA utils */
-void measure_qbit(ComplexVec& state, const uint& q, uint& c, const double& rdoub);
+void measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub);
 
-void apply_reset(ComplexVec& state, const uint& q, const double& rdoub);
-void apply_reset(ComplexVec& state, const std::vector<uint>& qs, const std::vector<double>& rdoubs);
+void apply_reset(ComplexVec& state, uint q, double rdoub);
+void apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<double> rdoubs);
 
 };

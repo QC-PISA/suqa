@@ -3,7 +3,26 @@
 #include <string>
 #include "suqa.cuh"
 
+
+__global__ void initialize_state(Complex *state, uint len){
+    uint i = blockIdx.x*blockDim.x+threadIdx.x;
+    if(i==1){
+        state[1].x = 1.0;
+        state[1].y = 0.0;
+    }
+    while(i<len){
+        state[i].x = 0.0;
+        state[i].y = 0.0;
+        i += gridDim.x*blockDim.x;
+    }
+}
+
 void init_state(ComplexVec& state, uint Dim){
+    if(state.size()!=Dim)
+        throw std::runtime_error("ERROR: init_state() failed");
+       
+
+    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data,Dim);
 //    state.resize(Dim);
 //    std::fill_n(state.begin(), state.size(), 0.0);
 //    state[1].x = 1.0; //TWOSQINV; 

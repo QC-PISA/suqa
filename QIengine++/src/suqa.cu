@@ -502,7 +502,7 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret, Complex *v, uint len,
     if(tid==0) dev_partial_ret[blockIdx.x] = local_ret[0];
 }
 
-void suqa::measure_qbit(ComplexVec& state, const uint& q, uint& c, const double& rdoub){
+void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     double prob1 = 0.0;
     c=0U;
 #if defined(CUDA_HOST)
@@ -534,7 +534,7 @@ void suqa::measure_qbit(ComplexVec& state, const uint& q, uint& c, const double&
     suqa::vnormalize(state);
 }
 
-void suqa::apply_reset(ComplexVec& state, const uint& q, const double& rdoub){
+void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
     uint c;
     suqa::measure_qbit(state, q, c, rdoub);
     if(c){ // c==1U
@@ -543,7 +543,7 @@ void suqa::apply_reset(ComplexVec& state, const uint& q, const double& rdoub){
     }
 }  
 
-void suqa::apply_reset(ComplexVec& state, const std::vector<uint>& qs, const std::vector<double>& rdoubs){
+void suqa::apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<double> rdoubs){
     // qs.size() == rdoubs.size()
     for(uint i=0; i<qs.size(); ++i){
         suqa::apply_reset(state, qs[i], rdoubs[i]); 

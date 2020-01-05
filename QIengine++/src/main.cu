@@ -33,6 +33,7 @@ void print_banner(){
 "\nSimulator for Universal Quantum Algorithms\n\n");
 }
 
+#define MAXBLOCKS 65535
 uint suqa::threads;
 uint suqa::blocks;
 
@@ -59,6 +60,38 @@ void save_measures(string outfilename){
     qms::E_measures.clear();
     qms::X_measures.clear();
 }
+
+void deallocate_state(ComplexVec& state){
+#if defined(CUDA_HOST)
+    if(state.data!=nullptr)
+        delete [] state.data;
+#else
+    if(state.data!=nullptr){
+        cudaError_t err_code = cudaFree(state.data);
+        if(err_code!=cudaSuccess)
+            printf("ERROR: cudaFree() %s\n",cudaGetErrorString(err_code));
+    }
+#endif
+    state.data=nullptr;
+    state.vecsize=0U;
+}
+
+void allocate_state(ComplexVec& state, uint Dim){
+    if(state.data!=nullptr or Dim!=state.vecsize)
+        deallocate_state(state);
+
+    state.vecsize = Dim; 
+#if defined(CUDA_HOST)
+    //TODO: make allocations using cuda procedures
+    
+    state.data = new Complex[vecsize];
+#else
+    cudaError_t err_code = cudaMalloc((void**)&(state.data), state.vecsize*sizeof(Complex));
+    if(err_code!=cudaSuccess)
+        printf("ERROR: cudaMalloc() %s\n",cudaGetErrorString(err_code));
+#endif
+}
+
 
 int main(int argc, char** argv){
     if(argc < 8){
@@ -88,9 +121,13 @@ int main(int argc, char** argv){
     qms::iseed = qms::rangen.get_seed();
 
     qms::nqubits = qms::state_qbits + 2*qms::ene_qbits + 1;
-    qms::Dim = (uint)pow(2, qms::nqubits);
-    qms::ene_levels = (uint)pow(2, qms::ene_qbits);
-    qms::state_levels = (uint)pow(2, qms::state_qbits);
+    qms::Dim = (1U << qms::nqubits);
+    qms::ene_levels = (1U << qms::ene_qbits);
+    qms::state_levels = (1U << qms::state_qbits);
+
+    suqa::threads = 512;
+    suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
+    if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
     
     // Banner
     print_banner();
@@ -108,8 +145,11 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-//    init_state(qms::gState, qms::Dim);
+    allocate_state(qms::gState, qms::Dim);
+    init_state(qms::gState, qms::Dim);
 //
+
+    //TODO: make it an args option
     uint perc_mstep = qms::metro_steps/20;
     
     if( access( outfilename.c_str(), F_OK ) == -1 ){
@@ -137,6 +177,7 @@ int main(int argc, char** argv){
 //    save_measures(outfilename);
     }
     cout<<endl;
+    deallocate_state(qms::gState);
 
     cout<<"\nall fine :)\n"<<endl;
 

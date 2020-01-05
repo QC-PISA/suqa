@@ -8,30 +8,38 @@
 
 typedef cuDoubleComplex Complex; 
 struct ComplexVec{
-    Complex* data;
     uint vecsize;
+    Complex* data=nullptr;
     
-    ComplexVec(uint vvecsize) : vecsize(vvecsize) {
+    ComplexVec() : vecsize(0U), data(nullptr) {}
+
+    ComplexVec(uint vvecsize) {
+//        // allocation and deallocation 
+//        // are managed by external methods called in main()
+//        // to prevent cudaErrorCudartUnloading
+////        allocate(vvecsize);
 #if defined(CUDA_HOST)
     //TODO: make allocations using cuda procedures
-        data = new Complex[vecsize];
+        vecsize = vvecsize;
+        state.data = new Complex[vecsize];
 #else
-    int err_code = cudaMalloc((void**)&data, vecsize*sizeof(Complex));
-    if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMalloc errno=%d\n",err_code);
+        printf("WARNING: allocations and deallocations" 
+               "are managed by external methods called in main()"
+               "to prevent cudaErrorCudartUnloading");
 #endif
     }
 
     ~ComplexVec() {
-        
+        // allocation and deallocation 
+        // are managed by external methods called in main()
+        // to prevent cudaErrorCudartUnloading
+//        deallocate();        
 #if defined(CUDA_HOST)
-        delete [] data;
-#else
-        int err_code = cudaFree(data);
-        if(err_code!=cudaSuccess)
-            printf("ERROR: cudaFree errno=%d\n",err_code);
+        if(data!=nullptr)
+            delete [] data;
+        data = nullptr;
+        vecsize = 0U;
 #endif
-    
     }
 
     size_t size() const{ return vecsize; }
