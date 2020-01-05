@@ -20,6 +20,10 @@ using namespace std;
 
 #define ITERATIONS 100
 
+// externs
+uint suqa::threads;
+uint suqa::blocks;
+
 #if !defined(CUDA_HOST)
 
 //TODO: maybe, put len and some other constants
@@ -36,6 +40,7 @@ __global__ void initialize_state(Complex *state, uint len){
 #endif
 
 
+
 int main(int argc, char** argv){
     if(argc<3){
         printf("usage: %s <qbits> <threads>\n",argv[0]);
@@ -45,6 +50,9 @@ int main(int argc, char** argv){
 
     uint qbits = (uint)atoi(argv[1]);
     uint Dim = (1U<<qbits);
+    suqa::threads = (uint)atoi(argv[2]);
+    suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
+    if(suqa::blocks>65535) suqa::blocks=65535;
 
     double vec_norm;
 
@@ -68,23 +76,19 @@ int main(int argc, char** argv){
 //    }
 //    cout<<"vec_norm = "<<suqa::vnorm(1,1,state)<<endl;
     for(uint j=0; j<ITERATIONS; ++j){
-        suqa::apply_h(1, 1, state, (j)%qbits);
-        suqa::apply_x(1, 1, state, (j+qbits/2)%qbits);
-        suqa::apply_cx(1, 1, state, (j+qbits/3)%qbits, (j+2*qbits/3)%qbits);
-        vec_norm = suqa::vnorm(1,1,state);
+        suqa::apply_h(state, (j)%qbits);
+        suqa::apply_x(state, (j+qbits/2)%qbits);
+        suqa::apply_cx(state, (j+qbits/3)%qbits, (j+2*qbits/3)%qbits);
+        vec_norm = suqa::vnorm(state);
     }
 //    vec_norm = suqa::vnorm(1,1,state);
 
 #else
-    uint threads = (uint)atoi(argv[2]);
-    uint blocks = (Dim+threads-1)/threads;
-    if(blocks>65535)
-        blocks=65535;
 //    Complex* host_state = new Complex[Dim];
 
     ComplexVec state(Dim);
 //    cout<<"Initial vector:"<<Dim<<endl;
-    initialize_state<<<blocks,threads>>>(state.data,Dim);
+    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data,Dim);
     
 //    cudaMemcpy(host_state, state.data, Dim*sizeof(Complex), cudaMemcpyDeviceToHost);
 //
@@ -94,11 +98,12 @@ int main(int argc, char** argv){
 
     cudaDeviceSynchronize();
     auto t_start = std::chrono::high_resolution_clock::now();
+
     for(uint j=0; j<ITERATIONS; ++j){
-        suqa::apply_h(blocks, threads, state, (j)%qbits);
-        suqa::apply_x(blocks, threads, state, (j+qbits/2)%qbits);
-        suqa::apply_cx(blocks, threads, state, (j+qbits/3)%qbits, (j+2*qbits/3)%qbits);
-        vec_norm = suqa::vnorm(blocks, threads, state);
+        suqa::apply_h(state, (j)%qbits);
+        suqa::apply_x(state, (j+qbits/2)%qbits);
+        suqa::apply_cx(state, (j+qbits/3)%qbits, (j+2*qbits/3)%qbits);
+        vec_norm = suqa::vnorm(state);
     }
 //    vec_norm = suqa::vnorm(blocks, threads, state);
 //    cout<<"\napply vnormalize\n"<<endl;
