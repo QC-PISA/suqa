@@ -4,6 +4,21 @@
 #include "suqa.cuh"
 #include "complex_defines.cuh"
 
+#if !defined(NDEBUG) 
+#if defined(CUDA_HOST)
+#define DEBUG_READ_STATE() {\
+    sparse_print((double*)qms::gState.data, qms::gState.size()); \
+}
+#else
+Complex *host_state;
+#define DEBUG_READ_STATE() {\
+    cudaMemcpy(host_state,gState.data,gState.size()*sizeof(Complex),cudaMemcpyDeviceToHost); \
+    sparse_print((double*)host_state,gState.size()); \
+} 
+#endif
+#else
+#define DEBUG_READ_STATE()
+#endif
 
 // defined in src/evolution.cpp
 void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate);
@@ -139,6 +154,8 @@ void fill_W_utils(double beta, double t_PE_factor){
             }
 #if !defined(CUDA_HOST)
             host_W_case_masks[uptri_sum_formula(i)+Ei] = W_case_masks[i][Ei];
+#else
+            DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[i][Ei]<<std::endl);
 #endif
         }
     }
@@ -175,8 +192,10 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 //XXX: the following two functions commented have parts define in suqa
 
 void reset_non_state_qbits(ComplexVec& state){
-//    DEBUG_CALL(std::cout<<"\n\nBefore reset"<<std::endl);
-//    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"\n\nBefore reset"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
+#endif
     std::vector<double> rgenerates(ene_qbits);
 
     for(auto& el : rgenerates) el = rangen.doub();
@@ -186,8 +205,10 @@ void reset_non_state_qbits(ComplexVec& state){
     suqa::apply_reset(state, bm_enes_new, rgenerates);
 
     suqa::apply_reset(state, bm_acc, rangen.doub());
-//    DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
-//    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
+#endif
 }
 
 
@@ -214,7 +235,7 @@ void kernel_qms_crm(Complex *const state, uint len, uint q_control, uint q_targe
 
 void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
     Complex rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
-    if(m>0) rphase.y*=-1;
+    if(m<0) rphase.y*=-1;
 
 #if defined(CUDA_HOST)
     for(uint i = 0U; i < state.size(); ++i){
@@ -244,24 +265,36 @@ void qms_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qms_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+#if defined(CUDA_HOST)
+            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+            DEBUG_CALL(sparse_print((double*)state.data, state.size()));
+#endif
         }
         suqa::apply_h(state, qact[outer_i]);
+#if defined(CUDA_HOST)
+            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+            DEBUG_CALL(sparse_print((double*)state.data, state.size()));
+#endif
     }
 }
 
 void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
-//    DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
+    DEBUG_CALL(std::cout<<"apply_phase_estimation()"<<std::endl);
     suqa::apply_h(state,q_target);
-//    DEBUG_CALL(cout<<"after qi_h(state,q_target)"<<endl);
-//    DEBUG_CALL(sparse_print(state));
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"after qi_h(state,q_target)"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
+#endif
 
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
         uint powr = (1U << (q_target.size()-1-trg));
         cevolution(state, powr*t, powr*n, q_target[trg], q_state);
     }
-//    DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
-//    DEBUG_CALL(sparse_print(state));
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
+#endif
     
     // apply QFT^{-1}
     qms_qft_inverse(state, q_target); 
@@ -269,7 +302,7 @@ void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state,
 }
 
 void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
-//    DEBUG_CALL(cout<<"apply_phase_estimation_inverse()"<<endl);
+    DEBUG_CALL(std::cout<<"apply_phase_estimation_inverse()"<<std::endl);
 
     // apply QFT
     qms_qft(state, q_target); 
@@ -445,20 +478,14 @@ int metro_step(bool take_measure){
     // -1 -> step rejected non restored 
     int ret=0;
     
-#if defined(CUDA_HOST)
-    DEBUG_CALL(std::cout<<"Initial state:"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
-#endif
+    DEBUG_CALL(std::cout<<"initial state"<<std::endl);
+    DEBUG_READ_STATE();
     reset_non_state_qbits(gState);
-#if defined(CUDA_HOST)
-    DEBUG_CALL(std::cout<<"\nstate after reset:"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
-#endif
+    DEBUG_CALL(std::cout<<"state after reset"<<std::endl);
+    DEBUG_READ_STATE();
     apply_Phi_old();
-#if defined(CUDA_HOST)
     DEBUG_CALL(std::cout<<"\n\nAfter first phase estimation"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
-#endif
+    DEBUG_READ_STATE();
 
     gCi = draw_C();
     DEBUG_CALL(std::cout<<"\n\ndrawn C = "<<gCi<<std::endl);
@@ -471,6 +498,7 @@ int metro_step(bool take_measure){
         DEBUG_CALL(std::cout<<"accepted"<<std::endl);
         double Enew_meas_d;
         std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
+        DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
         measure_qbits(gState, bm_enes_new, c_E_news);
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
         DEBUG_CALL(std::cout<<"  energy measure : "<<tmp_E<<std::endl); 
@@ -483,19 +511,17 @@ int metro_step(bool take_measure){
             }
             X_measures.push_back(measure_X());
 ////            X_measures.push_back(0.0);
-//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-//            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
-//            DEBUG_CALL(sparse_print(gState));
-//            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+            DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
+            DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
+            DEBUG_READ_STATE();
+            DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
 ////           reset_non_state_qbits();
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
             apply_Phi();
             measure_qbits(gState, bm_enes_new, c_E_news);
-#if defined(CUDA_HOST)
             DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
-            DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
-#endif
+            DEBUG_READ_STATE();
             apply_Phi_inverse();
 
             ret = 2; // step accepted, measured
@@ -508,9 +534,9 @@ int metro_step(bool take_measure){
 
     DEBUG_CALL(std::cout<<"rejected; restoration cycle:"<<std::endl);
     apply_U_inverse();
-//
-//    DEBUG_CALL(cout<<"\n\nBefore reverse attempts"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+    
+    DEBUG_CALL(std::cout<<"\n\nBefore reverse attempts"<<std::endl);
+    DEBUG_READ_STATE();
     uint iters = 0;
     while(iters < max_reverse_attempts){
         apply_Phi();
@@ -525,24 +551,25 @@ int metro_step(bool take_measure){
         apply_Phi_inverse();
         
         if(Eold_meas == Enew_meas){
-//            DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
+            DEBUG_CALL(std::cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<std::endl); 
             if(take_measure){
                 E_measures.push_back(Eold_meas_d);
-//                DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas_d<<endl); 
-//                DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
-//                DEBUG_CALL(sparse_print(gState));
+                DEBUG_CALL(std::cout<<"  energy measure : "<<Eold_meas_d<<std::endl); 
+                DEBUG_CALL(std::cout<<"\n\nBefore X measure"<<std::endl);
+                DEBUG_READ_STATE();
+
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
                 X_measures.push_back(measure_X());
-//                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
-//                DEBUG_CALL(sparse_print(gState));
-//                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
+                DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
+                DEBUG_READ_STATE();
+                DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
                 apply_Phi();
                 measure_qbits(gState, bm_enes_new, c_E_news);
-//                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
-//                DEBUG_CALL(sparse_print(gState));
+                DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
+                DEBUG_READ_STATE();
                 apply_Phi_inverse();
 
                 ret=4;
@@ -552,7 +579,7 @@ int metro_step(bool take_measure){
             break;
         }
         //else
-//        DEBUG_CALL(cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
+        DEBUG_CALL(std::cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<std::endl); 
         uint c_acc_trash;
         apply_U(); 
         suqa::measure_qbit(gState, bm_acc, c_acc_trash, rangen.doub()); 
@@ -566,8 +593,8 @@ int metro_step(bool take_measure){
     }
 
     if (iters == max_reverse_attempts){
-//        DEBUG_CALL(cout<<("not converged in "+to_string(max_reverse_attempts)+" steps :(")<<endl);
-//
+        DEBUG_CALL(std::cout<<("not converged in "+std::to_string(max_reverse_attempts)+" steps :(")<<std::endl);
+
         ret = -1;
         return ret;
     }else{
@@ -577,10 +604,26 @@ int metro_step(bool take_measure){
     return ret;
 }
 
+void setup(double beta){
+    qms::fill_rphase(qms::ene_qbits+1);
+    qms::fill_bitmap();
+    qms::fill_W_utils(beta, qms::t_PE_factor);
+    if(qms::Xmatstem!="")
+        qms::init_measure_structs();
+
+#if !defined(CUDA_HOST) && !defined(NDEBUG)
+    host_state = new Complex[qms::Dim];
+#endif
+}
+
 void clear(){
 #if !defined(CUDA_HOST)
     cudaFree(dev_W_case_masks);
+#ifndef NDEBUG
+    delete [] host_state;
 #endif
+#endif
+
 }
 
 

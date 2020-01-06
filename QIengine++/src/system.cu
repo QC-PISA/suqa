@@ -81,6 +81,7 @@ void init_state(ComplexVec& state, uint Dim){
  *
  */
 
+
 __global__ 
 void kernel_cevolution(Complex *const state, uint len, uint mask, uint cmask, uint qstate0, uint qstate1, Complex ph1, Complex ph2, Complex ph3){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
@@ -101,8 +102,9 @@ void kernel_cevolution(Complex *const state, uint len, uint mask, uint cmask, ui
         i_0+=gridDim.x*blockDim.x;
     }
 }
-
-
+#define eig1 (1./4.)   //(1./sqrt(2))
+#define eig2 (1./2.)     
+#define eig3 (3./4.) 
 /* Quantum evolutor of the state */
 void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
@@ -128,14 +130,14 @@ void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_
             uint i_3 = i_1 | i_2;
             
 //            state[i_0] = a_0;
-            state[i_1] *= expi(-dt*(1./sqrt(2)));
-            state[i_2] *= expi(-dt*(1./2.)); //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] *= expi(-dt*(3./4.)); //*a_3;
+            state[i_1] *= expi(-dt*eig1);
+            state[i_2] *= expi(-dt*eig2     ); //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] *= expi(-dt*eig3    ); //*a_3;
         }
     }
 #else // CUDA defined
     //TODO: implement device code
-    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*(1./sqrt(2))), expi(-dt*(1./2)), expi(-dt*(3./4)));
+    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*eig1), expi(-dt*eig2), expi(-dt*eig3));
 #endif
 }
 

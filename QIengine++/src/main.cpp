@@ -56,7 +56,7 @@ void save_measures(string outfilename){
 }
 
 int main(int argc, char** argv){
-    if(argc < 7){
+    if(argc < 8){
         printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
@@ -116,6 +116,7 @@ int main(int argc, char** argv){
     bool take_measure;
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
+        DEBUG_CALL(cout<<"metro step: "<<s<<endl);
         take_measure = (s>s0 and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 

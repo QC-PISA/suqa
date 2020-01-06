@@ -522,19 +522,39 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
     uint c_conj = c^1U; // 1U-c, since c=0U or 1U
 
+
+//    DEBUG_CALL(std::cout<<"prob1="<<prob1<<", c_conj="<<c_conj<<std::endl);
+//#if defined(CUDA_HOST)
+//    DEBUG_CALL(std::cout<<"before flipping qbit "<<c_conj<<std::endl);
+//    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
+//#endif
+
     // set to 0 coeffs with bm_acc 1-c
     set_to_zero_qbit(state, q, c_conj);
     suqa::vnormalize(state);
 }
 
 void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
+//    DEBUG_CALL(std::cout<<"Calling apply_reset() with q="<<q<<"and rdoub="<<rdoub<<std::endl);
     uint c;
     suqa::measure_qbit(state, q, c, rdoub);
     if(c){ // c==1U
-        set_to_zero_qbit(state, q, 0U);
+        suqa::apply_x(state, q);
         // suqa::vnormalize(state); // normalization shoud be guaranteed by the measure
     }
 }  
+
+// faked reset
+//void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
+//    for(uint i = 0U; i < state.size(); ++i){
+//        if((i >> q) & 1U){ // checks q-th digit in i
+//            uint j = i & ~(1U << q); // j has 0 on q-th digit
+//            state[j]+=state[i];
+//            state[i].x = 0.0;
+//            state[i].y = 0.0;
+//        }
+//    }
+//}
 
 void suqa::apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<double> rdoubs){
     // qs.size() == rdoubs.size()

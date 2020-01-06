@@ -15,10 +15,10 @@ release: main
 debug: CXXFLAGS += -g
 debug: main
 
-release_gpu: NVCCFLAGS += -O3 -DNDEBUG
+release_gpu: NVCCFLAGS += -O3 # -DNDEBUG
 release_gpu: main_gpu
 	
-debug_gpu: NVCCFLAGS += -g -DCUDA_HOST -DNDEBUG
+debug_gpu: NVCCFLAGS += -g -DCUDA_HOST
 debug_gpu: main_gpu
 
 
