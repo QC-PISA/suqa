@@ -59,6 +59,10 @@ void init_state(std::vector<Complex>& state, uint Dim){
  *
  */
 
+#define eig1 (1./4.)   //(1./sqrt(2))
+#define eig2 (1./2.)     
+#define eig3 (3./4.) 
+
 /* Quantum evolutor of the state */
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
@@ -88,9 +92,9 @@ void cevolution(std::vector<std::complex<double>>& state, const double& t, const
             std::complex<double> a_3 = state[i_3];
             
             state[i_0] = a_0;
-            state[i_1] = exp(-dt*iu*(1./sqrt(2)))*a_1; //(cos(dt)*a_1 -sin(dt)*iu*a_2);
-            state[i_2] = exp(-dt*iu*(1./2.))*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] = exp(-dt*iu*(3./4.))*a_3;
+            state[i_1] = exp(-dt*iu*eig1)*a_1; //(cos(dt)*a_1 -sin(dt)*iu*a_2);
+            state[i_2] = exp(-dt*iu*eig2)*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] = exp(-dt*iu*eig3)*a_3;
         }
     }
 

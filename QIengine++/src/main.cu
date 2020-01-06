@@ -135,22 +135,13 @@ int main(int argc, char** argv){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     // Initialization of utilities
-    qms::fill_rphase(qms::ene_qbits+1);
-    qms::fill_bitmap();
-    qms::fill_W_utils(beta, qms::t_PE_factor);
-    if(qms::Xmatstem!="")
-        qms::init_measure_structs();
+    qms::setup(beta);
 
     // Initialization:
-    // known eigenstate of the system: psi=0, E_old = 0
+    // known eigenstate of the system (see src/system.cu)
     
     allocate_state(qms::gState, qms::Dim);
     init_state(qms::gState, qms::Dim);
-#if defined(CUDA_HOST)
-    DEBUG_CALL(cout<<"Initial state:"<<endl);
-    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
-#endif
-//
 
     //TODO: make it an args option
     uint perc_mstep = qms::metro_steps/20;
@@ -164,7 +155,7 @@ int main(int argc, char** argv){
     bool take_measure;
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
-        cout<<"metro step: "<<s<<endl;
+        DEBUG_CALL(cout<<"metro step: "<<s<<endl);
         take_measure = (s>s0 and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 
@@ -174,7 +165,7 @@ int main(int argc, char** argv){
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
-            printf("iteration: %u/%u\n",s,qms::metro_steps);
+            cout<<"iteration: "<<s<<"/"<<qms::metro_steps<<endl;
             save_measures(outfilename);
         }
     }

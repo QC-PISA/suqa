@@ -108,6 +108,7 @@ void fill_W_utils(double beta, double t_PE_factor){
             for(uint k=0; k<ene_qbits; ++k){
                 W_case_masks[i][Ei] |= ((Ei>>k & 1U) << bm_enes_old[k]) | ((Ej>>k & 1U) << bm_enes_new[k]);
             }
+            DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[i][Ei]<<std::endl);
         }
     }
 }
@@ -167,10 +168,11 @@ void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>&
 
 
 void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target, const int& m){
+    Complex rphase = (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
     for(uint i = 0U; i < state.size(); ++i){
         // for the swap, not only q_target:1 but also q_control:1
         if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i] *= (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
+            state[i] *= rphase;
         }
     }
 }
@@ -191,8 +193,14 @@ void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+
+            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+
+            DEBUG_CALL(sparse_print(state));
         }
         suqa::qi_h(state, qact[outer_i]);
+        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_CALL(sparse_print(state));
     }
 }
 
