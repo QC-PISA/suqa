@@ -69,7 +69,7 @@ void deallocate_state(ComplexVec& state){
     if(state.data!=nullptr){
         cudaError_t err_code = cudaFree(state.data);
         if(err_code!=cudaSuccess)
-            printf("ERROR: cudaFree() %s\n",cudaGetErrorString(err_code));
+            printf("ERROR: cudaFree(), %s\n",cudaGetErrorString(err_code));
     }
 #endif
     state.data=nullptr;
@@ -83,12 +83,11 @@ void allocate_state(ComplexVec& state, uint Dim){
     state.vecsize = Dim; 
 #if defined(CUDA_HOST)
     //TODO: make allocations using cuda procedures
-    
-    state.data = new Complex[vecsize];
+    state.data = new Complex[state.vecsize];
 #else
     cudaError_t err_code = cudaMalloc((void**)&(state.data), state.vecsize*sizeof(Complex));
     if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMalloc() %s\n",cudaGetErrorString(err_code));
+        printf("ERROR: cudaMalloc(), %s\n",cudaGetErrorString(err_code));
 #endif
 }
 
@@ -147,6 +146,10 @@ int main(int argc, char** argv){
     
     allocate_state(qms::gState, qms::Dim);
     init_state(qms::gState, qms::Dim);
+#if defined(CUDA_HOST)
+    DEBUG_CALL(cout<<"Initial state:"<<endl);
+    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
+#endif
 //
 
     //TODO: make it an args option
@@ -161,23 +164,23 @@ int main(int argc, char** argv){
     bool take_measure;
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
+        cout<<"metro step: "<<s<<endl;
         take_measure = (s>s0 and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
-//            init_state(qms::gState, qms::Dim);
-//            //ensure new rethermalization
+            init_state(qms::gState, qms::Dim);
+            //ensure new rethermalization
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
             printf("iteration: %u/%u\n",s,qms::metro_steps);
             save_measures(outfilename);
         }
-
-//    save_measures(outfilename);
     }
     cout<<endl;
     deallocate_state(qms::gState);
+    qms::clear();
 
     cout<<"\nall fine :)\n"<<endl;
 

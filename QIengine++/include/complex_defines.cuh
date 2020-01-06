@@ -21,7 +21,7 @@ struct ComplexVec{
 #if defined(CUDA_HOST)
     //TODO: make allocations using cuda procedures
         vecsize = vvecsize;
-        state.data = new Complex[vecsize];
+        data = new Complex[vecsize];
 #else
         printf("WARNING: allocations and deallocations" 
                "are managed by external methods called in main()"
@@ -80,8 +80,37 @@ __host__ __device__ static __inline__ Complex& operator*=(Complex& el, const Com
     return el;
 }
 
+__host__ __device__ static __inline__ Complex operator+(const Complex& a, const Complex& b){
+    Complex ret;
+    ret.x = a.x+b.x;
+    ret.y = a.y+b.y;
+    return ret;
+}
 
-__host__ __device__ static __inline__ Complex exp_argim (double z){
+__host__ __device__ static __inline__ Complex operator*(const Complex& el, const Complex& fact){
+    Complex ret;
+    ret.x = el.x*fact.x - el.y*fact.y;
+    ret.y = el.x*fact.y + el.y*fact.x;
+    return ret;
+}
+
+__host__ __device__ static __inline__ Complex operator*(const Complex& el, const double& fact){
+    Complex ret;
+    ret.x = el.x*fact;
+    ret.y = el.y*fact;
+    return ret;
+}
+
+__host__ __device__ static __inline__ Complex operator*(const double& fact, const Complex& el){
+    Complex ret;
+    ret.x = el.x*fact;
+    ret.y = el.y*fact;
+    return ret;
+}
+
+
+// this is expi(z) == exp(i z)
+__host__ __device__ static __inline__ Complex expi(double z){
 
     Complex res;
 

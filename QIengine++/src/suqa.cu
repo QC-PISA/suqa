@@ -86,13 +86,6 @@ void suqa::vnormalize(ComplexVec& v){
 
 //  X GATE
 
-__host__ __device__
-void swap_cmpx(Complex *const a, Complex *const b){
-    Complex tmp_c = *a;
-    *a = *b;
-    *b = tmp_c;
-}
-
 
 __global__ 
 void kernel_suqa_x(Complex *const state, uint len, uint q){
@@ -100,7 +93,7 @@ void kernel_suqa_x(Complex *const state, uint len, uint q){
     while(i<len){
         if(i & (1U << q)){
             uint j = i & ~(1U << q); // j has 0 on q-th digit
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -112,7 +105,7 @@ void suqa::apply_x(ComplexVec& state, uint q){
     for(uint i=0U; i<state.size(); ++i){
         if(i & (1U << q)){
             uint j = i & ~(1U << q); // j has 0 on q-th digit
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
     }
 #else // CUDA defined
@@ -226,7 +219,7 @@ void kernel_suqa_mcx(Complex *const state, uint len, uint control_mask, uint mas
     while(i<len){
         if((i & control_mask) == mask_qs){
             uint j = i & ~(1U << q_target);
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -255,7 +248,7 @@ void suqa::apply_cx(ComplexVec& state, const uint& q_control, const uint& q_targ
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask_qs){
             uint j = i & ~(1U << q_target);
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
     }
 #else // CUDA defined
@@ -271,7 +264,7 @@ void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, con
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask){
             uint j = i & ~(1U << q_target);
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
     }
 #else // CUDA defined
@@ -293,7 +286,7 @@ void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, con
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask_qs){
             uint j = i & ~(1U << q_target);
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
     }
 #else // CUDA defined
@@ -308,7 +301,7 @@ void kernel_suqa_swap(Complex *const state, uint len, uint mask, uint mask_q, ui
     while(i<len){
         if((i & mask) == mask_q){
             uint j = (i & ~mask_q) | (1U << q2);
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -323,7 +316,7 @@ void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
     for(uint i = 0U; i < state.size(); ++i){
         if((i & mask) == mask_q){
             uint j = (i & ~mask_q) | (1U << q2);
-            swap_cmpx(&state[i],&state[j]);
+            suqa::swap_cmpx(&state[i],&state[j]);
         }
     }
 #else // CUDA defined

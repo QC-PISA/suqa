@@ -16,18 +16,34 @@ extern uint blocks, threads;
 double vnorm(const ComplexVec& v);
 void vnormalize(ComplexVec& v);
 
-template<typename T>
-void apply_2x2mat(T& x1, T& x2, const T& m11, const T& m12, const T& m21, const T& m22){
 
-            T x1_next = m11 * x1 + m12 * x2;
-            T x2_next = m21 * x1 + m22 * x2;
+__host__ __device__ static __inline__
+void apply_2x2mat(Complex& x1, Complex& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
+            Complex x1_next = m11 * x1 + m12 * x2;
+            Complex x2_next = m21 * x1 + m22 * x2;
             x1 = x1_next;
             x2 = x2_next;
+}
+
+__host__ __device__ static __inline__
+void apply_2x2mat_doub(Complex& x1, Complex& x2, const double& m11, const double& m12, const double& m21, const double& m22){
+            Complex x1_next = m11 * x1 + m12 * x2;
+            Complex x2_next = m21 * x1 + m22 * x2;
+            x1 = x1_next;
+            x2 = x2_next;
+}
+
+__host__ __device__ static __inline__
+void swap_cmpx(Complex *const a, Complex *const b){
+    Complex tmp_c = *a;
+    *a = *b;
+    *b = tmp_c;
 }
 
 
 /* SUQA gates */
 //
+
 void apply_x(ComplexVec& state, uint q);
 void apply_x(ComplexVec& state, const std::vector<uint>& qs);
 

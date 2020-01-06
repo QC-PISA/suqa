@@ -6,23 +6,26 @@
 
 __global__ void initialize_state(Complex *state, uint len){
     uint i = blockIdx.x*blockDim.x+threadIdx.x;
-    if(i==1){
-        state[1].x = 1.0;
-        state[1].y = 0.0;
-    }
     while(i<len){
         state[i].x = 0.0;
         state[i].y = 0.0;
         i += gridDim.x*blockDim.x;
+    }
+    if(blockIdx.x*blockDim.x+threadIdx.x==1){
+        state[1].x = 1.0;
+        state[1].y = 0.0;
     }
 }
 
 void init_state(ComplexVec& state, uint Dim){
     if(state.size()!=Dim)
         throw std::runtime_error("ERROR: init_state() failed");
-       
-
+#if defined(CUDA_HOST)
+    std::fill_n((double*)&state.data[0], state.size()*2,0.0);
+    state[1].x = 1.0; //TWOSQINV; 
+#else   
     initialize_state<<<suqa::blocks,suqa::threads>>>(state.data,Dim);
+#endif
 //    state.resize(Dim);
 //    std::fill_n(state.begin(), state.size(), 0.0);
 //    state[1].x = 1.0; //TWOSQINV; 
@@ -125,14 +128,14 @@ void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_
             uint i_3 = i_1 | i_2;
             
 //            state[i_0] = a_0;
-            state[i_1] *= exp_argim(-dt*(1./sqrt(2)));
-            state[i_2] *= exp_argim(-dt*(1./2.)); //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] *= exp_argim(-dt*(3./4.)); //*a_3;
+            state[i_1] *= expi(-dt*(1./sqrt(2)));
+            state[i_2] *= expi(-dt*(1./2.)); //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+            state[i_3] *= expi(-dt*(3./4.)); //*a_3;
         }
     }
 #else // CUDA defined
     //TODO: implement device code
-    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, cmask, qstate0, qstate1,exp_argim(-dt*(1./sqrt(2))), exp_argim(-dt*(1./2)), exp_argim(-dt*(3./4)));
+    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*(1./sqrt(2))), expi(-dt*(1./2)), expi(-dt*(3./4)));
 #endif
 }
 
@@ -290,8 +293,8 @@ double get_meas_opvals(const uint& creg_vals){
     return meas_opvals[creg_vals];
 }
  
-void apply_measure_rotation(std::vector<Complex>& state){
-//
+void apply_measure_rotation(ComplexVec& state){
+
 //	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
 //        if((i_0 & meas_mask) == 0U){
 //      
@@ -311,7 +314,7 @@ void apply_measure_rotation(std::vector<Complex>& state){
 //    }
 }
 
-void apply_measure_antirotation(std::vector<Complex>& state){
+void apply_measure_antirotation(ComplexVec& state){
 //
 //	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
 //        if((i_0 & meas_mask) == 0U){
@@ -349,15 +352,15 @@ void apply_measure_antirotation(std::vector<Complex>& state){
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
 void apply_C(ComplexVec& state, const std::vector<uint>& bm_states, const uint &Ci){
-//    if(Ci==0U){
-//        suqa::qi_cx(state,bm_states[1], 0, bm_states[0]);
-//    }else if(Ci==1U){
-//        suqa::qi_swap(state,bm_states[1],bm_states[0]);
-//    }else if(Ci==2U){
-//        suqa::qi_x(state,bm_states);
-//    }else{
-//        throw "Error!";
-//    }
+    if(Ci==0U){
+        suqa::apply_cx(state,bm_states[1], 0, bm_states[0]);
+    }else if(Ci==1U){
+        suqa::apply_swap(state,bm_states[1],bm_states[0]);
+    }else if(Ci==2U){
+        suqa::apply_x(state,bm_states);
+    }else{
+        throw "Error!";
+    }
 }
 
 void apply_C_inverse(ComplexVec& state, const std::vector<uint>& bm_states, const uint &Ci){

@@ -83,10 +83,31 @@ void fill_bitmap(){
     bm_acc = c;
 }
 
-// algorithm
+// these are masks and precomputed values for apply_W
+// on device they can be allocated in constant memory to speed accesses, but only if the qubits are few
 uint W_mask;
-std::vector<double> W_fs;
+std::vector<double> W_fs1, W_fs2; // holds fs1 = exp(-b dE/2) and fs2 = sqrt(1-fs1^2)
 std::vector<std::vector<uint>> W_case_masks;
+
+// max 12 qubits means 4096 energy levels, means 32KB, let's allocate 64KB for the composite W_fs1 and W_fs2 variables
+__constant__ double dev_W_fs1[4096];
+__constant__ double dev_W_fs2[4096];
+
+// here the counting proceeds as for an upper/lower triangular matrix
+// e.g.:
+// qbits | ene_levels | size
+//     1 |          2 |    1         = 1
+//     2 |          4 |    3+2+1     = 3*(3+1)/2 = 6
+//     3 |          8 |    7+6+5...1 = 8*(8+1)/2 = 36
+//     q |        2^q |   (2^q+1)*2^(q-1)
+// let us assume max Q qubits for the energy -> 4B*(2^12+1)*2^11 = 32MB, TOO MUCH!!
+// only using 7 or less qubits for the energy registers (~32KB) can be sustained, but 
+// we would obtain marginal advantage, since things would become more cpu efficients then...
+// so... no constant memory, let's use the global one!
+// (XXX: maybe texture memory? it is 2^27B -> ~130MB)
+uint * dev_W_case_masks; //[8390656];
+
+__host__ __device__ static __inline__ uint uptri_sum_formula(uint i){ return (i*i-i)/2; }
 
 void fill_W_utils(double beta, double t_PE_factor){
     W_mask=0U;
@@ -95,13 +116,19 @@ void fill_W_utils(double beta, double t_PE_factor){
         W_mask |= (1U << bm_enes_old[i]) | (1U << bm_enes_new[i]);
 
     // energy goes from 0 to (ene_levels-1)*t_PE_factor
-    W_fs.resize(ene_levels);
+    W_fs1.resize(ene_levels);
+    W_fs2.resize(ene_levels);
     double c = beta/(t_PE_factor*ene_levels);
     for(uint i=0; i<ene_levels; ++i){
-        W_fs[i] = exp(-(double)(i*c));
+        W_fs1[i] = exp(-(double)(i*c)/2);
+        W_fs2[i] = sqrt(1.-W_fs1[i]*W_fs1[i]);
     }
 
     // mask cases
+#if !defined(CUDA_HOST)
+    uint W_case_masks_size = uptri_sum_formula(ene_levels);
+    uint host_W_case_masks[W_case_masks_size];
+#endif
     W_case_masks = std::vector<std::vector<uint>>(ene_levels); 
     for(uint i=1; i<ene_levels; ++i){ // all possible (non-trivial) values of Delta E
         W_case_masks[i] = std::vector<uint>(ene_levels-i,(1U<<bm_acc));
@@ -110,8 +137,29 @@ void fill_W_utils(double beta, double t_PE_factor){
             for(uint k=0; k<ene_qbits; ++k){
                 W_case_masks[i][Ei] |= ((Ei>>k & 1U) << bm_enes_old[k]) | ((Ej>>k & 1U) << bm_enes_new[k]);
             }
+#if !defined(CUDA_HOST)
+            host_W_case_masks[uptri_sum_formula(i)+Ei] = W_case_masks[i][Ei];
+#endif
         }
     }
+#if !defined(CUDA_HOST)
+    cudaError_t err_code;
+    err_code = cudaMemcpyToSymbol(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice);
+    if(err_code!=cudaSuccess)
+        printf("ERROR: cudaMemcpyToSymbol(), %s\n",cudaGetErrorString(err_code));
+
+    err_code = cudaMemcpyToSymbol(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice);
+    if(err_code!=cudaSuccess)
+        printf("ERROR: cudaMemcpyToSymbol(), %s\n",cudaGetErrorString(err_code));
+
+    
+    err_code = cudaMalloc((void**)&dev_W_case_masks, W_case_masks_size*sizeof(uint)); 
+    if(err_code!=cudaSuccess)
+        printf("ERROR: cudaMalloc(), %s\n",cudaGetErrorString(err_code));
+    err_code = cudaMemcpy(dev_W_case_masks, host_W_case_masks, W_case_masks_size*sizeof(uint), cudaMemcpyHostToDevice); 
+    if(err_code!=cudaSuccess)
+        printf("ERROR: cudaMemcpy(), %s\n",cudaGetErrorString(err_code));
+#endif
 }
 
 uint creg_to_uint(const std::vector<uint>& c_reg){
@@ -127,8 +175,8 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 //XXX: the following two functions commented have parts define in suqa
 
 void reset_non_state_qbits(ComplexVec& state){
-//    DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+//    DEBUG_CALL(std::cout<<"\n\nBefore reset"<<std::endl);
+//    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
     std::vector<double> rgenerates(ene_qbits);
 
     for(auto& el : rgenerates) el = rangen.doub();
@@ -138,8 +186,8 @@ void reset_non_state_qbits(ComplexVec& state){
     suqa::apply_reset(state, bm_enes_new, rgenerates);
 
     suqa::apply_reset(state, bm_acc, rangen.doub());
-//    DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+//    DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
+//    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
 }
 
 
@@ -178,7 +226,6 @@ void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, con
 #else // CUDA defined
     kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q_control, q_target, rphase);
 #endif
-    //TODO: implement kernel
 }
 
 void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
@@ -235,7 +282,6 @@ void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& 
     }
     
     suqa::apply_h(state,q_target);
-
 }
 
 
@@ -273,38 +319,57 @@ uint draw_C(){
         }
     }
     return C_weigthsums.size();
-    return 0; //FIXME: to remove
 }
 
+__global__
+void kernel_qms_apply_W(Complex *const state, uint len, uint ene_levels, uint q_acc, uint W_mask, uint *const dev_W_case_masks){
+    // call W_case_masks, W_fs1 and W_fs2 from constant memory
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i<len){
+        bool matching = false;
+        uint dE;
+        for(dE=1; dE<ene_levels; ++dE){
+            for(uint k=0; k<(ene_levels-dE) && !matching; ++k){
+                matching = ((i & W_mask) == dev_W_case_masks[uptri_sum_formula(dE)+k]);
+            }
+            if(matching)
+                break;
+        }
+        if(matching){
+            uint j = i & ~(1U << q_acc);
+            suqa::apply_2x2mat_doub(state[j], state[i], dev_W_fs2[dE], dev_W_fs1[dE], dev_W_fs1[dE], -dev_W_fs2[dE]);
+        }else if((i >> q_acc) & 1U){
+            uint j = i & ~(1U << q_acc);
+            suqa::swap_cmpx(&state[i],&state[j]);
+        }
+        i+=gridDim.x*blockDim.x;
+    }
+}
 
 void apply_W(){
-//    DEBUG_CALL(cout<<"\n\nApply W"<<endl);
-//
-    
-//    for(uint i = 0U; i < gState.size(); ++i){
-//        bool matching = false;
-//        uint dE;
-//        for(dE=1; dE<ene_levels; ++dE){
-//            for(uint k=0; k<W_case_masks[dE].size() && !matching; ++k){
-//                matching = ((i & W_mask) == W_case_masks[dE][k]);
-//            }
-//            if(matching)
-//                break;
-//        }
-//        if(matching){
-//            uint j = i & ~(1U << bm_acc);
-//            const double fdE = W_fs[dE];
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//            suqa::apply_2x2mat<Complex>(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//        }else if((i >> bm_acc) & 1U){
-//            uint j = i & ~(1U << bm_acc);
-//
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//            std::swap(gState[i],gState[j]);
-//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-//        }
-//    }
+#if defined(CUDA_HOST)
+    for(uint i = 0U; i < gState.size(); ++i){
+        bool matching = false;
+        uint dE;
+        for(dE=1; dE<ene_levels; ++dE){
+            for(uint k=0; k<W_case_masks[dE].size() && !matching; ++k){
+                matching = ((i & W_mask) == W_case_masks[dE][k]);
+            }
+            if(matching)
+                break;
+        }
+        if(matching){
+            uint j = i & ~(1U << bm_acc);
+            suqa::apply_2x2mat_doub(gState[j], gState[i], W_fs2[dE], W_fs1[dE], W_fs1[dE], -W_fs2[dE]);
+        }else if((i >> bm_acc) & 1U){
+            uint j = i & ~(1U << bm_acc);
+            suqa::swap_cmpx(&gState[i],&gState[j]);
+        }
+    }
+#else // CUDA defined
+    //TODO: implement kernel
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads>>>(gState.data, gState.size(), ene_levels, bm_acc, W_mask, dev_W_case_masks);
+#endif
 }
 
 void apply_W_inverse(){
@@ -316,29 +381,29 @@ void apply_U(){
     apply_C(gState, bm_states, gCi);
 //    DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//
-//
-//
-//
+
+
+
+
     apply_Phi();
 //    DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//
-//
-//
+
+
+
     apply_W();
 //    DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 }
 
 void apply_U_inverse(){
-//    apply_W_inverse();
+    apply_W_inverse();
 //    DEBUG_CALL(cout<<"\n\nAfter apply W inverse"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//    apply_Phi_inverse();
+    apply_Phi_inverse();
 //    DEBUG_CALL(cout<<"\n\nAfter inverse second phase estimation"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//    apply_C_inverse(gState,bm_states,gCi);
+    apply_C_inverse(gState,bm_states,gCi);
 //    DEBUG_CALL(cout<<"\n\nAfter apply C inverse = "<<gCi<<endl);
 //    DEBUG_CALL(sparse_print(gState));
 }
@@ -350,27 +415,28 @@ void init_measure_structs(){
 }
 
 double measure_X(){
-//    if(Xmatstem==""){
-//        return 0.0;
-//    }
-//
-//	vector<uint> classics(state_qbits);
-//    
-//    apply_measure_rotation(gState);
-//
-//    measure_qbits(gState, bm_states, classics);
-//
-//    apply_measure_antirotation(gState);
-//
+    if(Xmatstem==""){
+        return 0.0;
+    }
+
+    std::vector<uint> classics(state_qbits);
+    
+    apply_measure_rotation(gState);
+
+    measure_qbits(gState, bm_states, classics);
+
+    apply_measure_antirotation(gState);
+
     uint meas = 0U;
-//    for(uint i=0; i<state_qbits; ++i){
-//        meas |= (classics[i] << i);
-//    }
-//
+    for(uint i=0; i<state_qbits; ++i){
+        meas |= (classics[i] << i);
+    }
+
     return get_meas_opvals(meas);
 }
 
 int metro_step(bool take_measure){
+
     // return values:
     // 1 -> step accepted, not measured
     // 2 -> step accepted, measured
@@ -379,124 +445,142 @@ int metro_step(bool take_measure){
     // -1 -> step rejected non restored 
     int ret=0;
     
-//    DEBUG_CALL(cout<<"initial state"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"Initial state:"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
+#endif
     reset_non_state_qbits(gState);
-//    DEBUG_CALL(cout<<"state after reset"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"\nstate after reset:"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
+#endif
     apply_Phi_old();
-//    DEBUG_CALL(cout<<"\n\nAfter first phase estimation"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
-
+#if defined(CUDA_HOST)
+    DEBUG_CALL(std::cout<<"\n\nAfter first phase estimation"<<std::endl);
+    DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
+#endif
 
     gCi = draw_C();
-//    DEBUG_CALL(cout<<"\n\ndrawn C = "<<gCi<<endl);
+    DEBUG_CALL(std::cout<<"\n\ndrawn C = "<<gCi<<std::endl);
     apply_U();
-//
-//
-//    measure_qbit(gState, bm_acc, c_acc);
-//
-//    if (c_acc == 1U){
-//        DEBUG_CALL(cout<<"accepted"<<endl);
-//        double Enew_meas_d;
-//        vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
-//        measure_qbits(gState, bm_enes_new, c_E_news);
-//        DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
-//        DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
-//        apply_Phi_inverse();
-//        if(take_measure){
-//            Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
-//            E_measures.push_back(Enew_meas_d);
-//            suqa::qi_reset(gState, bm_enes_new);
-//            X_measures.push_back(measure_X());
-//////            X_measures.push_back(0.0);
+
+
+    suqa::measure_qbit(gState, bm_acc, c_acc, rangen.doub());
+
+    if (c_acc == 1U){
+        DEBUG_CALL(std::cout<<"accepted"<<std::endl);
+        double Enew_meas_d;
+        std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
+        measure_qbits(gState, bm_enes_new, c_E_news);
+        DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
+        DEBUG_CALL(std::cout<<"  energy measure : "<<tmp_E<<std::endl); 
+        apply_Phi_inverse();
+        if(take_measure){
+            Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
+            E_measures.push_back(Enew_meas_d);
+            for(uint ei=0U; ei<ene_qbits; ++ei){
+                suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
+            }
+            X_measures.push_back(measure_X());
+////            X_measures.push_back(0.0);
 //            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
 //            DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
 //            DEBUG_CALL(sparse_print(gState));
 //            DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-////            reset_non_state_qbits();
-//            suqa::qi_reset(gState, bm_enes_new);
-//            apply_Phi();
-//            measure_qbits(gState, bm_enes_new, c_E_news);
-//            DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
-//            DEBUG_CALL(sparse_print(gState));
-//            apply_Phi_inverse();
-//
-//            ret = 2; // step accepted, measured
-//        }else{
-//            ret = 1; // step accepted, not measured
-//        }
-//        return ret;
-//    }
-//    //else
-//
-//    DEBUG_CALL(cout<<"rejected; restoration cycle:"<<endl);
-//    apply_U_inverse();
+////           reset_non_state_qbits();
+            for(uint ei=0U; ei<ene_qbits; ++ei)
+                suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
+            apply_Phi();
+            measure_qbits(gState, bm_enes_new, c_E_news);
+#if defined(CUDA_HOST)
+            DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
+            DEBUG_CALL(sparse_print((double*)qms::gState.data, qms::gState.size()));
+#endif
+            apply_Phi_inverse();
+
+            ret = 2; // step accepted, measured
+        }else{
+            ret = 1; // step accepted, not measured
+        }
+        return ret;
+    }
+    //else
+
+    DEBUG_CALL(std::cout<<"rejected; restoration cycle:"<<std::endl);
+    apply_U_inverse();
 //
 //    DEBUG_CALL(cout<<"\n\nBefore reverse attempts"<<endl);
 //    DEBUG_CALL(sparse_print(gState));
-//    uint iters = 0;
-//    while(iters < max_reverse_attempts){
-//        apply_Phi();
-//        uint Eold_meas, Enew_meas;
-//        double Eold_meas_d;
-//        vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
-//        measure_qbits(gState, bm_enes_old, c_E_olds);
-//        Eold_meas = creg_to_uint(c_E_olds);
-//        Eold_meas_d = Eold_meas/(double)(t_PE_factor*ene_levels);
-//        measure_qbits(gState, bm_enes_new, c_E_news);
-//        Enew_meas = creg_to_uint(c_E_news);
-//        apply_Phi_inverse();
-//        
-//        if(Eold_meas == Enew_meas){
+    uint iters = 0;
+    while(iters < max_reverse_attempts){
+        apply_Phi();
+        uint Eold_meas, Enew_meas;
+        double Eold_meas_d;
+        std::vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
+        measure_qbits(gState, bm_enes_old, c_E_olds);
+        Eold_meas = creg_to_uint(c_E_olds);
+        Eold_meas_d = Eold_meas/(double)(t_PE_factor*ene_levels);
+        measure_qbits(gState, bm_enes_new, c_E_news);
+        Enew_meas = creg_to_uint(c_E_news);
+        apply_Phi_inverse();
+        
+        if(Eold_meas == Enew_meas){
 //            DEBUG_CALL(cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-//            if(take_measure){
-//                E_measures.push_back(Eold_meas_d);
+            if(take_measure){
+                E_measures.push_back(Eold_meas_d);
 //                DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas_d<<endl); 
 //                DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
 //                DEBUG_CALL(sparse_print(gState));
-//                suqa::qi_reset(gState, bm_enes_new);
-//                X_measures.push_back(measure_X());
+            for(uint ei=0U; ei<ene_qbits; ++ei)
+                suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
+                X_measures.push_back(measure_X());
 //                DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
 //                DEBUG_CALL(sparse_print(gState));
 //                DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-//                suqa::qi_reset(gState, bm_enes_new);
-//                apply_Phi();
-//                measure_qbits(gState, bm_enes_new, c_E_news);
+            for(uint ei=0U; ei<ene_qbits; ++ei)
+                suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
+                apply_Phi();
+                measure_qbits(gState, bm_enes_new, c_E_news);
 //                DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
 //                DEBUG_CALL(sparse_print(gState));
-//                apply_Phi_inverse();
-//
-//                ret=4;
-//            }else{
-//                ret=3;
-//            }
-//            break;
-//        }
-//        //else
+                apply_Phi_inverse();
+
+                ret=4;
+            }else{
+                ret=3;
+            }
+            break;
+        }
+        //else
 //        DEBUG_CALL(cout<<"  rejected ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<endl); 
-//        uint c_acc_trash;
-//        apply_U(); 
-//        measure_qbit(gState, bm_acc, c_acc_trash); 
-//        apply_U_inverse(); 
-//
-//        iters++;
-//    }
-//
-//    if(record_reverse){
-//        reverse_counters.push_back(iters);
-//    }
-//
-//    if (iters == max_reverse_attempts){
+        uint c_acc_trash;
+        apply_U(); 
+        suqa::measure_qbit(gState, bm_acc, c_acc_trash, rangen.doub()); 
+        apply_U_inverse(); 
+
+        iters++;
+    }
+
+    if(record_reverse){
+        reverse_counters.push_back(iters);
+    }
+
+    if (iters == max_reverse_attempts){
 //        DEBUG_CALL(cout<<("not converged in "+to_string(max_reverse_attempts)+" steps :(")<<endl);
 //
-//        ret = -1;
-//        return ret;
-//    }else{
-//        return ret;
-//    }
-//
+        ret = -1;
+        return ret;
+    }else{
+        return ret;
+    }
+
     return ret;
+}
+
+void clear(){
+#if !defined(CUDA_HOST)
+    cudaFree(dev_W_case_masks);
+#endif
 }
 
 
