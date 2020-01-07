@@ -1,4 +1,4 @@
-.PHONY: release debug release_gpu debug_gpu clean 
+.PHONY: release debug release_gpu debug_gpu debug_cudahost clean 
 
 CXX = g++
 NVCC = nvcc
@@ -15,11 +15,18 @@ release: main
 debug: CXXFLAGS += -g
 debug: main
 
-release_gpu: NVCCFLAGS += -O3 # -DNDEBUG
+release_gpu: NVCCFLAGS += -O3 -DNDEBUG
 release_gpu: main_gpu
-	
-debug_gpu: NVCCFLAGS += -g -DCUDA_HOST
+
+debug_gpu: NVCCFLAGS += -O3
 debug_gpu: main_gpu
+
+profile_gpu: NVCCFLAGS += -O3 -G -g -DNDEBUG
+profile_gpu: main_gpu
+
+	
+debug_cudahost: NVCCFLAGS += -g -DCUDA_HOST
+debug_cudahost: main_gpu
 
 
 $(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES)

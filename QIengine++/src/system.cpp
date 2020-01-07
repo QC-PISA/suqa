@@ -59,7 +59,7 @@ void init_state(std::vector<Complex>& state, uint Dim){
  *
  */
 
-#define eig1 (1./4.)   //(1./sqrt(2))
+#define eig1 (1./sqrt(2.0))
 #define eig2 (1./2.)     
 #define eig3 (3./4.) 
 

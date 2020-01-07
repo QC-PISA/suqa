@@ -15,10 +15,16 @@ Complex *host_state;
     cudaMemcpy(host_state,gState.data,gState.size()*sizeof(Complex),cudaMemcpyDeviceToHost); \
     sparse_print((double*)host_state,gState.size()); \
 } 
+
 #endif
 #else
 #define DEBUG_READ_STATE()
 #endif
+
+#define HANDLE_CUDACALL(fzcall) \
+    if(fzcall!=cudaSuccess)  \
+        printf("ERROR: in %s:%d, call %s, errno %u: %s\n",__FILE__, __LINE__, #fzcall , fzcall, cudaGetErrorString(fzcall)); \
+
 
 // defined in src/evolution.cpp
 void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate);
@@ -105,8 +111,12 @@ std::vector<double> W_fs1, W_fs2; // holds fs1 = exp(-b dE/2) and fs2 = sqrt(1-f
 std::vector<std::vector<uint>> W_case_masks;
 
 // max 12 qubits means 4096 energy levels, means 32KB, let's allocate 64KB for the composite W_fs1 and W_fs2 variables
-__constant__ double dev_W_fs1[4096];
-__constant__ double dev_W_fs2[4096];
+//__constant__ double dev_W_fs1[4096];
+//__constant__ double dev_W_fs2[4096];
+//XXX: for simplicity let's use global memory for now...
+
+double *dev_W_fs1;
+double *dev_W_fs2;
 
 // here the counting proceeds as for an upper/lower triangular matrix
 // e.g.:
@@ -122,7 +132,7 @@ __constant__ double dev_W_fs2[4096];
 // (XXX: maybe texture memory? it is 2^27B -> ~130MB)
 uint * dev_W_case_masks; //[8390656];
 
-__host__ __device__ static __inline__ uint uptri_sum_formula(uint i){ return (i*i-i)/2; }
+__host__ __device__ static __inline__ uint W_case_idx(uint i,uint ene_levels){ return i*ene_levels-((i-1)*(i-2))/2; }
 
 void fill_W_utils(double beta, double t_PE_factor){
     W_mask=0U;
@@ -135,13 +145,13 @@ void fill_W_utils(double beta, double t_PE_factor){
     W_fs2.resize(ene_levels);
     double c = beta/(t_PE_factor*ene_levels);
     for(uint i=0; i<ene_levels; ++i){
-        W_fs1[i] = exp(-(double)(i*c)/2);
+        W_fs1[i] = exp(-(double)(i*c)/2.0);
         W_fs2[i] = sqrt(1.-W_fs1[i]*W_fs1[i]);
     }
 
     // mask cases
 #if !defined(CUDA_HOST)
-    uint W_case_masks_size = uptri_sum_formula(ene_levels);
+    uint W_case_masks_size = W_case_idx(ene_levels,ene_levels);
     uint host_W_case_masks[W_case_masks_size];
 #endif
     W_case_masks = std::vector<std::vector<uint>>(ene_levels); 
@@ -153,29 +163,22 @@ void fill_W_utils(double beta, double t_PE_factor){
                 W_case_masks[i][Ei] |= ((Ei>>k & 1U) << bm_enes_old[k]) | ((Ej>>k & 1U) << bm_enes_new[k]);
             }
 #if !defined(CUDA_HOST)
-            host_W_case_masks[uptri_sum_formula(i)+Ei] = W_case_masks[i][Ei];
-#else
-            DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[i][Ei]<<std::endl);
+            host_W_case_masks[W_case_idx(i,ene_levels)+Ei] = W_case_masks[i][Ei];
 #endif
+        DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[i][Ei]<<std::endl);
         }
     }
 #if !defined(CUDA_HOST)
-    cudaError_t err_code;
-    err_code = cudaMemcpyToSymbol(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice);
-    if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMemcpyToSymbol(), %s\n",cudaGetErrorString(err_code));
+//    HANDLE_CUDACALL(cudaMemcpyToSymbol(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice));
+//    HANDLE_CUDACALL(cudaMemcpyToSymbol(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice));
+   
+    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_fs1, ene_levels*sizeof(double)));
+    HANDLE_CUDACALL(cudaMemcpy(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), cudaMemcpyHostToDevice));
+    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_fs2, ene_levels*sizeof(double)));
+    HANDLE_CUDACALL(cudaMemcpy(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), cudaMemcpyHostToDevice));
 
-    err_code = cudaMemcpyToSymbol(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice);
-    if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMemcpyToSymbol(), %s\n",cudaGetErrorString(err_code));
-
-    
-    err_code = cudaMalloc((void**)&dev_W_case_masks, W_case_masks_size*sizeof(uint)); 
-    if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMalloc(), %s\n",cudaGetErrorString(err_code));
-    err_code = cudaMemcpy(dev_W_case_masks, host_W_case_masks, W_case_masks_size*sizeof(uint), cudaMemcpyHostToDevice); 
-    if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMemcpy(), %s\n",cudaGetErrorString(err_code));
+    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_case_masks, W_case_masks_size*sizeof(uint))); 
+    HANDLE_CUDACALL(cudaMemcpy(dev_W_case_masks, host_W_case_masks, W_case_masks_size*sizeof(uint), cudaMemcpyHostToDevice)); 
 #endif
 }
 
@@ -192,10 +195,8 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 //XXX: the following two functions commented have parts define in suqa
 
 void reset_non_state_qbits(ComplexVec& state){
-#if defined(CUDA_HOST)
     DEBUG_CALL(std::cout<<"\n\nBefore reset"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
-#endif
+    DEBUG_READ_STATE();
     std::vector<double> rgenerates(ene_qbits);
 
     for(auto& el : rgenerates) el = rangen.doub();
@@ -205,10 +206,8 @@ void reset_non_state_qbits(ComplexVec& state){
     suqa::apply_reset(state, bm_enes_new, rgenerates);
 
     suqa::apply_reset(state, bm_acc, rangen.doub());
-#if defined(CUDA_HOST)
     DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)gState.data, gState.size()));
-#endif
+    DEBUG_READ_STATE();
 }
 
 
@@ -226,7 +225,7 @@ void kernel_qms_crm(Complex *const state, uint len, uint q_control, uint q_targe
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i]*= rphase;
+            state[i] *= rphase;
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -235,13 +234,13 @@ void kernel_qms_crm(Complex *const state, uint len, uint q_control, uint q_targe
 
 void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
     Complex rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
-    if(m<0) rphase.y*=-1;
+    if(m<=0) rphase.y*=-1;
 
 #if defined(CUDA_HOST)
     for(uint i = 0U; i < state.size(); ++i){
         // for the swap, not only q_target:1 but also q_control:1
         if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i]*= rphase;
+            state[i] *= rphase;
         }
     }
 #else // CUDA defined
@@ -253,8 +252,12 @@ void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
         suqa::apply_h(state, qact[outer_i]);
+            DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
+            DEBUG_READ_STATE();
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
             qms_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+            DEBUG_READ_STATE();
         }
     }
 }
@@ -265,36 +268,28 @@ void qms_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qms_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
-#if defined(CUDA_HOST)
             DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
-            DEBUG_CALL(sparse_print((double*)state.data, state.size()));
-#endif
+            DEBUG_READ_STATE();
         }
         suqa::apply_h(state, qact[outer_i]);
-#if defined(CUDA_HOST)
-            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
-            DEBUG_CALL(sparse_print((double*)state.data, state.size()));
-#endif
+        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_READ_STATE();
     }
 }
 
 void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
     DEBUG_CALL(std::cout<<"apply_phase_estimation()"<<std::endl);
     suqa::apply_h(state,q_target);
-#if defined(CUDA_HOST)
     DEBUG_CALL(std::cout<<"after qi_h(state,q_target)"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
-#endif
+    DEBUG_READ_STATE();
 
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
         uint powr = (1U << (q_target.size()-1-trg));
         cevolution(state, powr*t, powr*n, q_target[trg], q_state);
     }
-#if defined(CUDA_HOST)
     DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
-    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
-#endif
+    DEBUG_READ_STATE();
     
     // apply QFT^{-1}
     qms_qft_inverse(state, q_target); 
@@ -306,13 +301,17 @@ void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& 
 
     // apply QFT
     qms_qft(state, q_target); 
-
+    DEBUG_CALL(std::cout<<"\nafter qft"<<std::endl);
+    DEBUG_READ_STATE();
 
     // apply CUs
     for(uint trg = 0; trg < q_target.size(); ++trg){
         uint powr = (1U << (q_target.size()-1-trg));
         cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
     }
+
+    DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
+    DEBUG_READ_STATE();
     
     suqa::apply_h(state,q_target);
 }
@@ -355,25 +354,31 @@ uint draw_C(){
 }
 
 __global__
-void kernel_qms_apply_W(Complex *const state, uint len, uint ene_levels, uint q_acc, uint W_mask, uint *const dev_W_case_masks){
+void kernel_qms_apply_W(Complex *const state, uint len, uint ene_levels, uint q_acc, uint W_mask, uint *const dev_W_case_masks, double *const dev_W_fs1, double *const dev_W_fs2){
     // call W_case_masks, W_fs1 and W_fs2 from constant memory
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         bool matching = false;
         uint dE;
         for(dE=1; dE<ene_levels; ++dE){
+//            DEBUG_CALL(printf("W_case_masks[%u].size() = %u\n",dE,ene_levels-dE));
             for(uint k=0; k<(ene_levels-dE) && !matching; ++k){
-                matching = ((i & W_mask) == dev_W_case_masks[uptri_sum_formula(dE)+k]);
+//            DEBUG_CALL(printf("W_case_masks[%u][%u] = %u\n",dE,k,dev_W_case_masks[W_case_idx(dE,ene_levels)+k]));
+                matching = ((i & W_mask) == dev_W_case_masks[W_case_idx(dE,ene_levels)+k]);
             }
             if(matching)
                 break;
         }
         if(matching){
             uint j = i & ~(1U << q_acc);
+//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case1: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
             suqa::apply_2x2mat_doub(state[j], state[i], dev_W_fs2[dE], dev_W_fs1[dE], dev_W_fs1[dE], -dev_W_fs2[dE]);
+//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
         }else if((i >> q_acc) & 1U){
             uint j = i & ~(1U << q_acc);
+//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case3: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
             suqa::swap_cmpx(&state[i],&state[j]);
+//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -401,7 +406,7 @@ void apply_W(){
     }
 #else // CUDA defined
     //TODO: implement kernel
-    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads>>>(gState.data, gState.size(), ene_levels, bm_acc, W_mask, dev_W_case_masks);
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads>>>(gState.data, gState.size(), ene_levels, bm_acc, W_mask, dev_W_case_masks, dev_W_fs1, dev_W_fs2);
 #endif
 }
 
@@ -410,35 +415,30 @@ void apply_W_inverse(){
 }
 
 void apply_U(){
-//    DEBUG_CALL(cout<<"\n\nApply U"<<endl);
+    DEBUG_CALL(std::cout<<"\n\nApply U"<<std::endl);
     apply_C(gState, bm_states, gCi);
-//    DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
-//    DEBUG_CALL(sparse_print(gState));
-
-
-
+    DEBUG_CALL(std::cout<<"\n\nAfter apply C = "<<gCi<<std::endl);
+    DEBUG_READ_STATE();
 
     apply_Phi();
-//    DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
-
-
+    DEBUG_CALL(std::cout<<"\n\nAfter second phase estimation"<<std::endl);
+    DEBUG_READ_STATE();
 
     apply_W();
-//    DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+    DEBUG_CALL(std::cout<<"\n\nAfter apply W"<<std::endl);
+    DEBUG_READ_STATE();
 }
 
 void apply_U_inverse(){
     apply_W_inverse();
-//    DEBUG_CALL(cout<<"\n\nAfter apply W inverse"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+    DEBUG_CALL(std::cout<<"\n\nAfter apply W inverse"<<std::endl);
+    DEBUG_READ_STATE();
     apply_Phi_inverse();
-//    DEBUG_CALL(cout<<"\n\nAfter inverse second phase estimation"<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+    DEBUG_CALL(std::cout<<"\n\nAfter inverse second phase estimation"<<std::endl);
+    DEBUG_READ_STATE();
     apply_C_inverse(gState,bm_states,gCi);
-//    DEBUG_CALL(cout<<"\n\nAfter apply C inverse = "<<gCi<<endl);
-//    DEBUG_CALL(sparse_print(gState));
+    DEBUG_CALL(std::cout<<"\n\nAfter apply C inverse = "<<gCi<<std::endl);
+    DEBUG_READ_STATE();
 }
 
 
@@ -501,7 +501,8 @@ int metro_step(bool take_measure){
         DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
         measure_qbits(gState, bm_enes_new, c_E_news);
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
-        DEBUG_CALL(std::cout<<"  energy measure : "<<tmp_E<<std::endl); 
+        DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
+        DEBUG_READ_STATE()
         apply_Phi_inverse();
         if(take_measure){
             Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
@@ -619,6 +620,8 @@ void setup(double beta){
 void clear(){
 #if !defined(CUDA_HOST)
     cudaFree(dev_W_case_masks);
+    cudaFree(dev_W_fs2);
+    cudaFree(dev_W_fs1);
 #ifndef NDEBUG
     delete [] host_state;
 #endif

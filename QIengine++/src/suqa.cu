@@ -44,8 +44,6 @@ double suqa::vnorm(const ComplexVec& v){
     for(uint i=0; i<v.size(); ++i){
         ret += norm(v[i]);
     }
-    
-    return sqrt(ret);
 #else // CUDA defined
     double *host_partial_ret = new double[suqa::blocks];
     double *dev_partial_ret;
@@ -64,15 +62,18 @@ double suqa::vnorm(const ComplexVec& v){
 }
 
 __global__ void kernel_suqa_vnormalize_by(Complex *v, uint len, double value){
-    uint tid =  blockDim.x*gridDim.x + threadIdx.x;
-    while( tid < len){
-        v[tid]/=value;
-        tid += blockDim.x*gridDim.x;
+    uint i =  blockIdx.x*blockDim.x + threadIdx.x;
+    while(i < len){
+        v[i]/=value;
+        i += gridDim.x*blockDim.x;
     }
 }
 
 void suqa::vnormalize(ComplexVec& v){
     double vec_norm = suqa::vnorm(v);
+#ifndef NDEBUG
+    std::cout<<"vec_norm = "<<vec_norm<<std::endl;
+#endif
 #if defined(CUDA_HOST)
     for(uint i=0; i<v.size(); ++i){
         v[i]/=vec_norm;
@@ -148,10 +149,10 @@ __global__
 void kernel_suqa_h(Complex *const state, uint len, uint q){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
-    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
+    uint i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i_0<len){
         if((i_0 & (1U << q)) == 0U){
-            const int i_1 = i_0 | (1U << q);
+            const uint i_1 = i_0 | (1U << q);
             Complex a_0 = state[i_0];
             Complex a_1 = state[i_1];
             
@@ -190,11 +191,13 @@ void suqa::apply_h(ComplexVec& state, uint q){
 
 void suqa::apply_h(ComplexVec& state, const std::vector<uint>& qs){
 #if defined(CUDA_HOST)
-    for(const auto& q : qs)
+    for(const auto& q : qs){
         suqa::apply_h(state, q);
+    }
 #else // CUDA defined
-    for(const auto& q : qs)
+    for(const auto& q : qs){
         kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q);
+    }
 #endif
 }  
 

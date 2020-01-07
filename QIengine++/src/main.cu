@@ -144,7 +144,7 @@ int main(int argc, char** argv){
     init_state(qms::gState, qms::Dim);
 
     //TODO: make it an args option
-    uint perc_mstep = qms::metro_steps/20;
+    uint perc_mstep = (qms::metro_steps+19)/20;
     
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");

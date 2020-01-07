@@ -102,7 +102,7 @@ void kernel_cevolution(Complex *const state, uint len, uint mask, uint cmask, ui
         i_0+=gridDim.x*blockDim.x;
     }
 }
-#define eig1 (1./4.)   //(1./sqrt(2))
+#define eig1 (1./sqrt(2.0))
 #define eig2 (1./2.)     
 #define eig3 (3./4.) 
 /* Quantum evolutor of the state */

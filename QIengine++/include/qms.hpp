@@ -181,6 +181,8 @@ void qi_qft(vector<Complex>& state, const vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
         suqa::qi_h(state, qact[outer_i]);
+        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_CALL(sparse_print(state));
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
             qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
         }
@@ -228,6 +230,8 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 
     // apply QFT
     qi_qft(state, q_target); 
+    DEBUG_CALL(std::cout<<"\nafter qft"<<std::endl);
+    DEBUG_CALL(sparse_print(state));
 
 
     // apply CUs
@@ -235,6 +239,9 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
         uint powr = pow(2,q_target.size()-1-trg);
         cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
     }
+
+    DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
+    DEBUG_CALL(sparse_print(state));
     
     suqa::qi_h(state,q_target);
 
@@ -286,7 +293,9 @@ void apply_W(){
         bool matching = false;
         uint dE;
         for(dE=1; dE<ene_levels; ++dE){
+//            DEBUG_CALL(printf("W_case_masks[dE].size() = %zu\n",W_case_masks[dE].size()));
             for(uint k=0; k<W_case_masks[dE].size() && !matching; ++k){
+//                DEBUG_CALL(printf("W_case_masks[%u][%u] = %u\n",dE,k,W_case_masks[dE][k]));
                 matching = ((i & W_mask) == W_case_masks[dE][k]);
             }
             if(matching)
@@ -295,15 +304,15 @@ void apply_W(){
         if(matching){
             uint j = i & ~(1U << bm_acc);
             const double fdE = W_fs[dE];
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
             suqa::apply_2x2mat<Complex>(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i >> bm_acc) & 1U){
             uint j = i & ~(1U << bm_acc);
 
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
             std::swap(gState[i],gState[j]);
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }
     }
 }
@@ -318,14 +327,9 @@ void apply_U(){
     DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-
-
-
     apply_Phi();
     DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
     DEBUG_CALL(sparse_print(gState));
-
-
 
     apply_W();
     DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
@@ -403,7 +407,8 @@ int metro_step(bool take_measure){
         vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         measure_qbits(gState, bm_enes_new, c_E_news);
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
-        DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
+        DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
+        DEBUG_CALL(sparse_print(gState));
         apply_Phi_inverse();
         if(take_measure){
             Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
