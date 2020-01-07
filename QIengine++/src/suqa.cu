@@ -448,7 +448,7 @@ void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
 
 // sets amplitudes with value <val> in qubit <q> to zero
 // !! it leaves the state unnormalized !!
-__global__ void kernel_suqa_set_to_zero_qbit(Complex *state, uint len, uint q, uint val){
+__global__ void kernel_suqa_set_ampl_to_zero(Complex *state, uint len, uint q, uint val){
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
     while(i<len){
         if(((i >> q) & 1U) == val){
@@ -460,7 +460,7 @@ __global__ void kernel_suqa_set_to_zero_qbit(Complex *state, uint len, uint q, u
 }
 
 
-void set_to_zero_qbit(ComplexVec& state, const uint& q, const uint& val){
+void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
 #if defined(CUDA_HOST)
     for(uint i = 0U; i < state.size(); ++i){
         if(((i >> q) & 1U) == val){
@@ -469,7 +469,7 @@ void set_to_zero_qbit(ComplexVec& state, const uint& q, const uint& val){
         }
     }
 #else // CUDA defined
-    kernel_suqa_set_to_zero_qbit<<<suqa::blocks, suqa::threads>>>(state.data, state.size(), q, val);
+    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data, state.size(), q, val);
 #endif
 }
 
@@ -533,7 +533,7 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
 //#endif
 
     // set to 0 coeffs with bm_acc 1-c
-    set_to_zero_qbit(state, q, c_conj);
+    set_ampl_to_zero(state, q, c_conj);
     suqa::vnormalize(state);
 }
 

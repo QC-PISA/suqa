@@ -202,8 +202,14 @@ void reset_non_state_qbits(ComplexVec& state){
     for(auto& el : rgenerates) el = rangen.doub();
     suqa::apply_reset(state, bm_enes_old, rgenerates);
 
+    DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
+    DEBUG_READ_STATE();
+
     for(auto& el : rgenerates) el = rangen.doub();
     suqa::apply_reset(state, bm_enes_new, rgenerates);
+
+    DEBUG_CALL(std::cout<<"\n\nafter enes_new reset"<<std::endl);
+    DEBUG_READ_STATE();
 
     suqa::apply_reset(state, bm_acc, rangen.doub());
     DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
@@ -251,7 +257,7 @@ void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, con
 void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
-        suqa::apply_h(state, qact[outer_i]);
+            suqa::apply_h(state, qact[outer_i]);
             DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
             DEBUG_READ_STATE();
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
@@ -385,6 +391,7 @@ void kernel_qms_apply_W(Complex *const state, uint len, uint ene_levels, uint q_
 }
 
 void apply_W(){
+    DEBUG_CALL(cout<<"\n\nApply W"<<endl);
 #if defined(CUDA_HOST)
     for(uint i = 0U; i < gState.size(); ++i){
         bool matching = false;

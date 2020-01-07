@@ -128,7 +128,11 @@ void reset_non_state_qbits(vector<Complex>& state){
     DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
     suqa::qi_reset(state, bm_enes_old);
+    DEBUG_CALL(cout<<"\n\nafter enes_old reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     suqa::qi_reset(state, bm_enes_new);
+    DEBUG_CALL(cout<<"\n\nafter enes_new reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
     suqa::qi_reset(state, bm_acc);
     DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
@@ -181,10 +185,13 @@ void qi_qft(vector<Complex>& state, const vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
         suqa::qi_h(state, qact[outer_i]);
-        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
         DEBUG_CALL(sparse_print(state));
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
             qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+
+            DEBUG_CALL(sparse_print(state));
         }
     }
 }
