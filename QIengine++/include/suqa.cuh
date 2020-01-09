@@ -6,7 +6,7 @@
 
 
 //const double TWOSQINV = 1./sqrt(2.);
-#define TWOSQINV (1./sqrt(2.0))
+#define TWOSQINV 0.7071067811865475 
 
 namespace suqa{
 
@@ -66,4 +66,8 @@ void measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub);
 void apply_reset(ComplexVec& state, uint q, double rdoub);
 void apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<double> rdoubs);
 
+void setup();
+void clear();
+
 };
+

@@ -16,7 +16,7 @@
 
 
 //TODO: optimize reduce
-__global__ void kernel_suqa_vnorm(double *dev_partial_ret, double *v_re, double *v_im, uint len){
+__global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_comp, uint len){
     extern __shared__ double local_ret[];
     uint tid =  threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
@@ -24,50 +24,56 @@ __global__ void kernel_suqa_vnorm(double *dev_partial_ret, double *v_re, double 
     local_ret[tid] = 0.0; // + norm(v[i+blockDim.x]);
     while(i<len){
 //        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
-        local_ret[tid] += v_re[i]*v_re[i] +v_im[i]*v_im[i];
+        local_ret[tid] += v_comp[i]*v_comp[i];
 //        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
         i += gridDim.x*blockDim.x;
     }
     __syncthreads();
 
-    for(uint s=blockDim.x/2; s>0; s>>=1){
+    for(uint s=blockDim.x/2; s>32; s>>=1){
         if(tid < s){
             local_ret[tid] += local_ret[tid+s];
         }
         __syncthreads();
     }
+    if(tid<32){
+        local_ret[tid] += local_ret[tid+32];
+        local_ret[tid] += local_ret[tid+16];
+        local_ret[tid] += local_ret[tid+ 8];
+        local_ret[tid] += local_ret[tid+ 4];
+        local_ret[tid] += local_ret[tid+ 2];
+        local_ret[tid] += local_ret[tid+ 1];
+    }
 
-    if(tid==0) dev_partial_ret[blockIdx.x] = local_ret[0];
+    if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
 
+double *host_partial_ret;
+double *dev_partial_ret;
 double suqa::vnorm(const ComplexVec& v){
     
     double ret = 0.0;
 //    double *host_partial_ret = new double[suqa::blocks];
-    double *host_partial_ret;
-    cudaHostAlloc((void**)&host_partial_ret,suqa::blocks*sizeof(double),cudaHostAllocDefault);
     
-    double *dev_partial_ret;
-    cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
-    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream1>>>(dev_partial_ret, v.data_re, v.data_im, v.size());
+    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream1>>>(dev_partial_ret, v.data_re, v.size());
+    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream2>>>(dev_partial_ret+suqa::blocks,  v.data_im, v.size());
     cudaDeviceSynchronize();
 
-    cudaMemcpyAsync(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
-    cudaDeviceSynchronize();
-    cudaFree(dev_partial_ret); 
+    cudaMemcpy(host_partial_ret,dev_partial_ret,2*suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+//    cudaDeviceSynchronize();
     
-    for(uint bid=0; bid<suqa::blocks; ++bid){
+    for(uint bid=0; bid<2*suqa::blocks; ++bid){
 //        printf("host_partial_ret[%d(/%d)] = %.10lg\n",bid, suqa::blocks,host_partial_ret[bid]);
         ret += host_partial_ret[bid]; 
     } 
-    cudaFreeHost(host_partial_ret);
     return sqrt(ret);
 }
 
+//__launch_bounds__(128, 6)
 __global__ void kernel_suqa_vnormalize_by(double *v_comp, uint len, double value){
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
     while(i < len){
-        v_comp[i]/=value;
+        v_comp[i]*=value;
         i += gridDim.x*blockDim.x;
     }
 }
@@ -77,8 +83,9 @@ void suqa::vnormalize(ComplexVec& v){
 #ifndef NDEBUG
     std::cout<<"vec_norm = "<<vec_norm<<std::endl;
 #endif
-    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(v.data_re, v.size(),vec_norm);
-    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(v.data_im, v.size(),vec_norm);
+    // using the inverse, since division is not built-in in cuda
+    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(v.data_re, v.size(),1./vec_norm);
+    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(v.data_im, v.size(),1./vec_norm);
     cudaDeviceSynchronize();
 }
 
@@ -265,7 +272,7 @@ void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
 }
 
 //TODO: optimize reduce
-__global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_re, double *v_im, uint len, uint q, double rdoub){
+__global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_comp, uint len, uint q, double rdoub){
     extern __shared__ double local_ret[];
     uint tid =  threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
@@ -273,7 +280,7 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_re, double 
     local_ret[tid] = 0.0; // + norm(v[i+blockDim.x]);
     while(i<len){
         if(i & (1U << q)){
-            local_ret[tid] += norm(v_re[i],v_im[i]);
+            local_ret[tid] += v_comp[i]*v_comp[i];
         }
         i += gridDim.x*blockDim.x;
     }
@@ -292,24 +299,30 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_re, double 
 void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     double prob1 = 0.0;
     c=0U;
-    double *host_partial_ret = new double[suqa::blocks];
-    double *dev_partial_ret;
-    cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
-    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data_re, state.data_im, state.size(), q, rdoub);
-
-    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
-    cudaFree(dev_partial_ret); 
-    
+    uint offset = suqa::blocks;
+    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream1>>>(dev_partial_ret, state.data_re, state.size(), q, rdoub);
+    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+offset, state.data_im, state.size(), q, rdoub);
+    cudaMemcpyAsync(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost, stream1);
+    cudaMemcpyAsync(host_partial_ret+offset,dev_partial_ret+offset,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost, stream2);
+    cudaStreamSynchronize(stream1);
     for(uint bid=0; bid<suqa::blocks && prob1<rdoub; ++bid){
         prob1 += host_partial_ret[bid]; 
     } 
-    delete [] host_partial_ret;
+    if(rdoub>prob1){
+        cudaStreamSynchronize(stream2);
+        for(uint bid=suqa::blocks; bid<2*suqa::blocks && prob1<rdoub; ++bid){
+            prob1 += host_partial_ret[bid]; 
+        } 
+    }
+    
 
     c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
     uint c_conj = c^1U; // 1U-c, since c=0U or 1U
 
 
-//    DEBUG_CALL(std::cout<<"prob1="<<prob1<<", c_conj="<<c_conj<<std::endl);
+#ifndef NDEBUG
+    std::cout<<"prob1="<<prob1<<", c_conj="<<c_conj<<std::endl;
+#endif
 //#if defined(CUDA_HOST)
 //    DEBUG_CALL(std::cout<<"before flipping qbit "<<c_conj<<std::endl);
 //    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
@@ -347,4 +360,14 @@ void suqa::apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<doub
     for(uint i=0; i<qs.size(); ++i){
         suqa::apply_reset(state, qs[i], rdoubs[i]); 
     } 
+}
+
+void suqa::setup(){
+    cudaHostAlloc((void**)&host_partial_ret,2*suqa::blocks*sizeof(double),cudaHostAllocDefault);
+    cudaMalloc((void**)&dev_partial_ret, 2*suqa::blocks*sizeof(double));  
+}
+
+void suqa::clear(){
+    cudaFree(dev_partial_ret); 
+    cudaFreeHost(host_partial_ret);
 }

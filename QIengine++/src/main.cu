@@ -33,6 +33,7 @@ void print_banner(){
 "\nSimulator for Universal Quantum Algorithms\n\n");
 }
 
+#define NUM_THREADS 128
 #define MAXBLOCKS 65535
 uint suqa::threads;
 uint suqa::blocks;
@@ -118,7 +119,7 @@ int main(int argc, char** argv){
     qms::ene_levels = (1U << qms::ene_qbits);
     qms::state_levels = (1U << qms::state_qbits);
 
-    suqa::threads = 512;
+    suqa::threads = NUM_THREADS;
     suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
 
@@ -144,6 +145,7 @@ int main(int argc, char** argv){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     // Initialization of utilities
+    suqa::setup();
     qms::setup(beta);
 
     // Initialization:
@@ -181,6 +183,8 @@ int main(int argc, char** argv){
     cout<<endl;
     deallocate_state(qms::gState);
     qms::clear();
+    suqa::clear();
+
     HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream1 ) );
     if (!prop.deviceOverlap) {
         HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream2 ) );
