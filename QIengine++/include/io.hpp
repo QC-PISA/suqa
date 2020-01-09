@@ -38,8 +38,8 @@ void sparse_print(double *v, uint size){
 void sparse_print(double *v, double *w, uint size){
     for(uint i=0; i<size; ++i){
         std::complex<double> var(v[i],w[i]);
-//        if(norm(var)>1e-8)
-        std::cout<<"i="<<i<<" -> "<<var<<"; ";
+        if(norm(var)>1e-8)
+            std::cout<<"i="<<i<<" -> "<<var<<"; ";
     }
     std::cout<<std::endl;
 }
