@@ -96,11 +96,11 @@ void kernel_cevolution(double *const state_re, double *const state_im, uint len,
             state_re[i_1] = state_re[i_1]*ph1.x - state_im[i_1]*ph1.y;
             state_im[i_1] = state_im[i_1]*ph1.x + tmpval*ph1.y;
             tmpval = state_re[i_2];
-            state_re[i_2] = state_re[i_2]*ph1.x - state_im[i_2]*ph1.y;
-            state_im[i_2] = state_im[i_2]*ph1.x + tmpval*ph1.y;
+            state_re[i_2] = state_re[i_2]*ph2.x - state_im[i_2]*ph2.y;
+            state_im[i_2] = state_im[i_2]*ph2.x + tmpval*ph2.y;
             tmpval = state_re[i_3];
-            state_re[i_3] = state_re[i_3]*ph1.x - state_im[i_3]*ph1.y;
-            state_im[i_3] = state_im[i_3]*ph1.x + tmpval*ph1.y;
+            state_re[i_3] = state_re[i_3]*ph3.x - state_im[i_3]*ph3.y;
+            state_im[i_3] = state_im[i_3]*ph3.x + tmpval*ph3.y;
         }
         i_0+=gridDim.x*blockDim.x;
     }
