@@ -4,28 +4,24 @@
 #include "suqa.cuh"
 
 
-__global__ void initialize_state(Complex *state, uint len){
+__global__ void initialize_state(double *state_re, double *state_im, uint len){
     uint i = blockIdx.x*blockDim.x+threadIdx.x;
     while(i<len){
-        state[i].x = 0.0;
-        state[i].y = 0.0;
+        state_re[i] = 0.0;
+        state_im[i] = 0.0;
         i += gridDim.x*blockDim.x;
     }
     if(blockIdx.x*blockDim.x+threadIdx.x==1){
-        state[1].x = 1.0;
-        state[1].y = 0.0;
+        state_re[1] = 1.0;
+        state_im[1] = 0.0;
     }
 }
 
 void init_state(ComplexVec& state, uint Dim){
     if(state.size()!=Dim)
         throw std::runtime_error("ERROR: init_state() failed");
-#if defined(CUDA_HOST)
-    std::fill_n((double*)&state.data[0], state.size()*2,0.0);
-    state[1].x = 1.0; //TWOSQINV; 
-#else   
-    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data,Dim);
-#endif
+    initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
+    cudaDeviceSynchronize();
 //    state.resize(Dim);
 //    std::fill_n(state.begin(), state.size(), 0.0);
 //    state[1].x = 1.0; //TWOSQINV; 
@@ -83,10 +79,11 @@ void init_state(ComplexVec& state, uint Dim){
 
 
 __global__ 
-void kernel_cevolution(Complex *const state, uint len, uint mask, uint cmask, uint qstate0, uint qstate1, Complex ph1, Complex ph2, Complex ph3){
+void kernel_cevolution(double *const state_re, double *const state_im, uint len, uint mask, uint cmask, uint qstate0, uint qstate1, Complex ph1, Complex ph2, Complex ph3){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
+    double tmpval;
     while(i_0<len){
         if((i_0 & mask) == cmask){
       
@@ -95,9 +92,15 @@ void kernel_cevolution(Complex *const state, uint len, uint mask, uint cmask, ui
             uint i_3 = i_1 | i_2;
             
 //            state[i_0] = a_0;
-            state[i_1] *= ph1;
-            state[i_2] *= ph2; //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] *= ph3; //*a_3;
+            tmpval = state_re[i_1];
+            state_re[i_1] = state_re[i_1]*ph1.x - state_im[i_1]*ph1.y;
+            state_im[i_1] = state_im[i_1]*ph1.x + tmpval*ph1.y;
+            tmpval = state_re[i_2];
+            state_re[i_2] = state_re[i_2]*ph1.x - state_im[i_2]*ph1.y;
+            state_im[i_2] = state_im[i_2]*ph1.x + tmpval*ph1.y;
+            tmpval = state_re[i_3];
+            state_re[i_3] = state_re[i_3]*ph1.x - state_im[i_3]*ph1.y;
+            state_im[i_3] = state_im[i_3]*ph1.x + tmpval*ph1.y;
         }
         i_0+=gridDim.x*blockDim.x;
     }
@@ -120,25 +123,8 @@ void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_
     for(const auto& qs : qstate){
         mask |= (1U << qs);
     }
-
-#if defined(CUDA_HOST)
-	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-        if((i_0 & mask) == cmask){
-      
-            uint i_1 = i_0 | (1U << qstate[0]);
-            uint i_2 = i_0 | (1U << qstate[1]);
-            uint i_3 = i_1 | i_2;
-            
-//            state[i_0] = a_0;
-            state[i_1] *= expi(-dt*eig1);
-            state[i_2] *= expi(-dt*eig2     ); //*a_2; //(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-            state[i_3] *= expi(-dt*eig3    ); //*a_3;
-        }
-    }
-#else // CUDA defined
     //TODO: implement device code
-    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*eig1), expi(-dt*eig2), expi(-dt*eig3));
-#endif
+    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*eig1), expi(-dt*eig2), expi(-dt*eig3));
 }
 
 

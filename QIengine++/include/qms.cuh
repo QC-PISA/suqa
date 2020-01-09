@@ -5,18 +5,14 @@
 #include "complex_defines.cuh"
 
 #if !defined(NDEBUG) 
-#if defined(CUDA_HOST)
+double *host_state_re, *host_state_im;
 #define DEBUG_READ_STATE() {\
-    sparse_print((double*)qms::gState.data, qms::gState.size()); \
-}
-#else
-Complex *host_state;
-#define DEBUG_READ_STATE() {\
-    cudaMemcpy(host_state,gState.data,gState.size()*sizeof(Complex),cudaMemcpyDeviceToHost); \
-    sparse_print((double*)host_state,gState.size()); \
+    cudaMemcpyAsync(host_state_re,gState.data_re,gState.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
+    cudaMemcpyAsync(host_state_im,gState.data_im,gState.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2); \
+    cudaDeviceSynchronize(); \
+    sparse_print((double*)host_state_re,(double*)host_state_im, gState.size()); \
 } 
 
-#endif
 #else
 #define DEBUG_READ_STATE()
 #endif
@@ -73,6 +69,7 @@ std::vector<double> E_measures;
 
 
 std::vector<Complex> rphase_m;
+double c_factor;
 
 void fill_rphase(const uint& nlevels){
     rphase_m.resize(nlevels);
@@ -107,16 +104,18 @@ void fill_bitmap(){
 // these are masks and precomputed values for apply_W
 // on device they can be allocated in constant memory to speed accesses, but only if the qubits are few
 uint W_mask;
-std::vector<double> W_fs1, W_fs2; // holds fs1 = exp(-b dE/2) and fs2 = sqrt(1-fs1^2)
-std::vector<std::vector<uint>> W_case_masks;
+uint W_mask_Eold;
+uint W_mask_Enew;
+//double *W_fs1, *W_fs2; // holds fs1 = exp(-b dE/2) and fs2 = sqrt(1-fs1^2)
+//uint *W_case_masks;
 
 // max 12 qubits means 4096 energy levels, means 32KB, let's allocate 64KB for the composite W_fs1 and W_fs2 variables
 //__constant__ double dev_W_fs1[4096];
 //__constant__ double dev_W_fs2[4096];
 //XXX: for simplicity let's use global memory for now...
 
-double *dev_W_fs1;
-double *dev_W_fs2;
+//double *dev_W_fs1;
+//double *dev_W_fs2;
 
 // here the counting proceeds as for an upper/lower triangular matrix
 // e.g.:
@@ -135,51 +134,55 @@ uint * dev_W_case_masks; //[8390656];
 __host__ __device__ static __inline__ uint W_case_idx(uint i,uint ene_levels){ return i*ene_levels-((i-1)*(i-2))/2; }
 
 void fill_W_utils(double beta, double t_PE_factor){
+    c_factor = beta/(t_PE_factor*ene_levels);
     W_mask=0U;
     W_mask = (1U << bm_acc);
-    for(uint i=0; i<ene_qbits; ++i)
+    W_mask_Eold = 0U;
+    for(uint i=0; i<ene_qbits; ++i){
         W_mask |= (1U << bm_enes_old[i]) | (1U << bm_enes_new[i]);
-
-    // energy goes from 0 to (ene_levels-1)*t_PE_factor
-    W_fs1.resize(ene_levels);
-    W_fs2.resize(ene_levels);
-    double c = beta/(t_PE_factor*ene_levels);
-    for(uint i=0; i<ene_levels; ++i){
-        W_fs1[i] = exp(-(double)(i*c)/2.0);
-        W_fs2[i] = sqrt(1.-W_fs1[i]*W_fs1[i]);
+        W_mask_Eold |= (1U << bm_enes_old[i]);
+        W_mask_Enew |= (1U << bm_enes_new[i]);
     }
 
-    // mask cases
-#if !defined(CUDA_HOST)
-    uint W_case_masks_size = W_case_idx(ene_levels,ene_levels);
-    uint host_W_case_masks[W_case_masks_size];
-#endif
-    W_case_masks = std::vector<std::vector<uint>>(ene_levels); 
-    for(uint i=1; i<ene_levels; ++i){ // all possible (non-trivial) values of Delta E
-        W_case_masks[i] = std::vector<uint>(ene_levels-i,(1U<<bm_acc));
-        for(uint Ei=0; Ei<ene_levels-i; ++Ei){
-            uint Ej=Ei+i;
-            for(uint k=0; k<ene_qbits; ++k){
-                W_case_masks[i][Ei] |= ((Ei>>k & 1U) << bm_enes_old[k]) | ((Ej>>k & 1U) << bm_enes_new[k]);
-            }
-#if !defined(CUDA_HOST)
-            host_W_case_masks[W_case_idx(i,ene_levels)+Ei] = W_case_masks[i][Ei];
-#endif
-        DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[i][Ei]<<std::endl);
-        }
-    }
-#if !defined(CUDA_HOST)
-//    HANDLE_CUDACALL(cudaMemcpyToSymbol(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice));
-//    HANDLE_CUDACALL(cudaMemcpyToSymbol(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice));
-   
-    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_fs1, ene_levels*sizeof(double)));
-    HANDLE_CUDACALL(cudaMemcpy(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), cudaMemcpyHostToDevice));
-    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_fs2, ene_levels*sizeof(double)));
-    HANDLE_CUDACALL(cudaMemcpy(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), cudaMemcpyHostToDevice));
-
-    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_case_masks, W_case_masks_size*sizeof(uint))); 
-    HANDLE_CUDACALL(cudaMemcpy(dev_W_case_masks, host_W_case_masks, W_case_masks_size*sizeof(uint), cudaMemcpyHostToDevice)); 
-#endif
+//    // energy goes from 0 to (ene_levels-1)*t_PE_factor
+//    HANDLE_CUDACALL(cudaHostAlloc((void**)&W_fs1,ene_levels*sizeof(double),cudaHostAllocDefault));
+//    HANDLE_CUDACALL(cudaHostAlloc((void**)&W_fs2,ene_levels*sizeof(double),cudaHostAllocDefault));
+//
+//    double c = beta/(t_PE_factor*ene_levels);
+//    for(uint i=0; i<ene_levels; ++i){
+//        W_fs1[i] = exp(-(double)(i*c)/2.0);
+//        W_fs2[i] = sqrt(1.-W_fs1[i]*W_fs1[i]);
+//    }
+//
+//    // mask cases
+//    uint W_case_masks_size = W_case_idx(ene_levels,ene_levels);
+//    HANDLE_CUDACALL(cudaHostAlloc((void**)&W_case_masks,W_case_masks_size*sizeof(uint),cudaHostAllocDefault));
+//    for(uint i=1; i<ene_levels; ++i){ // all possible (non-trivial) values of Delta E
+////        W_case_masks[i] = std::vector<uint>(ene_levels-i,(1U<<bm_acc));
+//        for(uint Ei=0; Ei<ene_levels-i; ++Ei){
+//            uint Ej=Ei+i;
+//            uint tmp_idx = W_case_idx(i,ene_levels);
+//            for(uint k=0; k<ene_qbits; ++k){
+//                W_case_masks[tmp_idx+Ei] |= ((Ei>>k & 1U) << bm_enes_old[k]) | ((Ej>>k & 1U) << bm_enes_new[k]);
+//            }
+//            DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[tmp_idx+Ei]<<std::endl);
+//        }
+//    }
+////    HANDLE_CUDACALL(cudaMemcpyToSymbol(dev_W_fs1, W_fs1.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice));
+////    HANDLE_CUDACALL(cudaMemcpyToSymbol(dev_W_fs2, W_fs2.data(), ene_levels*sizeof(double), 0, cudaMemcpyHostToDevice));
+//   
+//    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_fs1, ene_levels*sizeof(double)));
+//    HANDLE_CUDACALL(cudaMemcpyAsync(dev_W_fs1, W_fs1, ene_levels*sizeof(double), cudaMemcpyHostToDevice, suqa::stream1));
+//    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_fs2, ene_levels*sizeof(double)));
+//    HANDLE_CUDACALL(cudaMemcpyAsync(dev_W_fs2, W_fs2, ene_levels*sizeof(double), cudaMemcpyHostToDevice, suqa::stream2));
+//    HANDLE_CUDACALL(cudaDeviceSynchronize());
+//    HANDLE_CUDACALL(cudaFreeHost(W_fs1));
+//    HANDLE_CUDACALL(cudaFreeHost(W_fs2));
+//
+//    HANDLE_CUDACALL(cudaMalloc((void**)&dev_W_case_masks, W_case_masks_size*sizeof(uint))); 
+//    HANDLE_CUDACALL(cudaMemcpyAsync(dev_W_case_masks, W_case_masks, W_case_masks_size*sizeof(uint), cudaMemcpyHostToDevice,suqa::stream1)); 
+//    HANDLE_CUDACALL(cudaStreamSynchronize(suqa::stream1));
+//    cudaFreeHost(W_case_masks);
 }
 
 uint creg_to_uint(const std::vector<uint>& c_reg){
@@ -225,13 +228,14 @@ void measure_qbits(ComplexVec& state, const std::vector<uint>& qs, std::vector<u
 
 
 __global__ 
-void kernel_qms_crm(Complex *const state, uint len, uint q_control, uint q_target, Complex rphase){
-//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
+void kernel_qms_crm(double *const state_re, double *const state_im, uint len, uint q_control, uint q_target, Complex rphase){
      
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i] *= rphase;
+            double tmpval = state_re[i]; 
+            state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
+            state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -242,16 +246,7 @@ void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, con
     Complex rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
     if(m<=0) rphase.y*=-1;
 
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size(); ++i){
-        // for the swap, not only q_target:1 but also q_control:1
-        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i] *= rphase;
-        }
-    }
-#else // CUDA defined
-    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q_control, q_target, rphase);
-#endif
+    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q_control, q_target, rphase);
 }
 
 void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
@@ -359,62 +354,116 @@ uint draw_C(){
     return C_weigthsums.size();
 }
 
+// cached version
+//__global__
+//void kernel_qms_apply_W(double *const state_comp, uint len, uint ene_levels, uint q_acc, uint W_mask, uint *const dev_W_case_masks, double *const dev_W_fs1, double *const dev_W_fs2){
+//    // call W_case_masks, W_fs1 and W_fs2 from constant memory
+//    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+//    while(i<len){
+//        bool matching = false;
+//        uint dE;
+//        for(dE=1; dE<ene_levels; ++dE){
+////            DEBUG_CALL(printf("W_case_masks[%u].size() = %u\n",dE,ene_levels-dE));
+//            for(uint k=0; k<(ene_levels-dE) && !matching; ++k){
+////            DEBUG_CALL(printf("W_case_masks[%u][%u] = %u\n",dE,k,dev_W_case_masks[W_case_idx(dE,ene_levels)+k]));
+//                matching = ((i & W_mask) == dev_W_case_masks[W_case_idx(dE,ene_levels)+k]);
+//            }
+//            if(matching)
+//                break;
+//        }
+//        if(matching){
+//            uint j = i & ~(1U << q_acc);
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case1: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+//            double tmpval = state_comp[j];
+//            state_comp[i] = dev_W_fs2[dE]*state_comp[i] + dev_W_fs1[dE]*state_comp[j];
+//            state_comp[j] = dev_W_fs1[dE]*state_comp[j] - dev_W_fs2[dE]*tmpval;
+//
+////            suqa::apply_2x2mat_doub(state[j], state[i], dev_W_fs2[dE], dev_W_fs1[dE], dev_W_fs1[dE], -dev_W_fs2[dE]);
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+//        }else if((i >> q_acc) & 1U){
+//            uint j = i & ~(1U << q_acc);
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case3: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+////            suqa::swap_cmpx(&state[i],&state[j]);
+//            double tmpval = state_comp[i];
+//            state_comp[i] = state_comp[j];
+//            state_comp[j] = tmpval;
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+//        }
+//        i+=gridDim.x*blockDim.x;
+//    }
+//}
+//
+//void apply_W(){
+//    DEBUG_CALL(cout<<"\n\nApply W"<<endl);
+//    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(gState.data_re, gState.size(), ene_levels, bm_acc, W_mask, dev_W_case_masks, dev_W_fs1, dev_W_fs2);
+//    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(gState.data_im, gState.size(), ene_levels, bm_acc, W_mask, dev_W_case_masks, dev_W_fs1, dev_W_fs2);
+//    cudaDeviceSynchronize();
+//}
+
 __global__
-void kernel_qms_apply_W(Complex *const state, uint len, uint ene_levels, uint q_acc, uint W_mask, uint *const dev_W_case_masks, double *const dev_W_fs1, double *const dev_W_fs2){
-    // call W_case_masks, W_fs1 and W_fs2 from constant memory
-    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
+    //XXX: since q_acc is the most relevant qubit, we split the cycle beforehand
+//        if( i & (1U << q_acc)){ 
+    int i = blockDim.x*blockIdx.x + threadIdx.x+len/2;    
+    double fs1, fs2;
     while(i<len){
-        bool matching = false;
-        uint dE;
-        for(dE=1; dE<ene_levels; ++dE){
-//            DEBUG_CALL(printf("W_case_masks[%u].size() = %u\n",dE,ene_levels-dE));
-            for(uint k=0; k<(ene_levels-dE) && !matching; ++k){
-//            DEBUG_CALL(printf("W_case_masks[%u][%u] = %u\n",dE,k,dev_W_case_masks[W_case_idx(dE,ene_levels)+k]));
-                matching = ((i & W_mask) == dev_W_case_masks[W_case_idx(dE,ene_levels)+k]);
-            }
-            if(matching)
-                break;
+        // extract dE reading Eold and Enew
+        uint j = i & ~(1U << q_acc);
+//        printf("i = %u, j = %u\n",i,j);
+        uint Eold = (i & dev_W_mask_Eold) >> dev_bm_enes_old;
+        uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
+//        printf("Eold[%u] = %u, Enew[%u] = %u\n",j,Eold,j,Enew);
+        if(Enew>Eold){
+            fs1 = exp(-((Enew-Eold)*c)/2.0);
+            fs2 = sqrt(1.0 - fs1*fs1);
+        }else{
+            fs1 = 1.0;
+            fs2 = 0.0;
         }
-        if(matching){
-            uint j = i & ~(1U << q_acc);
-//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case1: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
-            suqa::apply_2x2mat_doub(state[j], state[i], dev_W_fs2[dE], dev_W_fs1[dE], dev_W_fs1[dE], -dev_W_fs2[dE]);
-//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
-        }else if((i >> q_acc) & 1U){
-            uint j = i & ~(1U << q_acc);
-//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case3: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
-            suqa::swap_cmpx(&state[i],&state[j]);
-//            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
-        }
+        double tmpval = state_comp[j];
+        state_comp[j] = fs2*state_comp[j] + fs1*state_comp[i];
+        state_comp[i] = fs1*tmpval        - fs2*state_comp[i]; // recall: i has 1 in the q_acc qbit 
+//        }
+
+//        bool matching = false;
+//        uint dE;
+//        for(dE=1; dE<ene_levels; ++dE){
+////            DEBUG_CALL(printf("W_case_masks[%u].size() = %u\n",dE,ene_levels-dE));
+//            for(uint k=0; k<(ene_levels-dE) && !matching; ++k){
+////            DEBUG_CALL(printf("W_case_masks[%u][%u] = %u\n",dE,k,dev_W_case_masks[W_case_idx(dE,ene_levels)+k]));
+//                matching = ((i & W_mask) == dev_W_case_masks[W_case_idx(dE,ene_levels)+k]);
+//            }
+//            if(matching)
+//                break;
+//        }
+//        if(matching){
+//            uint j = i & ~(1U << q_acc);
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case1: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+//            double tmpval = state_comp[j];
+//            state_comp[i] = dev_W_fs2[dE]*state_comp[i] + dev_W_fs1[dE]*state_comp[j];
+//            state_comp[j] = dev_W_fs1[dE]*state_comp[j] - dev_W_fs2[dE]*tmpval;
+//
+////            suqa::apply_2x2mat_doub(state[j], state[i], dev_W_fs2[dE], dev_W_fs1[dE], dev_W_fs1[dE], -dev_W_fs2[dE]);
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+//        }else if((i >> q_acc) & 1U){
+//            uint j = i & ~(1U << q_acc);
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("case3: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+////            suqa::swap_cmpx(&state[i],&state[j]);
+//            double tmpval = state_comp[i];
+//            state_comp[i] = state_comp[j];
+//            state_comp[j] = tmpval;
+////            DEBUG_CALL(if(norm(state[i])+norm(state[j])>1e-8) printf("after: state[%d] = (%.16lg, %.16lg), state[%d] = (%.16lg, %.16lg)\n",i,state[i].x,state[i].y,j,state[j].x, state[j].y));
+//        }
         i+=gridDim.x*blockDim.x;
     }
 }
 
 void apply_W(){
-    DEBUG_CALL(cout<<"\n\nApply W"<<endl);
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < gState.size(); ++i){
-        bool matching = false;
-        uint dE;
-        for(dE=1; dE<ene_levels; ++dE){
-            for(uint k=0; k<W_case_masks[dE].size() && !matching; ++k){
-                matching = ((i & W_mask) == W_case_masks[dE][k]);
-            }
-            if(matching)
-                break;
-        }
-        if(matching){
-            uint j = i & ~(1U << bm_acc);
-            suqa::apply_2x2mat_doub(gState[j], gState[i], W_fs2[dE], W_fs1[dE], W_fs1[dE], -W_fs2[dE]);
-        }else if((i >> bm_acc) & 1U){
-            uint j = i & ~(1U << bm_acc);
-            suqa::swap_cmpx(&gState[i],&gState[j]);
-        }
-    }
-#else // CUDA defined
-    //TODO: implement kernel
-    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads>>>(gState.data, gState.size(), ene_levels, bm_acc, W_mask, dev_W_case_masks, dev_W_fs1, dev_W_fs2);
-#endif
+    DEBUG_CALL(std::cout<<"\n\nApply W"<<std::endl);
+
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(gState.data_re, gState.size(), bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(gState.data_im, gState.size(), bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
+    cudaDeviceSynchronize();
 }
 
 void apply_W_inverse(){
@@ -619,19 +668,20 @@ void setup(double beta){
     if(qms::Xmatstem!="")
         qms::init_measure_structs();
 
-#if !defined(CUDA_HOST) && !defined(NDEBUG)
-    host_state = new Complex[qms::Dim];
+
+#if !defined(NDEBUG)
+    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re,qms::Dim*sizeof(double),cudaHostAllocDefault));
+    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im,qms::Dim*sizeof(double),cudaHostAllocDefault));
 #endif
 }
 
 void clear(){
-#if !defined(CUDA_HOST)
-    cudaFree(dev_W_case_masks);
-    cudaFree(dev_W_fs2);
-    cudaFree(dev_W_fs1);
+//    HANDLE_CUDACALL(cudaFree(dev_W_case_masks));
+//    HANDLE_CUDACALL(cudaFree(dev_W_fs2));
+//    HANDLE_CUDACALL(cudaFree(dev_W_fs1));
 #ifndef NDEBUG
-    delete [] host_state;
-#endif
+    HANDLE_CUDACALL(cudaFreeHost(host_state_re));
+    HANDLE_CUDACALL(cudaFreeHost(host_state_im));
 #endif
 
 }

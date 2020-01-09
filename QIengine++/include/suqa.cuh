@@ -11,34 +11,35 @@
 namespace suqa{
 
 extern uint blocks, threads;
+extern cudaStream_t stream1, stream2;
 
 /* Utility procedures */
 double vnorm(const ComplexVec& v);
 void vnormalize(ComplexVec& v);
 
 
-__host__ __device__ static __inline__
-void apply_2x2mat(Complex& x1, Complex& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
-            Complex x1_next = m11 * x1 + m12 * x2;
-            Complex x2_next = m21 * x1 + m22 * x2;
-            x1 = x1_next;
-            x2 = x2_next;
-}
+//__host__ __device__ static __inline__
+//void apply_2x2mat(Complex& x1, Complex& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
+//            Complex x1_next = m11 * x1 + m12 * x2;
+//            Complex x2_next = m21 * x1 + m22 * x2;
+//            x1 = x1_next;
+//            x2 = x2_next;
+//}
+//
+//__host__ __device__ static __inline__
+//void apply_2x2mat_doub(Complex& x1, Complex& x2, const double& m11, const double& m12, const double& m21, const double& m22){
+//            Complex x1_next = m11 * x1 + m12 * x2;
+//            Complex x2_next = m21 * x1 + m22 * x2;
+//            x1 = x1_next;
+//            x2 = x2_next;
+//}
 
-__host__ __device__ static __inline__
-void apply_2x2mat_doub(Complex& x1, Complex& x2, const double& m11, const double& m12, const double& m21, const double& m22){
-            Complex x1_next = m11 * x1 + m12 * x2;
-            Complex x2_next = m21 * x1 + m22 * x2;
-            x1 = x1_next;
-            x2 = x2_next;
-}
-
-__host__ __device__ static __inline__
-void swap_cmpx(Complex *const a, Complex *const b){
-    Complex tmp_c = *a;
-    *a = *b;
-    *b = tmp_c;
-}
+//__host__ __device__ static __inline__
+//void swap_cmpx(Complex *const a, Complex *const b){
+//    Complex tmp_c = *a;
+//    *a = *b;
+//    *b = tmp_c;
+//}
 
 
 /* SUQA gates */

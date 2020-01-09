@@ -36,6 +36,7 @@ void print_banner(){
 #define MAXBLOCKS 65535
 uint suqa::threads;
 uint suqa::blocks;
+cudaStream_t suqa::stream1, suqa::stream2;
 
 
 // simulation parameters
@@ -62,33 +63,26 @@ void save_measures(string outfilename){
 }
 
 void deallocate_state(ComplexVec& state){
-#if defined(CUDA_HOST)
-    if(state.data!=nullptr)
-        delete [] state.data;
-#else
-    if(state.data!=nullptr){
-        cudaError_t err_code = cudaFree(state.data);
-        if(err_code!=cudaSuccess)
-            printf("ERROR: cudaFree(), %s\n",cudaGetErrorString(err_code));
+    if(state.data_re!=nullptr){
+        HANDLE_CUDACALL(cudaFree(state.data_re));
     }
-#endif
-    state.data=nullptr;
+    state.data_re=nullptr;
+    if(state.data_im!=nullptr){
+        HANDLE_CUDACALL(cudaFree(state.data_im));
+    }
+    state.data_im=nullptr;
     state.vecsize=0U;
 }
 
 void allocate_state(ComplexVec& state, uint Dim){
-    if(state.data!=nullptr or Dim!=state.vecsize)
+    if(state.data_re!=nullptr or Dim!=state.vecsize)
         deallocate_state(state);
 
+
     state.vecsize = Dim; 
-#if defined(CUDA_HOST)
-    //TODO: make allocations using cuda procedures
-    state.data = new Complex[state.vecsize];
-#else
-    cudaError_t err_code = cudaMalloc((void**)&(state.data), state.vecsize*sizeof(Complex));
-    if(err_code!=cudaSuccess)
-        printf("ERROR: cudaMalloc(), %s\n",cudaGetErrorString(err_code));
-#endif
+    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data_re), state.vecsize*sizeof(double)));
+    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data_im), state.vecsize*sizeof(double)));
+
 }
 
 
@@ -127,6 +121,21 @@ int main(int argc, char** argv){
     suqa::threads = 512;
     suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
+
+    cudaDeviceProp prop;
+    int whichDevice;
+    HANDLE_CUDACALL( cudaGetDevice( &whichDevice ) );
+    HANDLE_CUDACALL( cudaGetDeviceProperties( &prop, whichDevice ) );
+
+    HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream1 ) );
+    if (!prop.deviceOverlap) {
+        DEBUG_CALL(printf( "Device will not handle overlaps, so no "
+        "speed up from streams\n" ));
+        suqa::stream2 = suqa::stream1;
+    }else{
+        HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream2 ) );
+    }
+
     
     // Banner
     print_banner();
@@ -172,6 +181,10 @@ int main(int argc, char** argv){
     cout<<endl;
     deallocate_state(qms::gState);
     qms::clear();
+    HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream1 ) );
+    if (!prop.deviceOverlap) {
+        HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream2 ) );
+    }
 
     cout<<"\nall fine :)\n"<<endl;
 

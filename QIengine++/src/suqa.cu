@@ -16,14 +16,16 @@
 
 
 //TODO: optimize reduce
-__global__ void kernel_suqa_vnorm(double *dev_partial_ret, Complex *v, uint len){
+__global__ void kernel_suqa_vnorm(double *dev_partial_ret, double *v_re, double *v_im, uint len){
     extern __shared__ double local_ret[];
     uint tid =  threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
 
     local_ret[tid] = 0.0; // + norm(v[i+blockDim.x]);
     while(i<len){
-        local_ret[tid] += norm(v[i]);
+//        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
+        local_ret[tid] += v_re[i]*v_re[i] +v_im[i]*v_im[i];
+//        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
         i += gridDim.x*blockDim.x;
     }
     __syncthreads();
@@ -39,32 +41,33 @@ __global__ void kernel_suqa_vnorm(double *dev_partial_ret, Complex *v, uint len)
 }
 
 double suqa::vnorm(const ComplexVec& v){
+    
     double ret = 0.0;
-#if defined(CUDA_HOST)
-    for(uint i=0; i<v.size(); ++i){
-        ret += norm(v[i]);
-    }
-#else // CUDA defined
-    double *host_partial_ret = new double[suqa::blocks];
+//    double *host_partial_ret = new double[suqa::blocks];
+    double *host_partial_ret;
+    cudaHostAlloc((void**)&host_partial_ret,suqa::blocks*sizeof(double),cudaHostAllocDefault);
+    
     double *dev_partial_ret;
     cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
-    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, v.data, v.size());
+    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream1>>>(dev_partial_ret, v.data_re, v.data_im, v.size());
+    cudaDeviceSynchronize();
 
-    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpyAsync(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+    cudaDeviceSynchronize();
     cudaFree(dev_partial_ret); 
     
     for(uint bid=0; bid<suqa::blocks; ++bid){
+//        printf("host_partial_ret[%d(/%d)] = %.10lg\n",bid, suqa::blocks,host_partial_ret[bid]);
         ret += host_partial_ret[bid]; 
     } 
-    delete [] host_partial_ret;
-#endif
+    cudaFreeHost(host_partial_ret);
     return sqrt(ret);
 }
 
-__global__ void kernel_suqa_vnormalize_by(Complex *v, uint len, double value){
+__global__ void kernel_suqa_vnormalize_by(double *v_comp, uint len, double value){
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
     while(i < len){
-        v[i]/=value;
+        v_comp[i]/=value;
         i += gridDim.x*blockDim.x;
     }
 }
@@ -74,13 +77,9 @@ void suqa::vnormalize(ComplexVec& v){
 #ifndef NDEBUG
     std::cout<<"vec_norm = "<<vec_norm<<std::endl;
 #endif
-#if defined(CUDA_HOST)
-    for(uint i=0; i<v.size(); ++i){
-        v[i]/=vec_norm;
-    }
-#else // CUDA defined
-    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads>>>(v.data, v.size(),vec_norm);
-#endif
+    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(v.data_re, v.size(),vec_norm);
+    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(v.data_im, v.size(),vec_norm);
+    cudaDeviceSynchronize();
 }
 
 
@@ -89,12 +88,17 @@ void suqa::vnormalize(ComplexVec& v){
 
 
 __global__ 
-void kernel_suqa_x(Complex *const state, uint len, uint q){
+void kernel_suqa_x(double *const state_re, double *const state_im, uint len, uint q){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if(i & (1U << q)){
             uint j = i & ~(1U << q); // j has 0 on q-th digit
-            suqa::swap_cmpx(&state[i],&state[j]);
+            double tmpval = state_re[i];
+            state_re[i]=state_re[j];
+            state_re[j]=tmpval;
+            tmpval = state_im[i];
+            state_im[i]=state_im[j];
+            state_im[j]=tmpval;
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -102,16 +106,7 @@ void kernel_suqa_x(Complex *const state, uint len, uint q){
 
 
 void suqa::apply_x(ComplexVec& state, uint q){
-#if defined(CUDA_HOST)
-    for(uint i=0U; i<state.size(); ++i){
-        if(i & (1U << q)){
-            uint j = i & ~(1U << q); // j has 0 on q-th digit
-            suqa::swap_cmpx(&state[i],&state[j]);
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q);
-#endif
+    kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
 }  
 
 // no way...
@@ -130,13 +125,8 @@ void suqa::apply_x(ComplexVec& state, uint q){
 
 
 void suqa::apply_x(ComplexVec& state, const std::vector<uint>& qs){
-#if defined(CUDA_HOST)
     for(const auto& q : qs)
-        suqa::apply_x(state, q);
-#else // CUDA defined
-    for(const auto& q : qs)
-        kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q);
-#endif
+        kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
 }  
 //void suqa::qi_x(ComplexVec& state, const vector<uint>& qs){
 //    for(const auto& q : qs)
@@ -146,20 +136,22 @@ void suqa::apply_x(ComplexVec& state, const std::vector<uint>& qs){
 //  HADAMARD GATE
 
 __global__ 
-void kernel_suqa_h(Complex *const state, uint len, uint q){
+void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     uint i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i_0<len){
         if((i_0 & (1U << q)) == 0U){
             const uint i_1 = i_0 | (1U << q);
-            Complex a_0 = state[i_0];
-            Complex a_1 = state[i_1];
+            double a_0_re = state_re[i_0];
+            double a_1_re = state_re[i_1];
+            double a_0_im = state_im[i_0];
+            double a_1_im = state_im[i_1];
             
-            state[i_0].x = TWOSQINV*(a_0.x+a_1.x);
-            state[i_0].y = TWOSQINV*(a_0.y+a_1.y);
-            state[i_1].x = TWOSQINV*(a_0.x-a_1.x);
-            state[i_1].y = TWOSQINV*(a_0.y-a_1.y);
+            state_re[i_0]= TWOSQINV*(a_0_re+a_1_re);
+            state_re[i_1]= TWOSQINV*(a_0_re-a_1_re);
+            state_im[i_0]= TWOSQINV*(a_0_im+a_1_im);
+            state_im[i_1]= TWOSQINV*(a_0_im-a_1_im);
 //            state[i_0] = cuCmul(TWOSQINV_CMPX,cuCadd(a_0,a_1));
 //            state[i_1] = cuCmul(TWOSQINV_CMPX,cuCsub(a_0,a_1));
         }
@@ -169,110 +161,48 @@ void kernel_suqa_h(Complex *const state, uint len, uint q){
 
 
 void suqa::apply_h(ComplexVec& state, uint q){
-#if defined(CUDA_HOST)
-//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
-    for(uint i_0=0; i_0<state.size(); ++i_0){
-        if((i_0 & (1U << q)) == 0U){
-            const int i_1 = i_0 | (1U << q);
-            Complex a_0 = state[i_0];
-            Complex a_1 = state[i_1];
-            
-            state[i_0].x = TWOSQINV*(a_0.x+a_1.x);
-            state[i_0].y = TWOSQINV*(a_0.y+a_1.y);
-            state[i_1].x = TWOSQINV*(a_0.x-a_1.x);
-            state[i_1].y = TWOSQINV*(a_0.y-a_1.y);
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q);
-#endif
+    kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
 }  
 
 
 void suqa::apply_h(ComplexVec& state, const std::vector<uint>& qs){
-#if defined(CUDA_HOST)
     for(const auto& q : qs){
-        suqa::apply_h(state, q);
+        kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
     }
-#else // CUDA defined
-    for(const auto& q : qs){
-        kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q);
-    }
-#endif
 }  
 
 //  CONTROLLED-NOT GATE
 
-// old single qbit version
-//__global__ 
-//void kernel_suqa_cx(Complex *const state, uint len, uint q_control, uint q_target, uint mask_qs, mask){
-//    int i = blockDim.x*blockIdx.x + threadIdx.x;    
-//    while(i<len){
-//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-//            uint j = i & ~(1U << q_target);
-//            swap_cmpx(&state[i],&state[j]);
-//        }
-//        i+=gridDim.x*blockDim.x;
-//    }
-//}
-
 __global__ 
-void kernel_suqa_mcx(Complex *const state, uint len, uint control_mask, uint mask_qs, uint q_target){
+void kernel_suqa_mcx(double *const state_re, double *const state_im, uint len, uint control_mask, uint mask_qs, uint q_target){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if((i & control_mask) == mask_qs){
             uint j = i & ~(1U << q_target);
-            suqa::swap_cmpx(&state[i],&state[j]);
+            double tmpval = state_re[i];
+            state_re[i]=state_re[j];
+            state_re[j]=tmpval;
+            tmpval = state_im[i];
+            state_im[i]=state_im[j];
+            state_im[j]=tmpval;
         }
         i+=gridDim.x*blockDim.x;
     }
 }
 
 
-//void suqa::apply_cx(ComplexVec& state, uint q_control, uint q_target){
-////#if defined(CUDA_HOST)
-////    for(uint i=0; i<state.size(); ++i){
-////        if((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-////            uint j = i & ~(1U << q_target);
-////            swap_cmpx(&state[i],&state[j]);
-////        }
-////    }
-////#else // CUDA defined
-////    kernel_suqa_cx<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q_control, q_target);
-////#endif
-//    suqa::apply_cx(state, q_control, 1, q_target);
-//}  
-
 void suqa::apply_cx(ComplexVec& state, const uint& q_control, const uint& q_target, const uint& q_mask){
     uint mask_qs = 1U << q_target;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask_qs){
-            uint j = i & ~(1U << q_target);
-            suqa::swap_cmpx(&state[i],&state[j]);
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, mask_qs, q_target);
-#endif
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
 }  
 
 void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, const uint& q_target){
     uint mask = 1U << q_target;
     for(const auto& q : q_controls)
         mask |= 1U << q;
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask){
-            uint j = i & ~(1U << q_target);
-            suqa::swap_cmpx(&state[i],&state[j]);
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, mask, q_target);
-#endif
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask, q_target);
 }  
 
 
@@ -285,26 +215,22 @@ void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, con
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
 
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask_qs){
-            uint j = i & ~(1U << q_target);
-            suqa::swap_cmpx(&state[i],&state[j]);
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, mask_qs, q_target);
-#endif
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
 }  
 
 
 __global__ 
-void kernel_suqa_swap(Complex *const state, uint len, uint mask, uint mask_q, uint q2){
+void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask, uint mask_q, uint q2){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if((i & mask) == mask_q){
             uint j = (i & ~mask_q) | (1U << q2);
-            suqa::swap_cmpx(&state[i],&state[j]);
+            double tmpval = state_re[i];
+            state_re[i]=state_re[j];
+            state_re[j]=tmpval;
+            tmpval = state_im[i];
+            state_im[i]=state_im[j];
+            state_im[j]=tmpval;
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -315,145 +241,19 @@ void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
     // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
     uint mask_q = (1U << q1);
     uint mask = mask_q | (1U << q2);
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size(); ++i){
-        if((i & mask) == mask_q){
-            uint j = (i & ~mask_q) | (1U << q2);
-            suqa::swap_cmpx(&state[i],&state[j]);
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), mask, mask_q, q2);
-#endif
+    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_q, q2);
 }
-
-//__global__ 
-//void kernel_suqa_mcx(Complex *const state, uint len, uint mask, uint q_target){
-//    int i = blockDim.x*blockIdx.x + threadIdx.x;    
-//    while(i<len){
-//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-//            uint j = i & ~(1U << q_target);
-//            swap_cmpx(&state[i],&state[j]);
-//        }
-//        i+=gridDim.x*blockDim.x;
-//    }
-//}
-//
-//void suqa::apply_cx(ComplexVec& state, uint q_control, uint q_target){
-////    uint mask = 1U << q_target;
-////    for(const auto& q : q_controls)
-////        mask |= 1U << q;
-////
-//#if defined(CUDA_HOST)
-//    for(uint i=0; i<state.size(); ++i){
-//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-//            uint j = i & ~(1U << q_target);
-//            swap_cmpx(&state[i],&state[j]);
-//        }
-//    }
-//#else // CUDA defined
-//    kernel_suqa_cx<<<suqa::blocks,suqa::threads>>>(state.data, state.size(), q_control, q_target);
-//#endif
-//}  
-
-//void suqa::qi_x(ComplexVec& state, const vector<uint>& qs){
-//    for(const auto& q : qs)
-//        qi_x(state, q);
-//}  
-//
-//void suqa::qi_h(ComplexVec& state, const uint& q){
-//	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//        if((i_0 & (1U << q)) == 0U){
-//            uint i_1 = i_0 | (1U << q);
-//            Complex a_0 = state[i_0];
-//            Complex a_1 = state[i_1];
-//            state[i_0] = TWOSQINV*(a_0+a_1);
-//            state[i_1] = TWOSQINV*(a_0-a_1);
-//        }
-//    }
-//}  
-//
-//void suqa::qi_h(ComplexVec& state, const vector<uint>& qs){
-//    for(const auto& q : qs)
-//        qi_h(state, q);
-//}  
-//
-//
-//void suqa::qi_cx(ComplexVec& state, const uint& q_control, const uint& q_target){
-//    for(uint i = 0U; i < state.size(); ++i){
-//        // for the swap, not only q_target:1 but also q_control:1
-//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-//            uint j = i & ~(1U << q_target);
-//            std::swap(state[i],state[j]);
-//        }
-//    }
-//}  
-//  
-//
-//void suqa::qi_cx(ComplexVec& state, const uint& q_control, const uint& q_mask, const uint& q_target){
-//    uint mask_qs = 1U << q_target;
-//    uint mask = mask_qs | (1U << q_control);
-//    if(q_mask) mask_qs |= (1U << q_control);
-//    for(uint i = 0U; i < state.size(); ++i){
-//        if((i & mask) == mask_qs){
-//            uint j = i & ~(1U << q_target);
-//            std::swap(state[i],state[j]);
-//        }
-//    }
-//}  
-//
-//void suqa::qi_mcx(ComplexVec& state, const vector<uint>& q_controls, const uint& q_target){
-//    uint mask = 1U << q_target;
-//    for(const auto& q : q_controls)
-//        mask |= 1U << q;
-//
-//    for(uint i = 0U; i < state.size(); ++i){
-//        if((i & mask) == mask){
-//            uint j = i & ~(1U << q_target);
-//            std::swap(state[i],state[j]);
-//        }
-//    }
-//}  
-//
-//
-//void suqa::qi_mcx(ComplexVec& state, const vector<uint>& q_controls, const vector<uint>& q_mask, const uint& q_target){
-//    uint mask = 1U << q_target;
-//    for(const auto& q : q_controls)
-//        mask |= 1U << q;
-//    uint mask_qs = 1U << q_target;
-//    for(uint k = 0U; k < q_controls.size(); ++k){
-//        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
-//    }
-//    for(uint i = 0U; i < state.size(); ++i){
-//        if((i & mask) == mask_qs){
-//            uint j = i & ~(1U << q_target);
-//            std::swap(state[i],state[j]);
-//        }
-//    }
-//}  
-//void suqa::qi_swap(ComplexVec& state, const uint& q1, const uint& q2){
-//        // swap gate: 00->00, 01->10, 10->01, 11->11
-//        // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
-//        uint mask_q = (1U << q1);
-//        uint mask = mask_q | (1U << q2);
-//        for(uint i = 0U; i < state.size(); ++i){
-//            if((i & mask) == mask_q){
-//                uint j = (i & ~(1U << q1)) | (1U << q2);
-//                std::swap(state[i],state[j]);
-//            }
-//        }
-//}
 
 // RESET = measure + classical cx
 
 // sets amplitudes with value <val> in qubit <q> to zero
 // !! it leaves the state unnormalized !!
-__global__ void kernel_suqa_set_ampl_to_zero(Complex *state, uint len, uint q, uint val){
+__global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im, uint len, uint q, uint val){
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
     while(i<len){
         if(((i >> q) & 1U) == val){
-            state[i].x = 0.0;
-            state[i].y = 0.0;
+            state_re[i] = 0.0;
+            state_im[i] = 0.0;
         }
         i += gridDim.x*blockDim.x;
     }
@@ -461,20 +261,11 @@ __global__ void kernel_suqa_set_ampl_to_zero(Complex *state, uint len, uint q, u
 
 
 void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size(); ++i){
-        if(((i >> q) & 1U) == val){
-            state[i].x = 0.0;
-            state[i].y = 0.0;
-        }
-    }
-#else // CUDA defined
-    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data, state.size(), q, val);
-#endif
+    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data_re, state.data_im, state.size(), q, val);
 }
 
 //TODO: optimize reduce
-__global__ void kernel_suqa_prob1(double *dev_partial_ret, Complex *v, uint len, uint q, double rdoub){
+__global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_re, double *v_im, uint len, uint q, double rdoub){
     extern __shared__ double local_ret[];
     uint tid =  threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
@@ -482,7 +273,7 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret, Complex *v, uint len,
     local_ret[tid] = 0.0; // + norm(v[i+blockDim.x]);
     while(i<len){
         if(i & (1U << q)){
-            local_ret[tid] += norm(v[i]);
+            local_ret[tid] += norm(v_re[i],v_im[i]);
         }
         i += gridDim.x*blockDim.x;
     }
@@ -501,17 +292,10 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret, Complex *v, uint len,
 void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     double prob1 = 0.0;
     c=0U;
-#if defined(CUDA_HOST)
-    for(uint i = 0U; i < state.size() && prob1<rdoub; ++i){
-        if(i & (1U << q)){
-            prob1+=norm(state[i]); 
-        }
-    }
-#else // CUDA defined
     double *host_partial_ret = new double[suqa::blocks];
     double *dev_partial_ret;
     cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
-    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, state.size(), q, rdoub);
+    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data_re, state.data_im, state.size(), q, rdoub);
 
     cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
     cudaFree(dev_partial_ret); 
@@ -520,7 +304,6 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
         prob1 += host_partial_ret[bid]; 
     } 
     delete [] host_partial_ret;
-#endif
 
     c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
     uint c_conj = c^1U; // 1U-c, since c=0U or 1U
