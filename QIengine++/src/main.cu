@@ -43,6 +43,7 @@ cudaStream_t suqa::stream1, suqa::stream2;
 // simulation parameters
 double beta;
 double h;
+int thermalization;
 
 // defined in src/system.cpp
 void init_state(ComplexVec& state, uint Dim);
@@ -89,7 +90,7 @@ void allocate_state(ComplexVec& state, uint Dim){
 
 int main(int argc, char** argv){
     if(argc < 8){
-        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -97,6 +98,7 @@ int main(int argc, char** argv){
 
     beta = args.beta;
     h = args.h;
+    thermalization = args.thermalization;
     qms::metro_steps = (uint)args.metro_steps;
     qms::reset_each = (uint)args.reset_each;
     qms::state_qbits = (uint)args.state_qbits;
@@ -167,7 +169,7 @@ int main(int argc, char** argv){
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
         DEBUG_CALL(cout<<"metro step: "<<s<<endl);
-        take_measure = (s>s0 and (s-s0)%qms::reset_each ==0U);
+        take_measure = (s>thermalization and (s>s0 and (s-s0)%qms::reset_each ==0U));
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
