@@ -1,6 +1,7 @@
 #include <vector>
 #include <complex>
 #include <string>
+#include <stdexcept>
 #include "suqa.cuh"
 
 
