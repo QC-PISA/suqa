@@ -20,29 +20,45 @@ __global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_comp, u
     extern __shared__ double local_ret[];
     uint tid =  threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
-
-    local_ret[tid] = 0.0; // + norm(v[i+blockDim.x]);
+    uint j = i+(blockDim.x >> 1);
+    local_ret[tid] = 0.0;
     while(i<len){
-//        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
-        local_ret[tid] += v_comp[i]*v_comp[i];
-//        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
+        local_ret[tid] +=  v_comp[i]*v_comp[i];
+        j = i+(blockDim.x >> 1);
+        if(j<len) local_ret[tid] +=  v_comp[j]*v_comp[j];
         i += gridDim.x*blockDim.x;
     }
+
+//    if(i<len) local_ret[tid] += v_comp[i]*v_comp[i];
+//    while(i<len){
+//        local_ret[tid] +=  v_comp[i]*v_comp[i];
+//        i += gridDim.x*blockDim.x;
+////        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
+//        local_ret[tid] += v_comp[i]*v_comp[i];
+////        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
+//
+//        i += blockDim.x/2;
+//    }
     __syncthreads();
 
-    for(uint s=blockDim.x/2; s>32; s>>=1){
+    for(uint s=blockDim.x/4; s>32; s>>=1){
         if(tid < s){
             local_ret[tid] += local_ret[tid+s];
         }
         __syncthreads();
     }
+//    if (blockDim.x >= 1024) { if (tid < 512) { local_ret[tid] += local_ret[tid + 512]; } __syncthreads(); }
+//    if (blockDim.x >=  512) { if (tid < 256) { local_ret[tid] += local_ret[tid + 256]; } __syncthreads(); }
+//    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
+//    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
+//
     if(tid<32){
-        local_ret[tid] += local_ret[tid+32];
-        local_ret[tid] += local_ret[tid+16];
-        local_ret[tid] += local_ret[tid+ 8];
-        local_ret[tid] += local_ret[tid+ 4];
-        local_ret[tid] += local_ret[tid+ 2];
-        local_ret[tid] += local_ret[tid+ 1];
+        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
+        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
+        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
+        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
+        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
+        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
     }
 
     if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
@@ -299,22 +315,14 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_comp, uint 
 void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     double prob1 = 0.0;
     c=0U;
-    uint offset = suqa::blocks;
     kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream1>>>(dev_partial_ret, state.data_re, state.size(), q, rdoub);
-    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+offset, state.data_im, state.size(), q, rdoub);
-    cudaMemcpyAsync(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost, stream1);
-    cudaMemcpyAsync(host_partial_ret+offset,dev_partial_ret+offset,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost, stream2);
-    cudaStreamSynchronize(stream1);
-    for(uint bid=0; bid<suqa::blocks && prob1<rdoub; ++bid){
+    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+blocks, state.data_im, state.size(), q, rdoub);
+//    cudaDeviceSynchronize();
+    cudaMemcpy(host_partial_ret,dev_partial_ret,2*suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+    
+    for(uint bid=0; bid<2*suqa::blocks && prob1<rdoub; ++bid){
         prob1 += host_partial_ret[bid]; 
     } 
-    if(rdoub>prob1){
-        cudaStreamSynchronize(stream2);
-        for(uint bid=suqa::blocks; bid<2*suqa::blocks && prob1<rdoub; ++bid){
-            prob1 += host_partial_ret[bid]; 
-        } 
-    }
-    
 
     c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
     uint c_conj = c^1U; // 1U-c, since c=0U or 1U
