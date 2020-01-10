@@ -20,28 +20,20 @@ __global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_comp, u
     extern __shared__ double local_ret[];
     uint tid =  threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
-    uint j = i+(blockDim.x >> 1);
+
+//    double vj = v_comp[i+(blockDim.x >> 1)];
+//    local_ret[tid] =  v_comp[i]*v_comp[i]+vj*vj;
     local_ret[tid] = 0.0;
     while(i<len){
         local_ret[tid] +=  v_comp[i]*v_comp[i];
-        j = i+(blockDim.x >> 1);
-        if(j<len) local_ret[tid] +=  v_comp[j]*v_comp[j];
         i += gridDim.x*blockDim.x;
-    }
+//        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
+//        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
 
-//    if(i<len) local_ret[tid] += v_comp[i]*v_comp[i];
-//    while(i<len){
-//        local_ret[tid] +=  v_comp[i]*v_comp[i];
-//        i += gridDim.x*blockDim.x;
-////        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
-//        local_ret[tid] += v_comp[i]*v_comp[i];
-////        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
-//
-//        i += blockDim.x/2;
-//    }
+    }
     __syncthreads();
 
-    for(uint s=blockDim.x/4; s>32; s>>=1){
+    for(uint s=blockDim.x/2; s>0; s>>=1){
         if(tid < s){
             local_ret[tid] += local_ret[tid+s];
         }
@@ -52,14 +44,14 @@ __global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_comp, u
 //    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
 //    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
 //
-    if(tid<32){
-        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
-        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
-        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
-        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
-        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
-        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
-    }
+//    if(tid<32){
+//        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
+//        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
+//        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
+//        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
+//        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
+//        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
+//    }
 
     if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
