@@ -1,4 +1,8 @@
 #include "suqa.cuh"
+//#include "cub/cub/cub.cuh" 
+//#include <thrust/transform_reduce.h>
+//#include <thrust/execution_policy.h>
+//#include <thrust/functional.h>
 
 /*XXX: everything is optimizable
  *possible strategies:
@@ -76,6 +80,94 @@ double suqa::vnorm(const ComplexVec& v){
     } 
     return sqrt(ret);
 }
+
+////XXX Other possibility: libraries: thrust and cub
+
+////XXX thrust version
+//template<typename T>
+//struct Square{
+// __host__ __device__ __forceinline__
+//  T operator()(const T& a) const {
+//    return a*a;
+//  }
+//};
+//
+//
+//template<typename Iterator, typename T, typename UnaryOperation, typename BinaryOperation, typename Pointer>
+//__global__ void reduce_kernel(Iterator first, Iterator last, UnaryOperation unary_op, T init, BinaryOperation binary_op, Pointer result){
+//  *result = thrust::transform_reduce(thrust::cuda::par, first, last, unary_op, init, binary_op);
+//}
+
+//double *ret_re_im, *d_ret_re_im;
+//double suqa::vnorm(const ComplexVec& v){
+//    
+//    double ret = 0.0;
+////    double *host_partial_ret = new double[suqa::blocks];
+//    Square<double> unary_op;
+//    thrust::plus<double> binary_op;
+//
+////    ret_re_im[0] = thrust::transform_reduce(thrust::cuda::par.on(stream1) , v.data_re, &v.data_re[v.size()-1], unary_op, 0.0, binary_op);
+////    ret_re_im[1] = thrust::transform_reduce(thrust::cuda::par.on(stream2), v.data_im, &v.data_im[v.size()-1], unary_op, 0.0, binary_op);
+//
+//    reduce_kernel<<<1,1,0,stream1>>>(v.data_re, &v.data_re[v.size()-1], unary_op, 0.0, binary_op, &d_ret_re_im[0]);
+//    reduce_kernel<<<1,1,0,stream2>>>(v.data_im, v.data_im+v.size(), unary_op, 0.0, binary_op, &d_ret_re_im[1]);
+//    cudaMemcpyAsync(ret_re_im+1,d_ret_re_im+1,sizeof(double),cudaMemcpyDeviceToHost, stream2);
+//    cudaMemcpyAsync(ret_re_im,d_ret_re_im,sizeof(double),cudaMemcpyDeviceToHost, stream1);
+//
+//    cudaStreamSynchronize(stream1);
+//    cudaStreamSynchronize(stream2);
+//    ret +=ret_re_im[0]+ret_re_im[1];
+//    
+//
+////    printf("ret: %.16lg = %.16lg + %.16lg\n",ret, ret_re, ret_im);
+//
+//
+//    return sqrt(ret);
+//}
+
+////XXX  CUB version
+// double *ret_re_im, *d_ret_re_im;
+// double suqa::vnorm(const ComplexVec& v){
+//     
+//     double ret = 0.0;
+// //    double *host_partial_ret = new double[suqa::blocks];
+// 
+//     cub::TransformInputIterator<double, Square<double>, double*> input_iter_re(v.data_re, Square<double>());
+//     cub::TransformInputIterator<double, Square<double>, double*> input_iter_im(v.data_im, Square<double>());
+// 
+// 
+// 
+//     void     *d_temp_storage = NULL;
+//     size_t   temp_storage_bytes = 0;
+//     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, input_iter_re, d_ret_re_im, v.size());
+//     // Allocate temporary storage
+//     cudaMalloc((void**)&d_temp_storage, temp_storage_bytes);
+//     // Run sum-reduction
+// //    cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, input_iter_re, &d_ret_re_im[0], v.size(),stream1);
+// //    cudaMemcpyAsync(&ret_re_im[0],d_ret_re_im,sizeof(double),cudaMemcpyDeviceToHost,stream1);
+// //    cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, input_iter_im, &d_ret_re_im[1], v.size(),stream2);
+// //    cudaMemcpyAsync(&ret_re_im[1],&d_ret_re_im[1],sizeof(double),cudaMemcpyDeviceToHost,stream2); // synchronous
+// //    cudaDeviceSynchronize();
+//     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, input_iter_re, d_ret_re_im, v.size(),suqa::stream1);
+//     cudaStreamSynchronize(stream1);
+//     cudaMemcpyAsync(&ret_re_im[0],&d_ret_re_im[0],sizeof(double),cudaMemcpyDeviceToHost,stream1);
+//     cub::DeviceReduce::Sum(d_temp_storage, temp_storage_bytes, input_iter_im, &d_ret_re_im[1], v.size(),suqa::stream2);
+//     cudaStreamSynchronize(stream2);
+//     cudaMemcpyAsync(&ret_re_im[1],&d_ret_re_im[1],sizeof(double),cudaMemcpyDeviceToHost,stream2); // synchronous
+// 
+//     cudaStreamSynchronize(stream1);
+//     ret +=ret_re_im[0];
+//     cudaStreamSynchronize(stream2);
+//     ret +=ret_re_im[1];
+// 
+//     ret =ret_re_im[0]+ret_re_im[1];
+// 
+// //    printf("ret: %.16lg = %.16lg + %.16lg\n",ret, ret_re_im[0], ret_re_im[1]);
+// 
+//     cudaFree(d_temp_storage);
+// 
+//     return sqrt(ret);
+// }
 
 //__launch_bounds__(128, 6)
 __global__ void kernel_suqa_vnormalize_by(double *v_comp, uint len, double value){
@@ -343,7 +435,7 @@ void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
     }
 }  
 
-// faked reset
+// fake reset
 //void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
 //    for(uint i = 0U; i < state.size(); ++i){
 //        if((i >> q) & 1U){ // checks q-th digit in i
@@ -365,9 +457,14 @@ void suqa::apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<doub
 void suqa::setup(){
     cudaHostAlloc((void**)&host_partial_ret,2*suqa::blocks*sizeof(double),cudaHostAllocDefault);
     cudaMalloc((void**)&dev_partial_ret, 2*suqa::blocks*sizeof(double));  
+// the following are allocated only for library versions of reduce
+//    cudaHostAlloc((void**)&ret_re_im,2*sizeof(double),cudaHostAllocDefault);
+//    cudaMalloc((void**)&d_ret_re_im,2*sizeof(double));
 }
 
 void suqa::clear(){
+//    cudaFree(d_ret_re_im);
+//    cudaFreeHost(ret_re_im);
     cudaFree(dev_partial_ret); 
     cudaFreeHost(host_partial_ret);
 }

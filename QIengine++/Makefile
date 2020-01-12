@@ -2,8 +2,8 @@
 
 CXX = g++
 NVCC = nvcc
-CXXFLAGS = -Wall -Wextra -std=c++11 -I./include
-NVCCFLAGS = -std=c++11 -I./include -DCUDA -lcudart
+CXXFLAGS = -Wall -Wextra -std=c++11 -I./include -I.
+NVCCFLAGS = -std=c++11 -I. -I./include -DCUDA -lcudart
 INCLUDES = $(wildcard include/*)
 
 SRC = src
@@ -21,7 +21,7 @@ release_gpu: main_gpu
 debug_gpu: NVCCFLAGS += -O3
 debug_gpu: main_gpu
 
-profile_gpu: NVCCFLAGS += -O3 -G -g -DNDEBUG
+profile_gpu: NVCCFLAGS += -m64 -O3 -G -g -DNDEBUG
 profile_gpu: main_gpu
 
 	
