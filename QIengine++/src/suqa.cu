@@ -22,42 +22,45 @@
 //TODO: optimize reduce
 __global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_comp, uint len){
     extern __shared__ double local_ret[];
-    uint tid =  threadIdx.x;
-    uint i =  blockIdx.x*blockDim.x + threadIdx.x;
+    uint i =  blockIdx.x*blockDim.x*2 + threadIdx.x;
 
 //    double vj = v_comp[i+(blockDim.x >> 1)];
 //    local_ret[tid] =  v_comp[i]*v_comp[i]+vj*vj;
-    local_ret[tid] = 0.0;
+    local_ret[threadIdx.x] = 0.0;
+    double tmpval;
     while(i<len){
-        local_ret[tid] +=  v_comp[i]*v_comp[i];
-        i += gridDim.x*blockDim.x;
+        tmpval = v_comp[i]; 
+        local_ret[threadIdx.x] +=  tmpval*tmpval;
+        tmpval = v_comp[i+blockDim.x]; 
+        local_ret[threadIdx.x] +=  tmpval*tmpval;
+        i += gridDim.x*blockDim.x*2;
 //        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
-//        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
+//        printf("local_ret[%d] = %.10lg\n",threadIdx.x, local_ret[threadIdx.x]);
 
     }
     __syncthreads();
 
-    for(uint s=blockDim.x/2; s>0; s>>=1){
-        if(tid < s){
-            local_ret[tid] += local_ret[tid+s];
+    for(uint s=blockDim.x/2; s>512; s>>=1){
+        if(threadIdx.x < s){
+            local_ret[threadIdx.x] += local_ret[threadIdx.x+s];
         }
         __syncthreads();
     }
-//    if (blockDim.x >= 1024) { if (tid < 512) { local_ret[tid] += local_ret[tid + 512]; } __syncthreads(); }
-//    if (blockDim.x >=  512) { if (tid < 256) { local_ret[tid] += local_ret[tid + 256]; } __syncthreads(); }
-//    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
-//    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
-//
-//    if(tid<32){
-//        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
-//        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
-//        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
-//        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
-//        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
-//        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
-//    }
+    if (blockDim.x >= 1024) { if (threadIdx.x < 512) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 512]; } __syncthreads(); }
+    if (blockDim.x >=  512) { if (threadIdx.x < 256) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 256]; } __syncthreads(); }
+    if (blockDim.x >=  256) { if (threadIdx.x < 128) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 128]; } __syncthreads(); }
+    if (blockDim.x >=  128) { if (threadIdx.x <  64) { local_ret[threadIdx.x] += local_ret[threadIdx.x +  64]; } __syncthreads(); }
 
-    if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
+    if(threadIdx.x<32){
+        if (blockDim.x >= 64) local_ret[threadIdx.x] += local_ret[threadIdx.x + 32];
+        if (blockDim.x >= 32) local_ret[threadIdx.x] += local_ret[threadIdx.x + 16];
+        if (blockDim.x >= 16) local_ret[threadIdx.x] += local_ret[threadIdx.x +  8];
+        if (blockDim.x >=  8) local_ret[threadIdx.x] += local_ret[threadIdx.x +  4];
+        if (blockDim.x >=  4) local_ret[threadIdx.x] += local_ret[threadIdx.x +  2];
+        if (blockDim.x >=  2) local_ret[threadIdx.x] += local_ret[threadIdx.x +  1];
+    }
+
+    if(threadIdx.x==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
 
 double *host_partial_ret;
@@ -373,29 +376,48 @@ void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
     kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data_re, state.data_im, state.size(), q, val);
 }
 
-//TODO: optimize reduce
-__global__ void kernel_suqa_prob1(double *dev_partial_ret, double *v_comp, uint len, uint q, double rdoub){
+__global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_comp, uint len, uint q, double rdoub){
     extern __shared__ double local_ret[];
-    uint tid =  threadIdx.x;
+    uint tid = threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
 
-    local_ret[tid] = 0.0; // + norm(v[i+blockDim.x]);
+//    double vj = v_comp[i+(blockDim.x >> 1)];
+//    local_ret[tid] =  v_comp[i]*v_comp[i]+vj*vj;
+    local_ret[threadIdx.x] = 0.0;
+    double tmpval;
     while(i<len){
         if(i & (1U << q)){
-            local_ret[tid] += v_comp[i]*v_comp[i];
+            tmpval = v_comp[i];
+            local_ret[tid] +=  tmpval*tmpval;
         }
         i += gridDim.x*blockDim.x;
+//        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
+//        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
+
     }
     __syncthreads();
 
-    for(uint s=blockDim.x/2; s>0; s>>=1){
+    for(uint s=blockDim.x/2; s>512; s>>=1){
         if(tid < s){
             local_ret[tid] += local_ret[tid+s];
         }
         __syncthreads();
     }
+    if (blockDim.x >= 1024) { if (tid < 512) { local_ret[tid] += local_ret[tid + 512]; } __syncthreads(); }
+    if (blockDim.x >=  512) { if (tid < 256) { local_ret[tid] += local_ret[tid + 256]; } __syncthreads(); }
+    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
+    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
 
-    if(tid==0) dev_partial_ret[blockIdx.x] = local_ret[0];
+    if(tid<32){
+        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
+        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
+        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
+        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
+        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
+        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
+    }
+
+    if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
 
 void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
@@ -458,8 +480,8 @@ void suqa::apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<doub
 }
 
 void suqa::setup(){
-    cudaHostAlloc((void**)&host_partial_ret,2*suqa::blocks*sizeof(double),cudaHostAllocDefault);
-    cudaMalloc((void**)&dev_partial_ret, 2*suqa::blocks*sizeof(double));  
+    cudaHostAlloc((void**)&host_partial_ret,suqa::blocks*sizeof(double),cudaHostAllocDefault);
+    cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
 // the following are allocated only for library versions of reduce
 //    cudaHostAlloc((void**)&ret_re_im,2*sizeof(double),cudaHostAllocDefault);
 //    cudaMalloc((void**)&d_ret_re_im,2*sizeof(double));
