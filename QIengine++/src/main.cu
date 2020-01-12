@@ -65,26 +65,22 @@ void save_measures(string outfilename){
 }
 
 void deallocate_state(ComplexVec& state){
-    if(state.data_re!=nullptr){
-        HANDLE_CUDACALL(cudaFree(state.data_re));
+    if(state.data!=nullptr){
+        HANDLE_CUDACALL(cudaFree(state.data));
     }
-    state.data_re=nullptr;
-    if(state.data_im!=nullptr){
-        HANDLE_CUDACALL(cudaFree(state.data_im));
-    }
-    state.data_im=nullptr;
     state.vecsize=0U;
 }
 
 void allocate_state(ComplexVec& state, uint Dim){
-    if(state.data_re!=nullptr or Dim!=state.vecsize)
+    if(state.data!=nullptr or Dim!=state.vecsize)
         deallocate_state(state);
 
 
     state.vecsize = Dim; 
-    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data_re), state.vecsize*sizeof(double)));
-    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data_im), state.vecsize*sizeof(double)));
-
+    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data), 2*state.vecsize*sizeof(double)));
+    // allocate both using re as offset, and im as access pointer.
+    state.data_re = state.data;
+    state.data_im = state.data_re + state.vecsize;
 }
 
 

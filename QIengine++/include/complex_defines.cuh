@@ -12,10 +12,11 @@ typedef cuDoubleComplex Complex;
 // structure of arrays
 struct ComplexVec{
     uint vecsize;
+    double* data=nullptr;
     double* data_re=nullptr;
     double* data_im=nullptr;
     
-    ComplexVec() : vecsize(0U), data_re(nullptr), data_im(nullptr) {}
+    ComplexVec() : vecsize(0U), data(nullptr), data_re(nullptr), data_im(nullptr) {}
 //        // allocation and deallocation 
 //        // are managed by external methods called in main()
 //        // to prevent cudaErrorCudartUnloading
