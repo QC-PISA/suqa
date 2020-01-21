@@ -37,7 +37,7 @@ double beta;
 double h;
 
 // defined in src/system.cpp
-void init_state(std::vector<Complex>& state, uint Dim);
+void init_state(std::vector<Complex>& state, uint Dim, double g_beta);
 
 arg_list args;
 
@@ -103,7 +103,7 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-    init_state(qms::gState, qms::Dim);
+    init_state(qms::gState, qms::Dim, h);
 
     uint perc_mstep = (qms::metro_steps+19)/20;
     

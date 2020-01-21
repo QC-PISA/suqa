@@ -68,15 +68,15 @@ std::vector<double> X_measures;
 std::vector<double> E_measures;
 
 
-std::vector<Complex> rphase_m;
+std::vector<double> rphase_m;
 double c_factor;
 
 void fill_rphase(const uint& nlevels){
     rphase_m.resize(nlevels);
     uint c=1;
     for(uint i=0; i<nlevels; ++i){
-        rphase_m[i].x = cos((2.0*M_PI/(double)c));
-        rphase_m[i].y = sin((2.0*M_PI/(double)c));
+        rphase_m[i] = (2.0*M_PI/(double)c);
+//        rphase_m[i].y = sin((2.0*M_PI/(double)c));
         c<<=1;
 	//printf("rphase_m[i] %.12lf %.12lf\n", real(rphase_m[i]), imag(rphase_m[i]));
     }
@@ -227,26 +227,27 @@ void measure_qbits(ComplexVec& state, const std::vector<uint>& qs, std::vector<u
 }
 
 
-__global__ 
-void kernel_qms_crm(double *const state_re, double *const state_im, uint len, uint q_control, uint q_target, Complex rphase){
-     
-    int i = blockDim.x*blockIdx.x + threadIdx.x;    
-    while(i<len){
-        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            double tmpval = state_re[i]; 
-            state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
-            state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
-        }
-        i+=gridDim.x*blockDim.x;
-    }
-}
+//__global__ 
+//void kernel_qms_crm(double *const state_re, double *const state_im, uint len, uint q_control, uint q_target, Complex rphase){
+//     
+//    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+//    while(i<len){
+//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
+//            double tmpval = state_re[i]; 
+//            state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
+//            state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
+//        }
+//        i+=gridDim.x*blockDim.x;
+//    }
+//}
 
 
 void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
-    Complex rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
-    if(m<=0) rphase.y*=-1;
+    double rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
+    if(m<=0) rphase*=-1;
 
-    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q_control, q_target, rphase);
+//    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q_control, q_target, rphase);
+    suqa::apply_mcu1(state, q_control, q_target, rphase);
 }
 
 void qms_qft(ComplexVec& state, const std::vector<uint>& qact){

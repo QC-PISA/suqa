@@ -5,6 +5,16 @@
 #include "suqa.cuh"
 
 
+/* d4 gauge theory - two plaquettes
+ 
+   link state 3 qubits
+   system state: 4 links -> 12 qubits
+
+
+ */
+
+typedef std::vector<uint> bmReg;
+
 __global__ void initialize_state(double *state_re, double *state_im, uint len){
     uint i = blockIdx.x*blockDim.x+threadIdx.x;
     while(i<len){
@@ -13,64 +23,55 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         i += gridDim.x*blockDim.x;
     }
     if(blockIdx.x*blockDim.x+threadIdx.x==1){
-        state_re[1] = 1.0;
-        state_im[1] = 0.0;
+        state_re[0] = 1.0;
+        state_im[0] = 0.0;
     }
 }
 
-void init_state(ComplexVec& state, uint Dim){
+const bmReg bm_qlink0 =  {0,  1, 2};
+const bmReg bm_qlink1 =  {3,  4, 5};
+const bmReg bm_qlink2 =  {6,  7, 8};
+const bmReg bm_qlink3 =  {9, 10, 11};
+const bmReg bm_qaux   = {12, 13, 14};
+
+double g_beta;
+double theta1, theta2, theta;
+
+__inline__ double f1(double b){
+    return log((3+cosh(2.*b))/(2*sinh(b)*sinh(b)));
+}
+
+__inline__ double f2(double b){
+    return -log(tanh(b));
+}
+
+void init_state(ComplexVec& state, uint Dim, double gg_beta){
+
+    g_beta = gg_beta;
+
     if(state.size()!=Dim)
         throw std::runtime_error("ERROR: init_state() failed");
+    
+    // zeroes entries and set state to all the computational element |000...00>
     initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
+
+
+    //TODO: optimize
+    suqa::apply_h(state, bm_qlink0[0]);
+    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
+    suqa::apply_h(state, bm_qlink0[1]);
+    suqa::apply_cx(state, bm_qlink0[1], bm_qlink3[1]);
+    suqa::apply_h(state, bm_qlink0[2]);
+    suqa::apply_cx(state, bm_qlink0[2], bm_qlink3[2]);
+    suqa::apply_mcx(state, {bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
+
+
 //    state.resize(Dim);
 //    std::fill_n(state.begin(), state.size(), 0.0);
 //    state[1].x = 1.0; //TWOSQINV; 
 ////    state[3] = -TWOSQINV; 
 }
-
-// /* Hamiltonian
-//  *
-//  * H = {{1, 0, 0},{0, 1, 1},{0, 1, 1}}; -> E = 1, 2, 0
-//  *
-//  */
-// 
-// /* Quantum evolutor of the state */
-// void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
-// 
-//      (void)n; // Trotter not needed
-//      double dt = t;
-//  
-// 
-//     if(qstate.size()!=2)
-//         throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-// 
-//     uint cmask = (1U << q_control);
-// 	uint mask = cmask;
-//     for(const auto& qs : qstate){
-//         mask |= (1U << qs);
-//     }
-// 
-// 	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//         if((i_0 & mask) == cmask){
-//       
-//             uint i_1 = i_0 | (1U << qstate[0]);
-//             uint i_2 = i_0 | (1U << qstate[1]);
-// //            uint i_3 = i_1 | i_2;
-// 
-//             std::complex<double> a_0 = state[i_0];
-//             std::complex<double> a_1 = state[i_1];
-//             std::complex<double> a_2 = state[i_2];
-// //            std::complex<double> a_3 = state[i_3];
-//             
-//             state[i_0] = exp(-dt*iu)*a_0;
-//             state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
-//             state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-// //            state[i_3] = exp(-dt*iu)*a_3;
-//         }
-//     }
-// 
-// }
 
 /* Hamiltonian
  *
@@ -106,29 +107,114 @@ void kernel_cevolution(double *const state_re, double *const state_im, uint len,
         i_0+=gridDim.x*blockDim.x;
     }
 }
-#define eig1 (1./sqrt(2.0))
-#define eig2 (1./2.)     
-#define eig3 (3./4.) 
+
+// void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
+// 
+//      (void)n; // Trotter not needed
+//      double dt = t;
+//  
+// 
+//     if(qstate.size()!=2)
+//         throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+// 
+//     uint cmask = (1U << q_control);
+// 	uint mask = cmask;
+//     for(const auto& qs : qstate){
+//         mask |= (1U << qs);
+//     }
+//     //TODO: implement device code
+//     kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*eig1), expi(-dt*eig2), expi(-dt*eig3));
+// }
+
 /* Quantum evolutor of the state */
-void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
-     (void)n; // Trotter not needed
-     double dt = t;
- 
-
-    if(qstate.size()!=2)
-        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-
-    uint cmask = (1U << q_control);
-	uint mask = cmask;
-    for(const auto& qs : qstate){
-        mask |= (1U << qs);
-    }
-    //TODO: implement device code
-    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*eig1), expi(-dt*eig2), expi(-dt*eig3));
+void inversion(ComplexVec& state, const bmReg& q){
+    suqa::apply_mcx(state,{q[0],q[2]},{1U,0U},q[1]); 
 }
 
+void left_multiplication(ComplexVec& state, const bmReg& qr1, const bmReg& qr2){
+    suqa::apply_cx(state, qr1[1], qr2[1]);
+    suqa::apply_mcx(state, {qr1[0], qr2[0]}, qr2[1]);
+    suqa::apply_cx(state, qr1[0], qr2[0]);
+    suqa::apply_mcx(state, {qr1[0], qr2[2]}, qr2[1]);
+    suqa::apply_cx(state, qr1[2], qr2[2]);
+}
 
+void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
+    inversion(state, qr1);
+    left_multiplication(state, qr1, qr0);
+    inversion(state, qr1);
+    inversion(state, qr2);
+    left_multiplication(state, qr2, qr0);
+    inversion(state, qr2);
+    left_multiplication(state, qr3, qr0);
+}
+
+void inverse_self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
+    inversion(state, qr3);
+    left_multiplication(state, qr3, qr0);
+    inversion(state, qr3);
+    left_multiplication(state, qr2, qr0);
+    left_multiplication(state, qr1, qr0);
+}
+
+void cphases(ComplexVec& state, const uint& qaux, const uint& q0b, double alpha1, double alpha2){
+    suqa::apply_mcu1(state, q0b, qaux, alpha1, 0U);
+    suqa::apply_mcu1(state, q0b, qaux, alpha2, 1U);
+}
+
+void self_trace_operator(ComplexVec& state, const bmReg& qr, const uint& qaux){
+    //TODO: optimize
+    suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
+    cphases(state, qaux, qr[1],theta, -theta);
+    suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
+}
+
+void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
+
+    if(qstate.size()!=15)
+        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+
+//    uint cmask = (1U << q_control);
+//	uint mask = cmask;
+//    for(const auto& qs : qstate){
+//        mask |= (1U << qs);
+//    }
+
+    const double dt = t/(double)n;
+
+    theta1 = dt*f1(g_beta);
+    theta2 = dt*f2(g_beta);
+    theta = 2*dt*g_beta;
+
+    //TODO: continue
+    for(uint ti=0; ti<(uint)n; ++ti){
+        self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        self_trace_operator(state, bm_qlink1, bm_qaux[0]);
+        inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+
+        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+        self_trace_operator(state, bm_qlink2, bm_qaux[0]);
+        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+    }
+
+//    d4.fourier_trans(qc, q0)
+//    d4.fourier_trans(qc, q1)
+//    d4.fourier_trans(qc, q2)
+//    d4.fourier_trans(qc, q3)
+//
+//    d4.momentum_phase(qc, q0, q_aux0, q_aux1, q_aux2, theta1, theta2)
+//    d4.momentum_phase(qc, q1, q_aux0, q_aux1, q_aux2, theta1, theta2)
+//    d4.momentum_phase(qc, q2, q_aux0, q_aux1, q_aux2, theta1, theta2)
+//    d4.momentum_phase(qc, q3, q_aux0, q_aux1, q_aux2, theta1, theta2)
+// 
+//    d4.inverse_fourier_trans(qc, q0)
+//    d4.inverse_fourier_trans(qc, q1)
+//    d4.inverse_fourier_trans(qc, q2)
+//    d4.inverse_fourier_trans(qc, q3)
+
+//    kernel_cevolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, cmask, qstate[0], qstate[1], expi(-dt*eig1), expi(-dt*eig2), expi(-dt*eig3));
+}
 
 /* Hamiltonian
  *
@@ -232,7 +318,7 @@ uint meas_mask;
 std::vector<uint> meas_mask_combs;
 
 
-void fill_meas_cache(const std::vector<uint>& bm_states, const std::string opstem){
+void fill_meas_cache(const bmReg& bm_states, const std::string opstem){
     state_levels = (1U << bm_states.size());
 
     iss.resize(state_levels);
@@ -340,7 +426,7 @@ void apply_measure_antirotation(ComplexVec& state){
 
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
-void apply_C(ComplexVec& state, const std::vector<uint>& bm_states, const uint &Ci){
+void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
     if(Ci==0U){
         suqa::apply_cx(state,bm_states[1], 0, bm_states[0]);
     }else if(Ci==1U){
@@ -352,7 +438,7 @@ void apply_C(ComplexVec& state, const std::vector<uint>& bm_states, const uint &
     }
 }
 
-void apply_C_inverse(ComplexVec& state, const std::vector<uint>& bm_states, const uint &Ci){
+void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
     apply_C(state, bm_states, Ci);
 }
 

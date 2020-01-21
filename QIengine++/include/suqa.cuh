@@ -45,17 +45,22 @@ void vnormalize(ComplexVec& v);
 /* SUQA gates */
 //
 
+// single qbit gates
 void apply_x(ComplexVec& state, uint q);
 void apply_x(ComplexVec& state, const std::vector<uint>& qs);
 
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const std::vector<uint>& qs);
 
+
+// multiple qbit gates
 //void apply_cx(ComplexVec& state, uint q_control, uint q_target);
 void apply_cx(ComplexVec& state, const uint& q_control, const uint& q_target, const uint& q_mask=1U);
 
 void apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, const uint& q_target);
 void apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, const std::vector<uint>& q_mask, const uint& q_target);
+
+void apply_mcu1(ComplexVec& state, const uint q_control, const uint& qtarget, double phase, uint q_mask=1U);
 
 void apply_swap(ComplexVec& state, const uint& q1, const uint& q2);
 

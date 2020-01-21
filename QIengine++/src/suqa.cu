@@ -330,6 +330,30 @@ void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, con
     kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
 }  
 
+__global__ 
+void kernel_suqa_mcu1(double *const state_re, double *const state_im, uint len, uint control_mask, uint mask_qs, uint q_target, Complex rphase){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i<len){
+        if((i & control_mask) == mask_qs){
+            uint j = i & ~(1U << q_target);
+            double tmpval = state_re[i]; 
+            state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
+            state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
+        }
+        i+=gridDim.x*blockDim.x;
+    }
+}
+
+void apply_mcu1(ComplexVec& state, const uint q_control, const uint& qtarget, double phase, uint q_mask=1U){
+    uint mask_qs = 1U << q_target;
+    uint mask = mask_qs | (1U << q_control);
+    if(q_mask) mask_qs |= (1U << q_control);
+
+    Complex phasec;
+    sincos(phase, &phasec.x, &phasec.y);
+
+    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target, phasec);
+}
 
 __global__ 
 void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask, uint mask_q, uint q2){
