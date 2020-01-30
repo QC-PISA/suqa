@@ -11,7 +11,7 @@
 
 #ifdef CUDA
 #define HANDLE_CUDACALL(fzcall) \
-    if(fzcall!=cudaSuccess)  \
+    if((fzcall)!=cudaSuccess)  \
         printf("ERROR: in %s:%d, call %s, errno %u: %s\n",__FILE__, __LINE__, #fzcall , fzcall, cudaGetErrorString(fzcall));
 #else
 #define HANDLE_CUDACALL(fzcall) 
@@ -24,11 +24,10 @@
     }
 
 
-
 template <typename T>
 std::ostream& operator<<(std::ostream& s, const std::complex<T>& c);
 
-
+// sparse_print() prints arrays with non-zero entries (threshold 1e-10; see src)
 template <typename T>
 void sparse_print(std::vector<std::complex<T>> v);
 
