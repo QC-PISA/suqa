@@ -24,14 +24,13 @@ debug_gpu: main_gpu
 profile_gpu: NVCCFLAGS += -m64 -O3 -G -g -DNDEBUG
 profile_gpu: main_gpu
 
-	
+$(OBJDIR):
+	mkdir -p $@
 
-$(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES)
-	mkdir -p $(OBJDIR)
+$(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES) $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $< 
 
-$(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES)
-	mkdir -p $(OBJDIR)
+$(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR)
 	$(NVCC) $(NVCCFLAGS) -o $@ -c $< 
 	
 main: $(OBJDIR)/main.cpp.o $(OBJDIR)/system.cpp.o $(OBJDIR)/suqa.cpp.o 
