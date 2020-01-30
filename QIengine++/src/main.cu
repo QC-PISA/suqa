@@ -16,6 +16,7 @@
 #include "io.hpp"
 #include "parser.hpp"
 #include "suqa.cuh"
+#include "system.cuh"
 #include "qms.cuh"
 
 using namespace std;
@@ -86,14 +87,14 @@ void allocate_state(ComplexVec& state, uint Dim){
 
 int main(int argc, char** argv){
     if(argc < 8){
-        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
     parse_arguments(args, argc, argv);
 
     beta = args.beta;
-    h = args.h;
+    g_beta = args.g_beta; // defined as extern in system.cuh
     thermalization = args.thermalization;
     qms::metro_steps = (uint)args.metro_steps;
     qms::reset_each = (uint)args.reset_each;
@@ -121,20 +122,6 @@ int main(int argc, char** argv){
     suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
 
-    cudaDeviceProp prop;
-    int whichDevice;
-    HANDLE_CUDACALL( cudaGetDevice( &whichDevice ) );
-    HANDLE_CUDACALL( cudaGetDeviceProperties( &prop, whichDevice ) );
-
-    HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream1 ) );
-    if (!prop.deviceOverlap) {
-        DEBUG_CALL(printf( "Device will not handle overlaps, so no "
-        "speed up from streams\n" ));
-        suqa::stream2 = suqa::stream1;
-    }else{
-        HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream2 ) );
-    }
-
     
     // Banner
     print_banner();
@@ -152,8 +139,8 @@ int main(int argc, char** argv){
     allocate_state(qms::gState, qms::Dim);
     init_state(qms::gState, qms::Dim);
 
-    //TODO: make it an args option
-    uint perc_mstep = (qms::metro_steps+49)/50;
+    //TODO: make it an args option?
+    uint perc_mstep = (qms::metro_steps+19)/20; // batched saves
     
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");
@@ -178,15 +165,11 @@ int main(int argc, char** argv){
             save_measures(outfilename);
         }
     }
+
     cout<<endl;
     deallocate_state(qms::gState);
     qms::clear();
     suqa::clear();
-
-    HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream1 ) );
-    if (!prop.deviceOverlap) {
-        HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream2 ) );
-    }
 
     cout<<"\nall fine :)\n"<<endl;
 

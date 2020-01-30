@@ -8,7 +8,7 @@
 
  */
 
-
+//TODO: make the number of "state" qubits determined at compilation time in system.cuh
 double g_beta;
 
 

@@ -8,7 +8,7 @@ using namespace std;
 
 struct arg_list{
     double beta = 0.0;
-    double h = 0.0;
+    double g_beta = 0.0;
     int metro_steps = 0;
     int reset_each = 0;
     int state_qbits = 0;
@@ -27,7 +27,7 @@ struct arg_list{
 
 ostream& operator<<(ostream& o, const arg_list& al){
     o<<"beta: "<<al.beta<<endl;
-    o<<"h: "<<al.h<<endl;
+    o<<"g_beta: "<<al.g_beta<<endl;
     o<<"metro steps: "<<al.metro_steps<<endl;
     o<<"reset each: "<<al.reset_each<<endl;
     o<<"num state qbits "<<al.state_qbits<<endl;
@@ -52,7 +52,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
 
     // fixed arguments
     args.beta = stod(argv[1],NULL);
-    args.h = stod(argv[2],NULL);
+    args.g_beta = stod(argv[2],NULL);
     args.metro_steps = atoi(argv[3]);
     args.reset_each = atoi(argv[4]);
     args.state_qbits = atoi(argv[5]);
@@ -135,6 +135,10 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     // argument checking
     if(args.beta <= 0.0){
         throw "ERROR: argument <beta> invalid";
+    }
+
+    if(args.g_beta <= 0.0){
+        throw "ERROR: argument <g_beta> invalid";
     }
 
     if(args.metro_steps <= 0){
