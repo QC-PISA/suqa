@@ -40,6 +40,9 @@ main: $(OBJDIR)/main.cpp.o $(OBJDIR)/system.cpp.o $(OBJDIR)/suqa.cpp.o
 main_gpu: $(OBJDIR)/main.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
 
+test_evolution: NVCCFLAGS += -DNDEBUG
+test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
+	$(NVCC) $^ -o $@
 
 clean:
 	rm -rf main main_gpu $(OBJDIR)
