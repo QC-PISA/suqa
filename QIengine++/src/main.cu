@@ -143,7 +143,7 @@ int main(int argc, char** argv){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     // Initialization of utilities
-    suqa::setup();
+    suqa::setup(qms::Dim);
     qms::setup(beta);
 
     // Initialization:
@@ -153,7 +153,7 @@ int main(int argc, char** argv){
     init_state(qms::gState, qms::Dim);
 
     //TODO: make it an args option
-    uint perc_mstep = (qms::metro_steps+19)/20;
+    uint perc_mstep = (qms::metro_steps+49)/50;
     
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");
@@ -165,7 +165,7 @@ int main(int argc, char** argv){
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
         DEBUG_CALL(cout<<"metro step: "<<s<<endl);
-        take_measure = (s>thermalization and (s>s0 and (s-s0)%qms::reset_each ==0U));
+        take_measure = (s>(uint)thermalization and (s>s0 and (s-s0)%qms::reset_each ==0U));
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state

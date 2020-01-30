@@ -4,6 +4,12 @@
 //#include <thrust/execution_policy.h>
 //#include <thrust/functional.h>
 
+#if !defined(NDEBUG)
+double *host_state_re, *host_state_im;
+#endif
+
+double *host_partial_ret, *dev_partial_ret;
+
 /*XXX: everything is optimizable
  *possible strategies:
  *
@@ -20,65 +26,71 @@
 
 
 //TODO: optimize reduce
-__global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_comp, uint len){
+__global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len){
     extern __shared__ double local_ret[];
-    uint i =  blockIdx.x*blockDim.x*2 + threadIdx.x;
+    uint i =  blockIdx.x*blockDim.x + threadIdx.x;
 
 //    double vj = v_comp[i+(blockDim.x >> 1)];
 //    local_ret[tid] =  v_comp[i]*v_comp[i]+vj*vj;
     local_ret[threadIdx.x] = 0.0;
     double tmpval;
     while(i<len){
-        tmpval = v_comp[i]; 
+        tmpval = v_re[i]; 
         local_ret[threadIdx.x] +=  tmpval*tmpval;
-        tmpval = v_comp[i+blockDim.x]; 
+        tmpval = v_im[i]; 
         local_ret[threadIdx.x] +=  tmpval*tmpval;
-        i += gridDim.x*blockDim.x*2;
+//        if(v_re[i]>0.0)
+//            printf("%u %.16lg, %.16lg; loc_ret[%d] = %.16lg\n",i, v_re[i], v_im[i], threadIdx.x, local_ret[threadIdx.x]);
+//        tmpval = v_comp[i+blockDim.x]; 
+//        local_ret[threadIdx.x] +=  tmpval*tmpval;
+        i += gridDim.x*blockDim.x;
 //        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
 //        printf("local_ret[%d] = %.10lg\n",threadIdx.x, local_ret[threadIdx.x]);
 
     }
     __syncthreads();
 
-    for(uint s=blockDim.x/2; s>512; s>>=1){
+    for(uint s=blockDim.x/2; s>0; s>>=1){
         if(threadIdx.x < s){
             local_ret[threadIdx.x] += local_ret[threadIdx.x+s];
         }
         __syncthreads();
     }
-    if (blockDim.x >= 1024) { if (threadIdx.x < 512) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 512]; } __syncthreads(); }
-    if (blockDim.x >=  512) { if (threadIdx.x < 256) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 256]; } __syncthreads(); }
-    if (blockDim.x >=  256) { if (threadIdx.x < 128) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 128]; } __syncthreads(); }
-    if (blockDim.x >=  128) { if (threadIdx.x <  64) { local_ret[threadIdx.x] += local_ret[threadIdx.x +  64]; } __syncthreads(); }
+//    if (blockDim.x >= 1024) { if (threadIdx.x < 512) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 512]; } __syncthreads(); }
+//    if (blockDim.x >=  512) { if (threadIdx.x < 256) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 256]; } __syncthreads(); }
+//    if (blockDim.x >=  256) { if (threadIdx.x < 128) { local_ret[threadIdx.x] += local_ret[threadIdx.x + 128]; } __syncthreads(); }
+//    if (blockDim.x >=  128) { if (threadIdx.x <  64) { local_ret[threadIdx.x] += local_ret[threadIdx.x +  64]; } __syncthreads(); }
+//
+//    if(threadIdx.x<32){
+//        if (blockDim.x >= 64) local_ret[threadIdx.x] += local_ret[threadIdx.x + 32];
+//        if (blockDim.x >= 32) local_ret[threadIdx.x] += local_ret[threadIdx.x + 16];
+//        if (blockDim.x >= 16) local_ret[threadIdx.x] += local_ret[threadIdx.x +  8];
+//        if (blockDim.x >=  8) local_ret[threadIdx.x] += local_ret[threadIdx.x +  4];
+//        if (blockDim.x >=  4) local_ret[threadIdx.x] += local_ret[threadIdx.x +  2];
+//        if (blockDim.x >=  2) local_ret[threadIdx.x] += local_ret[threadIdx.x +  1];
+//    }
 
-    if(threadIdx.x<32){
-        if (blockDim.x >= 64) local_ret[threadIdx.x] += local_ret[threadIdx.x + 32];
-        if (blockDim.x >= 32) local_ret[threadIdx.x] += local_ret[threadIdx.x + 16];
-        if (blockDim.x >= 16) local_ret[threadIdx.x] += local_ret[threadIdx.x +  8];
-        if (blockDim.x >=  8) local_ret[threadIdx.x] += local_ret[threadIdx.x +  4];
-        if (blockDim.x >=  4) local_ret[threadIdx.x] += local_ret[threadIdx.x +  2];
-        if (blockDim.x >=  2) local_ret[threadIdx.x] += local_ret[threadIdx.x +  1];
+    if(threadIdx.x==0){
+        dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
+//        printf("dev_partial_ret_ptr[%d] = %.16lg\n",blockIdx.x,dev_partial_ret_ptr[blockIdx.x]);
     }
-
-    if(threadIdx.x==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
 
-double *host_partial_ret;
-double *dev_partial_ret;
 double suqa::vnorm(const ComplexVec& v){
     
     double ret = 0.0;
 //    double *host_partial_ret = new double[suqa::blocks];
     
-    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, v.data, 2*v.size());
+    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, v.data_re, v.data_im, v.size());
 //    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream1>>>(dev_partial_ret, v.data_re, v.size());
-//    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream2>>>(dev_partial_ret+suqa::blocks,  v.data_im, v.size());
+//    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),suqa::stream2>>>(dev_partial_ret+suqa::blocks*sizeof(double),  v.data_im, v.size());
 //    cudaDeviceSynchronize();
 
     cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
 //    cudaDeviceSynchronize();
     
     for(uint bid=0; bid<suqa::blocks; ++bid){
+        
 //        printf("host_partial_ret[%d(/%d)] = %.10lg\n",bid, suqa::blocks,host_partial_ret[bid]);
         ret += host_partial_ret[bid]; 
     } 
@@ -236,7 +248,7 @@ void suqa::apply_x(ComplexVec& state, uint q){
 //}
 
 
-void suqa::apply_x(ComplexVec& state, const std::vector<uint>& qs){
+void suqa::apply_x(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs)
         kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
 }  
@@ -264,8 +276,6 @@ void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q){
             state_re[i_1]= TWOSQINV*(a_0_re-a_1_re);
             state_im[i_0]= TWOSQINV*(a_0_im+a_1_im);
             state_im[i_1]= TWOSQINV*(a_0_im-a_1_im);
-//            state[i_0] = cuCmul(TWOSQINV_CMPX,cuCadd(a_0,a_1));
-//            state[i_1] = cuCmul(TWOSQINV_CMPX,cuCsub(a_0,a_1));
         }
         i_0+=gridDim.x*blockDim.x;
     }
@@ -274,14 +284,100 @@ void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q){
 
 void suqa::apply_h(ComplexVec& state, uint q){
     kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+    DEBUG_READ_STATE(state);
 }  
 
 
-void suqa::apply_h(ComplexVec& state, const std::vector<uint>& qs){
+void suqa::apply_h(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs){
         kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
     }
 }  
+
+//  PI/8 GATES
+
+__global__ 
+void kernel_suqa_t(double *state_re, double *state_im, uint len, uint q){
+//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
+     
+    uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i_1<len){
+        if(i_1 & (1U << q)){
+            double a_1_re = state_re[i_1];
+            double a_1_im = state_im[i_1];
+            
+            state_re[i_1]= TWOSQINV*(a_1_re - a_1_im);
+            state_im[i_1]= TWOSQINV*(a_1_im + a_1_re);
+        }
+        i_1+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__ 
+void kernel_suqa_tdg(double *state_re, double *state_im, uint len, uint q){
+//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
+     
+    uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i_1<len){
+        if(i_1 & (1U << q)){
+            double a_1_re = state_re[i_1];
+            double a_1_im = state_im[i_1];
+            
+            state_re[i_1]= TWOSQINV*(a_1_re + a_1_im);
+            state_im[i_1]= TWOSQINV*(a_1_im - a_1_re);
+        }
+        i_1+=gridDim.x*blockDim.x;
+    }
+}
+
+
+
+void suqa::apply_t(ComplexVec& state, uint q){
+    kernel_suqa_t<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+}  
+void suqa::apply_tdg(ComplexVec& state, uint q){
+    kernel_suqa_tdg<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+}  
+
+
+
+void suqa::apply_t(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs){
+        kernel_suqa_t<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+    }
+}  
+
+void suqa::apply_tdg(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs){
+        kernel_suqa_tdg<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+    }
+}  
+
+// U1 GATE
+
+__global__ 
+void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Complex phase){
+//    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
+     
+    uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i_1<len){
+        if((i_1 & (1U << q))){
+            double tmpval = state_re[i_1]; 
+            state_re[i_1] = state_re[i_1]*phase.x-state_im[i_1]*phase.y;
+            state_im[i_1] = tmpval*phase.y+state_im[i_1]*phase.x;
+
+        }
+        i_1+=gridDim.x*blockDim.x;
+    }
+}
+
+
+void suqa::apply_u1(ComplexVec& state, uint q, double phase){
+    Complex phasec;
+    sincos(phase, &phasec.y, &phasec.x);
+    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, phasec);
+}
+
 
 //  CONTROLLED-NOT GATE
 
@@ -310,7 +406,7 @@ void suqa::apply_cx(ComplexVec& state, const uint& q_control, const uint& q_targ
     kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
 }  
 
-void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, const uint& q_target){
+void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const uint& q_target){
     uint mask = 1U << q_target;
     for(const auto& q : q_controls)
         mask |= 1U << q;
@@ -318,7 +414,7 @@ void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, con
 }  
 
 
-void suqa::apply_mcx(ComplexVec& state, const std::vector<uint>& q_controls, const std::vector<uint>& q_mask, const uint& q_target){
+void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target){
     uint mask = 1U << q_target;
     for(const auto& q : q_controls)
         mask |= 1U << q;
@@ -335,7 +431,7 @@ void kernel_suqa_mcu1(double *const state_re, double *const state_im, uint len, 
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if((i & control_mask) == mask_qs){
-            uint j = i & ~(1U << q_target);
+//            uint j = i & ~(1U << q_target);
             double tmpval = state_re[i]; 
             state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
             state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
@@ -344,13 +440,28 @@ void kernel_suqa_mcu1(double *const state_re, double *const state_im, uint len, 
     }
 }
 
-void apply_mcu1(ComplexVec& state, const uint q_control, const uint& qtarget, double phase, uint q_mask=1U){
+void suqa::apply_cu1(ComplexVec& state, uint q_control, uint q_target, double phase, uint q_mask){
     uint mask_qs = 1U << q_target;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
 
     Complex phasec;
-    sincos(phase, &phasec.x, &phasec.y);
+    sincos(phase, &phasec.y, &phasec.x);
+
+    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target, phasec);
+}
+
+void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
+    uint mask = 1U << q_target;
+    for(const auto& q : q_controls)
+        mask |= 1U << q;
+    uint mask_qs = 1U << q_target;
+    for(uint k = 0U; k < q_controls.size(); ++k){
+        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
+    }
+
+    Complex phasec;
+    sincos(phase, &phasec.y, &phasec.x);
 
     kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target, phasec);
 }
@@ -400,7 +511,7 @@ void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
     kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data_re, state.data_im, state.size(), q, val);
 }
 
-__global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_comp, uint len, uint q, double rdoub){
+__global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len, uint q){
     extern __shared__ double local_ret[];
     uint tid = threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
@@ -411,7 +522,9 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_comp, u
     double tmpval;
     while(i<len){
         if(i & (1U << q)){
-            tmpval = v_comp[i];
+            tmpval = v_re[i];
+            local_ret[tid] +=  tmpval*tmpval;
+            tmpval = v_im[i];
             local_ret[tid] +=  tmpval*tmpval;
         }
         i += gridDim.x*blockDim.x;
@@ -421,35 +534,36 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_comp, u
     }
     __syncthreads();
 
-    for(uint s=blockDim.x/2; s>512; s>>=1){
+    for(uint s=blockDim.x/2; s>0; s>>=1){
         if(tid < s){
             local_ret[tid] += local_ret[tid+s];
         }
         __syncthreads();
     }
-    if (blockDim.x >= 1024) { if (tid < 512) { local_ret[tid] += local_ret[tid + 512]; } __syncthreads(); }
-    if (blockDim.x >=  512) { if (tid < 256) { local_ret[tid] += local_ret[tid + 256]; } __syncthreads(); }
-    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
-    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
-
-    if(tid<32){
-        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
-        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
-        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
-        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
-        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
-        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
-    }
+//    if (blockDim.x >= 1024) { if (tid < 512) { local_ret[tid] += local_ret[tid + 512]; } __syncthreads(); }
+//    if (blockDim.x >=  512) { if (tid < 256) { local_ret[tid] += local_ret[tid + 256]; } __syncthreads(); }
+//    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
+//    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
+//
+//    if(tid<32){
+//        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
+//        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
+//        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
+//        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
+//        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
+//        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
+//    }
 
     if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
 
+
 void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     double prob1 = 0.0;
     c=0U;
-    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q, rdoub);
-//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream1>>>(dev_partial_ret, state.data_re, state.size(), q, rdoub);
-//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+blocks, state.data_im, state.size(), q, rdoub);
+//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
+    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data_re, state.data_im, state.size(), q);
+//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+blocks, state.data_im, state.size(), q);
 //    cudaDeviceSynchronize();
     cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
     
@@ -474,6 +588,76 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     suqa::vnormalize(state);
 }
 
+
+__global__ void kernel_suqa_prob_filter(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len, uint mask_qs, uint mask){
+    extern __shared__ double local_ret[];
+    uint tid = threadIdx.x;
+    uint i =  blockIdx.x*blockDim.x + threadIdx.x;
+
+//    double vj = v_comp[i+(blockDim.x >> 1)];
+//    local_ret[tid] =  v_comp[i]*v_comp[i]+vj*vj;
+    local_ret[threadIdx.x] = 0.0;
+    double tmpval;
+    while(i<len){
+        if((i & mask_qs) == mask){
+            tmpval = v_re[i];
+            local_ret[tid] +=  tmpval*tmpval;
+            tmpval = v_im[i];
+            local_ret[tid] +=  tmpval*tmpval;
+        }
+        i += gridDim.x*blockDim.x;
+//        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
+//        printf("local_ret[%d] = %.10lg\n",tid, local_ret[tid]);
+
+    }
+    __syncthreads();
+
+    for(uint s=blockDim.x/2; s>0; s>>=1){
+        if(tid < s){
+            local_ret[tid] += local_ret[tid+s];
+        }
+        __syncthreads();
+    }
+//    if (blockDim.x >= 1024) { if (tid < 512) { local_ret[tid] += local_ret[tid + 512]; } __syncthreads(); }
+//    if (blockDim.x >=  512) { if (tid < 256) { local_ret[tid] += local_ret[tid + 256]; } __syncthreads(); }
+//    if (blockDim.x >=  256) { if (tid < 128) { local_ret[tid] += local_ret[tid + 128]; } __syncthreads(); }
+//    if (blockDim.x >=  128) { if (tid <  64) { local_ret[tid] += local_ret[tid +  64]; } __syncthreads(); }
+//
+//    if(tid<32){
+//        if (blockDim.x >= 64) local_ret[tid] += local_ret[tid + 32];
+//        if (blockDim.x >= 32) local_ret[tid] += local_ret[tid + 16];
+//        if (blockDim.x >= 16) local_ret[tid] += local_ret[tid +  8];
+//        if (blockDim.x >=  8) local_ret[tid] += local_ret[tid +  4];
+//        if (blockDim.x >=  4) local_ret[tid] += local_ret[tid +  2];
+//        if (blockDim.x >=  2) local_ret[tid] += local_ret[tid +  1];
+//    }
+
+    if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
+}
+
+
+
+void suqa::prob_filter(ComplexVec& state, const bmReg& qs, const std::vector<uint>& q_mask, double &prob){
+    prob = 0.0;
+    uint mask_qs = 0U;
+    for(const auto& q : qs)
+        mask_qs |= 1U << q;
+    uint mask = 0U;
+    for(uint k = 0U; k < q_mask.size(); ++k){
+        if(q_mask[k]) mask |= q_mask[k] << qs[k];
+    }
+//    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
+    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data_re, state.data_im, state.size(), mask_qs, mask);
+//    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret+suqa::blocks, state.data_im, state.size(), mask_qs, mask);
+//    cudaDeviceSynchronize();
+    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+    
+    for(uint bid=0; bid<suqa::blocks; ++bid){
+        prob += host_partial_ret[bid]; 
+    } 
+}
+
+
 void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
 //    DEBUG_CALL(std::cout<<"Calling apply_reset() with q="<<q<<"and rdoub="<<rdoub<<std::endl);
     uint c;
@@ -496,19 +680,38 @@ void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
 //    }
 //}
 
-void suqa::apply_reset(ComplexVec& state, std::vector<uint> qs, std::vector<double> rdoubs){
+void suqa::apply_reset(ComplexVec& state, const bmReg& qs, std::vector<double> rdoubs){
     // qs.size() == rdoubs.size()
     for(uint i=0; i<qs.size(); ++i){
         suqa::apply_reset(state, qs[i], rdoubs[i]); 
     } 
 }
 
-void suqa::setup(){
+void suqa::setup(uint Dim){
     cudaHostAlloc((void**)&host_partial_ret,suqa::blocks*sizeof(double),cudaHostAllocDefault);
     cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
 // the following are allocated only for library versions of reduce
 //    cudaHostAlloc((void**)&ret_re_im,2*sizeof(double),cudaHostAllocDefault);
 //    cudaMalloc((void**)&d_ret_re_im,2*sizeof(double));
+
+    cudaDeviceProp prop;
+    int whichDevice;
+    HANDLE_CUDACALL( cudaGetDevice( &whichDevice ) );
+    HANDLE_CUDACALL( cudaGetDeviceProperties( &prop, whichDevice ) );
+
+    HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream1 ) );
+    if (!prop.deviceOverlap) {
+        DEBUG_CALL(printf( "Device will not handle overlaps, so no "
+        "speed up from streams\n" ));
+        suqa::stream2 = suqa::stream1;
+    }else{
+        HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream2 ) );
+    }
+
+#if !defined(NDEBUG)
+    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re,Dim*sizeof(double),cudaHostAllocDefault));
+    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im,Dim*sizeof(double),cudaHostAllocDefault));
+#endif
 }
 
 void suqa::clear(){
@@ -516,4 +719,15 @@ void suqa::clear(){
 //    cudaFreeHost(ret_re_im);
     cudaFree(dev_partial_ret); 
     cudaFreeHost(host_partial_ret);
+
+#ifndef NDEBUG
+    HANDLE_CUDACALL(cudaFreeHost(host_state_re));
+    HANDLE_CUDACALL(cudaFreeHost(host_state_im));
+#endif
+
+    HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream1 ) );
+    if (suqa::stream1!=suqa::stream2) {
+        HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream2 ) );
+    }
+
 }

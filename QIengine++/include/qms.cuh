@@ -4,23 +4,6 @@
 #include "suqa.cuh"
 #include "complex_defines.cuh"
 
-#if !defined(NDEBUG) 
-double *host_state_re, *host_state_im;
-#define DEBUG_READ_STATE() {\
-    cudaMemcpyAsync(host_state_re,gState.data_re,gState.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
-    cudaMemcpyAsync(host_state_im,gState.data_im,gState.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2); \
-    cudaDeviceSynchronize(); \
-    sparse_print((double*)host_state_re,(double*)host_state_im, gState.size()); \
-} 
-
-#else
-#define DEBUG_READ_STATE()
-#endif
-
-#define HANDLE_CUDACALL(fzcall) \
-    if(fzcall!=cudaSuccess)  \
-        printf("ERROR: in %s:%d, call %s, errno %u: %s\n",__FILE__, __LINE__, #fzcall , fzcall, cudaGetErrorString(fzcall)); \
-
 
 // defined in src/evolution.cpp
 void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate);
@@ -199,24 +182,24 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 
 void reset_non_state_qbits(ComplexVec& state){
     DEBUG_CALL(std::cout<<"\n\nBefore reset"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
     std::vector<double> rgenerates(ene_qbits);
 
     for(auto& el : rgenerates) el = rangen.doub();
     suqa::apply_reset(state, bm_enes_old, rgenerates);
 
     DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
 
     for(auto& el : rgenerates) el = rangen.doub();
     suqa::apply_reset(state, bm_enes_new, rgenerates);
 
     DEBUG_CALL(std::cout<<"\n\nafter enes_new reset"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
 
     suqa::apply_reset(state, bm_acc, rangen.doub());
     DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
 }
 
 
@@ -247,7 +230,7 @@ void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, con
     if(m<=0) rphase*=-1;
 
 //    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q_control, q_target, rphase);
-    suqa::apply_mcu1(state, q_control, q_target, rphase);
+    suqa::apply_cu1(state, q_control, q_target, rphase);
 }
 
 void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
@@ -255,11 +238,11 @@ void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
             suqa::apply_h(state, qact[outer_i]);
             DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
-            DEBUG_READ_STATE();
+            DEBUG_READ_STATE(state);
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
             qms_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
             DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
-            DEBUG_READ_STATE();
+            DEBUG_READ_STATE(state);
         }
     }
 }
@@ -271,11 +254,11 @@ void qms_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qms_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
             DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
-            DEBUG_READ_STATE();
+            DEBUG_READ_STATE(state);
         }
         suqa::apply_h(state, qact[outer_i]);
         DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
-        DEBUG_READ_STATE();
+        DEBUG_READ_STATE(state);
     }
 }
 
@@ -283,7 +266,7 @@ void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state,
     DEBUG_CALL(std::cout<<"apply_phase_estimation()"<<std::endl);
     suqa::apply_h(state,q_target);
     DEBUG_CALL(std::cout<<"after qi_h(state,q_target)"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
 
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
@@ -291,7 +274,7 @@ void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state,
         cevolution(state, powr*t, powr*n, q_target[trg], q_state);
     }
     DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
     
     // apply QFT^{-1}
     qms_qft_inverse(state, q_target); 
@@ -304,7 +287,7 @@ void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& 
     // apply QFT
     qms_qft(state, q_target); 
     DEBUG_CALL(std::cout<<"\nafter qft"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
 
     // apply CUs
     for(uint trg = 0; trg < q_target.size(); ++trg){
@@ -313,7 +296,7 @@ void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& 
     }
 
     DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(state);
     
     suqa::apply_h(state,q_target);
 }
@@ -475,27 +458,27 @@ void apply_U(){
     DEBUG_CALL(std::cout<<"\n\nApply U"<<std::endl);
     apply_C(gState, bm_states, gCi);
     DEBUG_CALL(std::cout<<"\n\nAfter apply C = "<<gCi<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
 
     apply_Phi();
     DEBUG_CALL(std::cout<<"\n\nAfter second phase estimation"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
 
     apply_W();
     DEBUG_CALL(std::cout<<"\n\nAfter apply W"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
 }
 
 void apply_U_inverse(){
     apply_W_inverse();
     DEBUG_CALL(std::cout<<"\n\nAfter apply W inverse"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
     apply_Phi_inverse();
     DEBUG_CALL(std::cout<<"\n\nAfter inverse second phase estimation"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
     apply_C_inverse(gState,bm_states,gCi);
     DEBUG_CALL(std::cout<<"\n\nAfter apply C inverse = "<<gCi<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
 }
 
 
@@ -536,13 +519,13 @@ int metro_step(bool take_measure){
     int ret=0;
     
     DEBUG_CALL(std::cout<<"initial state"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
     reset_non_state_qbits(gState);
     DEBUG_CALL(std::cout<<"state after reset"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
     apply_Phi_old();
     DEBUG_CALL(std::cout<<"\n\nAfter first phase estimation"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
 
     gCi = draw_C();
     DEBUG_CALL(std::cout<<"\n\ndrawn C = "<<gCi<<std::endl);
@@ -559,7 +542,7 @@ int metro_step(bool take_measure){
         measure_qbits(gState, bm_enes_new, c_E_news);
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
         DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
-        DEBUG_READ_STATE()
+        DEBUG_READ_STATE(gState)
         apply_Phi_inverse();
         if(take_measure){
             Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
@@ -571,7 +554,7 @@ int metro_step(bool take_measure){
 ////            X_measures.push_back(0.0);
             DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
-            DEBUG_READ_STATE();
+            DEBUG_READ_STATE(gState);
             DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
 ////           reset_non_state_qbits();
             for(uint ei=0U; ei<ene_qbits; ++ei)
@@ -579,7 +562,7 @@ int metro_step(bool take_measure){
             apply_Phi();
             measure_qbits(gState, bm_enes_new, c_E_news);
             DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
-            DEBUG_READ_STATE();
+            DEBUG_READ_STATE(gState);
             apply_Phi_inverse();
 
             ret = 2; // step accepted, measured
@@ -594,7 +577,7 @@ int metro_step(bool take_measure){
     apply_U_inverse();
     
     DEBUG_CALL(std::cout<<"\n\nBefore reverse attempts"<<std::endl);
-    DEBUG_READ_STATE();
+    DEBUG_READ_STATE(gState);
     uint iters = 0;
     while(iters < max_reverse_attempts){
         apply_Phi();
@@ -614,20 +597,20 @@ int metro_step(bool take_measure){
                 E_measures.push_back(Eold_meas_d);
                 DEBUG_CALL(std::cout<<"  energy measure : "<<Eold_meas_d<<std::endl); 
                 DEBUG_CALL(std::cout<<"\n\nBefore X measure"<<std::endl);
-                DEBUG_READ_STATE();
+                DEBUG_READ_STATE(gState);
 
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
                 X_measures.push_back(measure_X());
                 DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
-                DEBUG_READ_STATE();
+                DEBUG_READ_STATE(gState);
                 DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
                 apply_Phi();
                 measure_qbits(gState, bm_enes_new, c_E_news);
                 DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
-                DEBUG_READ_STATE();
+                DEBUG_READ_STATE(gState);
                 apply_Phi_inverse();
 
                 ret=4;
