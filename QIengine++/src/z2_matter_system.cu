@@ -31,7 +31,9 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
 }
 
 
-// Set the initial state to |000..0> with probability 1.
+// Set the initial state to the projection of |000..0> on the gauge invariant subspace
+// The gauge invariant state is |psi> = (1./sqrt(8))(|000>|0> + |001>|0> + |010>|0> + ... + |111>|0>)
+// The |0> means that the fermions variables remain |0>.
 void init_state(ComplexVec& state, uint Dim){
 
     if(state.size()!=Dim)
@@ -40,6 +42,11 @@ void init_state(ComplexVec& state, uint Dim){
     // zeroes entries and set state to all the computational element |000...00>
     initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
+
+	suqa::apply_h(state, bm_qlink0);
+	suqa::apply_h(state, bm_qlink1);
+	suqa::apply_h(state, bm_qlink2);
+
 }
 
 

@@ -76,9 +76,12 @@ int main(int argc, char** argv){
     init_state(state, Dim);
 
     FILE * outfile;
+	
+    DEBUG_READ_STATE(state);	
 
     DEBUG_CALL(printf("initial state:\n"));
     DEBUG_READ_STATE(state);
+
 
 return 0;
 
