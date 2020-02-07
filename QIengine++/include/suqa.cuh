@@ -78,6 +78,12 @@ void vnormalize(ComplexVec& v);
 void apply_x(ComplexVec& state, uint q);
 void apply_x(ComplexVec& state, const bmReg& qs);
 
+void apply_y(ComplexVec& state, uint q);
+void apply_y(ComplexVec& state, const bmReg& qs);
+
+void apply_z(ComplexVec& state, uint q);
+void apply_z(ComplexVec& state, const bmReg& qs);
+
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const bmReg& qs);
 

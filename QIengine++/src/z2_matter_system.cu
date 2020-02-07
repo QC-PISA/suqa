@@ -30,6 +30,7 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
     }
 }
 
+// preparation of the state //
 
 // Set the initial state to the projection of |000..0> on the gauge invariant subspace
 // The gauge invariant state is |psi> = (1./sqrt(8))(|000>|0> + |001>|0> + |010>|0> + ... + |111>|0>)
@@ -43,11 +44,17 @@ void init_state(ComplexVec& state, uint Dim){
     initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
 
-	suqa::apply_h(state, bm_qlink0);
-	suqa::apply_h(state, bm_qlink1);
-	suqa::apply_h(state, bm_qlink2);
+	suqa::apply_h(state, bm_z2_qlink0);
+	suqa::apply_h(state, bm_z2_qlink1);
+	suqa::apply_h(state, bm_z2_qlink2);
 
 }
 
+// Apply the operator chi1_chi2_sigma_z12.
+
+
+
+
+ 
 
 

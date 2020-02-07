@@ -73,14 +73,30 @@ int main(int argc, char** argv){
     rangen.set_seed(time(NULL));
 
     suqa::setup(Dim);
-    init_state(state, Dim);
+	 
+	init_state(state, Dim);
+
+    DEBUG_CALL(printf("After init:\n"));
+    DEBUG_READ_STATE(state);	
+
+	suqa::apply_y(state, bm_z2_qlink0);
 
     FILE * outfile;
 	
+    DEBUG_CALL(printf("After Y:\n"));
     DEBUG_READ_STATE(state);	
 
-    DEBUG_CALL(printf("initial state:\n"));
-    DEBUG_READ_STATE(state);
+	suqa::apply_y(state, bm_z2_qlink0);
+
+    DEBUG_CALL(printf("After YY:\n"));
+    DEBUG_READ_STATE(state);	
+
+	suqa::apply_z(state, bm_z2_qlink0);
+
+    DEBUG_CALL(printf("After Z:\n"));
+    DEBUG_READ_STATE(state);	
+   
+	DEBUG_READ_STATE(state);
 
 
 return 0;
