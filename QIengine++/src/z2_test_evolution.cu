@@ -86,16 +86,23 @@ int main(int argc, char** argv){
     DEBUG_CALL(printf("After Y:\n"));
     DEBUG_READ_STATE(state);	
 
-	suqa::apply_y(state, bm_z2_qlink0);
+	suqa::apply_sigmap(state, bm_z2_qlink0);
 
-    DEBUG_CALL(printf("After YY:\n"));
+    DEBUG_CALL(printf("After sigmap:\n"));
     DEBUG_READ_STATE(state);	
 
-	suqa::apply_z(state, bm_z2_qlink0);
-
-    DEBUG_CALL(printf("After Z:\n"));
+	suqa::apply_sigmap(state, bm_z2_qlink0);
+ 
+    DEBUG_CALL(printf("After sigmapsigmap:\n"));
     DEBUG_READ_STATE(state);	
-   
+
+	suqa::apply_sigmam(state, bm_z2_qlink0);
+ 
+    DEBUG_CALL(printf("After sigmapsigmam:\n"));
+    DEBUG_READ_STATE(state);	
+
+
+  
 	DEBUG_READ_STATE(state);
 
 

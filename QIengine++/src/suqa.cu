@@ -314,6 +314,64 @@ void suqa::apply_z(ComplexVec& state, const bmReg& qs){
 }
 
 
+//  SIGMA+ = 1/2(X+iY) GATE
+
+__global__ 
+void kernel_suqa_sigmap(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U <<q);
+    while(i<len){
+        if((i & glob_mask) == glob_mask){
+            uint j = i & ~(1U << q); // j has 0 on q-th digit
+        	state_re[j]=state_re[i];
+        	state_im[j]=state_im[i];
+        	state_re[i]=0;
+        	state_im[i]=0;
+		}
+        i+=gridDim.x*blockDim.x;
+    }
+}
+
+
+void suqa::apply_sigmap(ComplexVec& state, uint q){
+    kernel_suqa_sigmap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+void suqa::apply_sigmap(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+        kernel_suqa_sigmap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}
+
+
+//  SIGMA- = 1/2(X-iY) GATE
+
+__global__ 
+void kernel_suqa_sigmam(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U <<q);
+    while(i<len){
+        if((i & glob_mask) == glob_mask){
+            uint j = i & ~(1U << q); // j has 0 on q-th digit
+        	state_re[i]=state_re[j];
+        	state_im[i]=state_im[j];
+        	state_re[j]=0;
+        	state_im[j]=0;
+		}
+        i+=gridDim.x*blockDim.x;
+    }
+}
+
+
+void suqa::apply_sigmam(ComplexVec& state, uint q){
+    kernel_suqa_sigmam<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+void suqa::apply_sigmam(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+        kernel_suqa_sigmam<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}
+
+
 
 
 

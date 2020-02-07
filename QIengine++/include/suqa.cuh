@@ -84,6 +84,12 @@ void apply_y(ComplexVec& state, const bmReg& qs);
 void apply_z(ComplexVec& state, uint q);
 void apply_z(ComplexVec& state, const bmReg& qs);
 
+void apply_sigmap(ComplexVec& state, uint q);
+void apply_sigmap(ComplexVec& state, const bmReg& qs);
+
+void apply_sigmam(ComplexVec& state, uint q);
+void apply_sigmam(ComplexVec& state, const bmReg& qs);
+
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const bmReg& qs);
 
