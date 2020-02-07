@@ -50,7 +50,19 @@ void init_state(ComplexVec& state, uint Dim){
 
 }
 
-// Apply the operator chi1_chi2_sigma_z12.
+// Apply the operator chi1_chi2_sigma_z12. This is the one used in the paper by Lamm: PRD 100, 034518 (2019).
+// TODO: Generalize it.
+void apply_lamm_operator(ComplexVec& state, uint Dim){
+
+	if(state.size()!=Dim)
+		throw std::runtime_error("ERROR: init_state() failed");
+
+	cudaDeviceSynchronize();
+	
+	suqa::apply_sigmam(state, bm_z2_qferm0);
+	suqa::apply_sigmam(state, bm_z2_qferm1);
+	suqa::apply_z(state, bm_z2_qlink0);
+}
 
 
 

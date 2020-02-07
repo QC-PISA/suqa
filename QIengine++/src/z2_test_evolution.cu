@@ -79,31 +79,11 @@ int main(int argc, char** argv){
     DEBUG_CALL(printf("After init:\n"));
     DEBUG_READ_STATE(state);	
 
-	suqa::apply_y(state, bm_z2_qlink0);
+    DEBUG_CALL(printf("After Lamm Operator:\n"));
+	apply_lamm_operator(state, Dim);
+    DEBUG_READ_STATE(state);	
 
     FILE * outfile;
-	
-    DEBUG_CALL(printf("After Y:\n"));
-    DEBUG_READ_STATE(state);	
-
-	suqa::apply_sigmap(state, bm_z2_qlink0);
-
-    DEBUG_CALL(printf("After sigmap:\n"));
-    DEBUG_READ_STATE(state);	
-
-	suqa::apply_sigmap(state, bm_z2_qlink0);
- 
-    DEBUG_CALL(printf("After sigmapsigmap:\n"));
-    DEBUG_READ_STATE(state);	
-
-	suqa::apply_sigmam(state, bm_z2_qlink0);
- 
-    DEBUG_CALL(printf("After sigmapsigmam:\n"));
-    DEBUG_READ_STATE(state);	
-
-
-  
-	DEBUG_READ_STATE(state);
 
 
 return 0;

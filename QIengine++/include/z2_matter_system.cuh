@@ -25,4 +25,4 @@ extern double m_mass;
 
 void init_state(ComplexVec& state, uint Dim);
 
-
+void apply_lamm_operator(ComplexVec& state, uint Dim);
