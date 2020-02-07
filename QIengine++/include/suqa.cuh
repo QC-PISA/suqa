@@ -33,6 +33,15 @@ namespace suqa{
 extern uint blocks, threads;
 extern cudaStream_t stream1, stream2;
 
+// global control mask:
+// it applies every next operation 
+// using it as condition (the user should make sure
+// to use it only for operations not involving it)
+extern uint gc_mask;
+
+void activate_gc_mask(const bmReg& q_controls);
+void deactivate_gc_mask();
+
 /* Utility procedures */
 double vnorm(const ComplexVec& v);
 void vnormalize(ComplexVec& v);

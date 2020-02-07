@@ -161,12 +161,6 @@ void momentum_phase(ComplexVec& state, const bmReg& qr, const uint& qaux, double
     DEBUG_READ_STATE(state);
 }
 
-void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const bmReg& qstate){
-//    if(qstate.size()!=13)
-//        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-
-}
-
 void evolution(ComplexVec& state, const double& t, const int& n){
 
 

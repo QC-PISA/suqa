@@ -5,8 +5,8 @@
 #include "complex_defines.cuh"
 
 
-// defined in src/evolution.cpp
-void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate);
+// defined in src/system.cu
+void evolution(ComplexVec& state, const double& t, const int& n);
 
 void fill_meas_cache(const std::vector<uint>& bm_states, const std::string opstem);
 
@@ -64,7 +64,6 @@ void fill_rphase(const uint& nlevels){
 	//printf("rphase_m[i] %.12lf %.12lf\n", real(rphase_m[i]), imag(rphase_m[i]));
     }
 } 
-
 
 // bitmap
 std::vector<uint> bm_states;
@@ -167,6 +166,20 @@ void fill_W_utils(double beta, double t_PE_factor){
 //    HANDLE_CUDACALL(cudaStreamSynchronize(suqa::stream1));
 //    cudaFreeHost(W_case_masks);
 }
+
+
+void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_control, const bmReg& qstate){
+    if(qstate.size()!=state_qbits)
+        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+
+    suqa::activate_gc_mask({q_control});
+    
+    evolution(state, t, n);
+
+    suqa::deactivate_gc_mask();
+}
+
+
 
 uint creg_to_uint(const std::vector<uint>& c_reg){
     if(c_reg.size()<1)
