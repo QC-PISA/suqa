@@ -84,6 +84,7 @@ int main(int argc, char** argv){
     DEBUG_READ_STATE(state);	
 
 	double theta=m_mass*3;
+	double dt=0.3;	
 	
 	DEBUG_CALL(printf("After mass evolution operator site 0:\n"));
 	apply_mass_evolution(state, bm_z2_qferm0, -theta);
@@ -101,7 +102,18 @@ int main(int argc, char** argv){
 	apply_mass_evolution(state, bm_z2_qferm3, theta);
 	DEBUG_READ_STATE(state);	
           
-
+	DEBUG_CALL(printf("After gauge link evolution operator site 12:\n"));
+	apply_gauge_link_evolution(state, bm_z2_qlink0, dt);
+	DEBUG_READ_STATE(state);	
+          
+	DEBUG_CALL(printf("After gauge link evolution operator site 23:\n"));
+	apply_gauge_link_evolution(state, bm_z2_qlink1, dt);
+	DEBUG_READ_STATE(state);	
+          
+	DEBUG_CALL(printf("After gauge link evolution operator site 34:\n"));
+	apply_gauge_link_evolution(state, bm_z2_qlink2, dt);
+	DEBUG_READ_STATE(state);	
+          
 
 
 

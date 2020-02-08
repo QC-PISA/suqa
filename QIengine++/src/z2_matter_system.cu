@@ -61,7 +61,7 @@ void apply_lamm_operator(ComplexVec& state){
 }
 
 
-// Apply the mass operator of the Hamiltonian: H_m = \Sum_i ( -m/2(-1)^i\sigma^(z)(i)).
+// Apply the operator exp(-i*H_m*dt). Where H_m = \Sum_i ( -m/2(-1)^i\sigma^(z)(i)).
 // If \theta_i = -m/2 * (-1)^i \delta_t in matrix form is
 // cos(theta)1 + i*sen(theta)sigma^(z)(i)
 __global__ 
@@ -76,7 +76,7 @@ void kernel_apply_mass_evolution(double *state_re, double *state_im, uint len, u
 			double tmpval_re=state_re[i];
 			double tmpval_im=state_im[i];
 			state_re[i] =  cos(theta)*tmpval_re + sin(theta)*tmpval_im;					
-			state_im[i] = -sin(theta)*tmpval_re - cos(theta)*tmpval_im;					
+			state_im[i] = -sin(theta)*tmpval_re + cos(theta)*tmpval_im;					
 
 			tmpval_re=state_re[j];
 			tmpval_im=state_im[j];			
@@ -94,5 +94,38 @@ void apply_mass_evolution(ComplexVec& state, uint q, double theta){
 void apply_mass_evolution(ComplexVec& state, const bmReg& qs, double theta){
 	for(const auto&q:qs)
 		kernel_apply_mass_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
+}
+
+// Apply the operator exp(-i*H_kg*dt). Where H_kg \Sum_i ( \sigma^(x)(i, i+1)). It is applied on the links variables.
+// The matrix form is 
+// cos(dt)1 - i*sen(dt)sigma^(x)(i, i+1)
+__global__ 
+void kernel_apply_gauge_link_evolution(double *state_re, double *state_im, uint len, uint q, double theta){
+	uint i = blockIdx.x*blockDim.x+threadIdx.x;
+	uint glob_mask = 0U;
+
+	glob_mask |= (1U << q);
+	while(i<len){
+		if((i & glob_mask) == glob_mask){
+			uint j = i & ~(1U << q); // j has 0 in the site 0 qubit
+			double tmpval=state_re[i];
+			state_re[i] =  cos(theta)*tmpval - sin(theta)*state_re[j];					
+			state_re[j] =  cos(theta)*state_re[j] - sin(theta)*tmpval;					
+			
+			tmpval=state_im[i];
+			state_im[i] = cos(theta)*tmpval - sin(theta)*state_im[j];					
+			state_im[j] = cos(theta)*tmpval - sin(theta)*state_im[j];					
+		}
+		i+=gridDim.x*blockDim.x;
+	}
+}
+ 
+void apply_gauge_link_evolution(ComplexVec& state, uint q, double theta){
+	kernel_apply_gauge_link_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
+}
+ 
+void apply_gauge_link_evolution(ComplexVec& state, const bmReg& qs, double theta){
+	for(const auto&q:qs)
+		kernel_apply_gauge_link_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
 }
 
