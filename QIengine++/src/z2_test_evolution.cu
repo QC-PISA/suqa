@@ -80,10 +80,32 @@ int main(int argc, char** argv){
     DEBUG_READ_STATE(state);	
 
     DEBUG_CALL(printf("After Lamm Operator:\n"));
-	apply_lamm_operator(state, Dim);
+	apply_lamm_operator(state);
     DEBUG_READ_STATE(state);	
 
-    FILE * outfile;
+	double theta=m_mass*3;
+	
+	DEBUG_CALL(printf("After mass evolution operator site 0:\n"));
+	apply_mass_evolution(state, bm_z2_qferm0, -theta);
+	DEBUG_READ_STATE(state);	
+
+	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
+	apply_mass_evolution(state, bm_z2_qferm1, theta);
+	DEBUG_READ_STATE(state);	
+ 
+	DEBUG_CALL(printf("After mass evolution operator site 2:\n"));
+	apply_mass_evolution(state, bm_z2_qferm2, -theta);
+	DEBUG_READ_STATE(state);	
+ 
+	DEBUG_CALL(printf("After mass evolution operator site 3:\n"));
+	apply_mass_evolution(state, bm_z2_qferm3, theta);
+	DEBUG_READ_STATE(state);	
+          
+
+
+
+
+	FILE * outfile;
 
 
 return 0;

@@ -25,4 +25,6 @@ extern double m_mass;
 
 void init_state(ComplexVec& state, uint Dim);
 
-void apply_lamm_operator(ComplexVec& state, uint Dim);
+void apply_lamm_operator(ComplexVec& state);
+void apply_mass_evolution(ComplexVec& state, uint q, double theta);
+void apply_mass_evolution(ComplexVec& state, const bmReg& qs, double theta);
