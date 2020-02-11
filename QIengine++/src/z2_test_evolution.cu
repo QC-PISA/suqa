@@ -79,46 +79,46 @@ int main(int argc, char** argv){
     DEBUG_CALL(printf("After init:\n"));
     DEBUG_READ_STATE(state);	
 
-    DEBUG_CALL(printf("After Lamm Operator:\n"));
-	  apply_lamm_operator(state);
-    DEBUG_READ_STATE(state);	
+//    DEBUG_CALL(printf("After Lamm Operator:\n"));
+//	  apply_lamm_operator(state);
+//    DEBUG_READ_STATE(state);	
 
 	double theta=m_mass*3;
 	double dt=0.3;	
 	double theta2=-m_mass*0.25;	
 
-	DEBUG_READ_STATE(state);	
-	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
-	apply_mass_evolution(state, bm_z2_qferm0, -theta);
-	DEBUG_READ_STATE(state);	
-
-	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
-	apply_mass_evolution(state, bm_z2_qferm1, theta);
-	DEBUG_READ_STATE(state);	
-
-	DEBUG_CALL(printf("After mass evolution operator site 2:\n"));
-	apply_mass_evolution(state, bm_z2_qferm2, -theta);
-	DEBUG_READ_STATE(state);	
- 
-	DEBUG_CALL(printf("After mass evolution operator site 3:\n"));
-	apply_mass_evolution(state, bm_z2_qferm3, theta);
-	DEBUG_READ_STATE(state);	
-        
-	DEBUG_CALL(printf("After gauge link evolution operator site 12:\n"));
-	apply_gauge_link_evolution(state, bm_z2_qlink0, dt);
-	DEBUG_READ_STATE(state);	
-          
-	DEBUG_CALL(printf("After gauge link evolution operator site 23:\n"));
-	apply_gauge_link_evolution(state, bm_z2_qlink1, dt);
-	DEBUG_READ_STATE(state);	
+//	DEBUG_READ_STATE(state);	
+//	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
+//	apply_mass_evolution(state, bm_z2_qferm0, -theta);
+//	DEBUG_READ_STATE(state);	
+//
+//	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
+//	apply_mass_evolution(state, bm_z2_qferm1, theta);
+//	DEBUG_READ_STATE(state);	
+//
+//	DEBUG_CALL(printf("After mass evolution operator site 2:\n"));
+//	apply_mass_evolution(state, bm_z2_qferm2, -theta);
+//	DEBUG_READ_STATE(state);	
+// 
+//	DEBUG_CALL(printf("After mass evolution operator site 3:\n"));
+//	apply_mass_evolution(state, bm_z2_qferm3, theta);
+//	DEBUG_READ_STATE(state);	
+//        
+//	DEBUG_CALL(printf("After gauge link evolution operator site 12:\n"));
+//	apply_gauge_link_evolution(state, bm_z2_qlink0, dt);
+//	DEBUG_READ_STATE(state);	
+//          
+//	DEBUG_CALL(printf("After gauge link evolution operator site 23:\n"));
+//	apply_gauge_link_evolution(state, bm_z2_qlink1, dt);
+//	DEBUG_READ_STATE(state);	
 
 	DEBUG_CALL(printf("After hopping evolution site 2:\n"));
-	apply_hopping_evolution_x(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], theta2);
+	apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], theta2);
 	DEBUG_READ_STATE(state);	
         
-	DEBUG_CALL(printf("After gauge link evolution operator site 34:\n"));
-	apply_gauge_link_evolution(state, bm_z2_qlink2, dt);
-	DEBUG_READ_STATE(state);	
+//	DEBUG_CALL(printf("After gauge link evolution operator site 34:\n"));
+//	apply_gauge_link_evolution(state, bm_z2_qlink2, dt);
+//	DEBUG_READ_STATE(state);	
           
 
 
