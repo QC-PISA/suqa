@@ -32,3 +32,5 @@ void apply_mass_evolution(ComplexVec& state, const bmReg& qs, double theta);
 
 void apply_gauge_link_evolution(ComplexVec& state, uint q, double theta);
 void apply_gauge_link_evolution(ComplexVec& state, const bmReg& qs, double theta);
+
+void apply_hopping_evolution_x(ComplexVec& state, uint qlink, uint qferm_m, uint qferm_p, double theta);

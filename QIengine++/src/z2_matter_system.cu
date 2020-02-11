@@ -25,7 +25,7 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         state_im[i] = 0.0;
         i += gridDim.x*blockDim.x;
     }
-    if(blockIdx.x*blockDim.x+threadIdx.x==1){
+    if(blockIdx.x*blockDim.x+threadIdx.x==0){
         state_re[0] = 1.0;
         state_im[0] = 0.0;
     }
@@ -45,9 +45,9 @@ void init_state(ComplexVec& state, uint Dim){
     initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
 
-	suqa::apply_h(state, bm_z2_qlink0);
-	suqa::apply_h(state, bm_z2_qlink1);
-	suqa::apply_h(state, bm_z2_qlink2);
+	//suqa::apply_h(state, bm_z2_qlink0);
+	//suqa::apply_h(state, bm_z2_qlink1);
+	//suqa::apply_h(state, bm_z2_qlink2);
 
 }
 
@@ -129,3 +129,81 @@ void apply_gauge_link_evolution(ComplexVec& state, const bmReg& qs, double theta
 		kernel_apply_gauge_link_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
 }
 
+// Apply the operator exp(-i*H_hx*dt). Where H_hx \Sum_i ( (1/4)*(-1)^i*\sigma^{z}(i,i+1)\sigma^(x)(i)\sigma^{x}(i+1)). It is applied on 
+//both on the links variables and on the sites.
+// The inputs are qlink, the link at i,i+1 -- qferm_m the fermion at site i -- and qferm_p the fermion at site i+1
+// The matrix form is (theta = -1/4*(-1)^idt):
+//  cos(theta)1 + isen(theta)sigma^{z}(i,i+1) 
+//  cos(theta)1 + isen(theta)sigma^{x}(i)
+//  cos(theta)1 + isen(theta)sigma^{x}(i+1)
+__global__ 
+void kernel_apply_hopping_evolution_x(double *state_re, double *state_im, uint len, uint qlink, uint qferm_m, uint qferm_p, double theta){
+	uint i = blockIdx.x*blockDim.x+threadIdx.x;
+	
+	uint mask = 0U;
+	
+	mask |= (1U << qlink);
+	mask |= (1U << qferm_m);
+	mask |= (1U << qferm_p);
+
+	double tmpval;
+
+	while(i<len){
+		if((i & mask) == 0U){
+
+			//state[i] = i_0
+			uint i_1 = i | (1U << qlink);
+			uint i_2 = i | (1U << qferm_m);
+			uint i_3 = i_1 | i_2;
+			uint i_4 = i | (1U << qferm_p);
+			uint i_5 = i_4 | i_1;
+			uint i_6 = i_4 | i_2;
+			uint i_7 = i_4 | i_3;
+	
+			//i_0 and i_6 couple
+			tmpval=state_re[i];
+			state_re[i] = tmpval*cos(theta) - state_im[i_6]*sin(theta);
+			state_im[i_6] = state_im[i_6]*cos(theta) + tmpval*sin(theta);
+
+			tmpval=state_im[i];
+			state_im[i] = tmpval*cos(theta) + state_re[i_6]*sin(theta);
+			state_re[i_6] = state_re[i_6]*cos(theta) - tmpval*sin(theta);
+
+			
+			//i_1 and i_7 couple
+			tmpval=state_re[i_1];
+			state_re[i_1] = tmpval*cos(theta) + state_im[i_7]*sin(theta);
+			state_im[i_7] = state_im[i_7]*cos(theta) - tmpval*sin(theta);
+
+			tmpval=state_im[i_1];
+			state_im[i_1] = tmpval*cos(theta) - state_re[i_7]*sin(theta);
+			state_re[i_7] = state_re[i_7]*cos(theta) + tmpval*sin(theta);
+
+
+			//i_2 and i_4 couple
+			tmpval=state_re[i_2];
+			state_re[i_2] = tmpval*cos(theta) - state_im[i_4]*sin(theta);
+			state_im[i_4] = state_im[i_4]*cos(theta) + tmpval*sin(theta);
+
+			tmpval=state_im[i_2];
+			state_im[i_2] = tmpval*cos(theta) + state_re[i_4]*sin(theta);
+			state_re[i_4] = state_re[i_4]*cos(theta) - tmpval*sin(theta);
+
+
+			//i_3 and i_5 couple
+			tmpval=state_re[i_3];
+			state_re[i_3] = tmpval*cos(theta) + state_im[i_5]*sin(theta);
+			state_im[i_5] = state_im[i_5]*cos(theta) - tmpval*sin(theta);
+
+			tmpval=state_im[i_3];
+			state_im[i_3] = tmpval*cos(theta) - state_re[i_5]*sin(theta);
+			state_re[i_5] = state_re[i_5]*cos(theta) + tmpval*sin(theta);
+		}
+		i+=gridDim.x*blockDim.x;
+	}
+}
+ 
+void apply_hopping_evolution_x(ComplexVec& state, uint qlink, uint qferm_m, uint qferm_p, double theta){
+	kernel_apply_hopping_evolution_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), qlink, qferm_m, qferm_p, theta);
+}
+ 
