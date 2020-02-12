@@ -55,9 +55,10 @@ void init_state(ComplexVec& state, uint Dim){
 // TODO: Generalize it.
 void apply_lamm_operator(ComplexVec& state){
 	
-	suqa::apply_sigmam(state, bm_z2_qferm0);
-	suqa::apply_sigmam(state, bm_z2_qferm1);
 	suqa::apply_z(state, bm_z2_qlink0);
+	suqa::apply_z(state, bm_z2_qferm0);
+	suqa::apply_sigmam(state, bm_z2_qferm1);
+	suqa::apply_sigmam(state, bm_z2_qferm0);	
 }
 
 
@@ -109,12 +110,12 @@ void kernel_apply_gauge_link_evolution(double *state_re, double *state_im, uint 
 		if((i & glob_mask) == glob_mask){
 			uint j = i & ~(1U << q); // j has 0 in the site 0 qubit
 			double tmpval=state_re[i];
-			state_re[i] = cos(theta)*tmpval + sin(theta)*state_im[i];
-			state_im[i] = state_im[i]*cos(theta) - tmpval*sin(theta); 
+			state_re[i] = cos(theta)*tmpval - sin(theta)*state_im[i];
+			state_im[i] = state_im[i]*cos(theta) + tmpval*sin(theta); 
 			
 			tmpval=state_re[j];
-			state_re[j] = cos(theta)*tmpval + sin(theta)*state_im[j];
-			state_im[j] = state_im[j]*cos(theta) - tmpval*sin(theta); 
+			state_re[j] = cos(theta)*tmpval - sin(theta)*state_im[j];
+			state_im[j] = state_im[j]*cos(theta) + tmpval*sin(theta); 
 		}
 		i+=gridDim.x*blockDim.x;
 	}
@@ -288,8 +289,8 @@ void apply_hopping_evolution_y(ComplexVec& state, uint qlink, uint qferm_m, uint
 void evolution(ComplexVec& state, const double& t, const int& n){
 	const double dt = t/(double)n;
 
-	const double mass_coef = dt*m_mass; // remember the parity of the site
-	const double gauge_coef = dt;
+	const double mass_coef = dt*m_mass*0.5; // remember the parity of the site
+	const double gauge_coef = -dt;
 	const double hopping_theta = -dt*0.25; // remember the parity of the site
 
 	for (uint ti=0; ti<(uint)n; ++ti){
@@ -315,7 +316,7 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 		DEBUG_CALL(printf("After hopping evolution x site 1 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		apply_hopping_evolution_x(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution x site 2 ()\n"));
 		DEBUG_READ_STATE(state);
 
@@ -344,11 +345,11 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 		DEBUG_CALL(printf("After mass evolution site 1 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_mass_evolution(state, bm_z2_qferm2, mass_coef);
+		apply_mass_evolution(state, bm_z2_qferm2, -mass_coef);
 		DEBUG_CALL(printf("After mass evolution site 2 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_mass_evolution(state, bm_z2_qferm3, -mass_coef);
+		apply_mass_evolution(state, bm_z2_qferm3, mass_coef);
 		DEBUG_CALL(printf("After mass evolution site 3 ()\n"));
 		DEBUG_READ_STATE(state);
 	}
