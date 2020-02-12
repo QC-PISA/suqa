@@ -13,6 +13,7 @@ extern double *host_state_re, *host_state_im;
     cudaMemcpyAsync(host_state_re,state.data_re,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
     cudaMemcpyAsync(host_state_im,state.data_im,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2); \
     cudaDeviceSynchronize(); \
+	printf("norm = %.12lg \n", suqa::vnorm(state));	\
     sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
 #else

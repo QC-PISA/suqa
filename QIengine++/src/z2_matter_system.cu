@@ -62,7 +62,7 @@ void apply_lamm_operator(ComplexVec& state){
 
 
 // Apply the operator exp(-i*H_m*dt). Where H_m = \Sum_i ( -m/2(-1)^i\sigma^(z)(i)).
-// If \theta_i = -m/2 * (-1)^i \delta_t in matrix form is
+// If \theta_i = m/2 * (-1)^i \delta_t in matrix form is
 // cos(theta)1 + i*sen(theta)sigma^(z)(i)
 __global__ 
 void kernel_apply_mass_evolution(double *state_re, double *state_im, uint len, uint q, double theta){
@@ -109,12 +109,12 @@ void kernel_apply_gauge_link_evolution(double *state_re, double *state_im, uint 
 		if((i & glob_mask) == glob_mask){
 			uint j = i & ~(1U << q); // j has 0 in the site 0 qubit
 			double tmpval=state_re[i];
-			state_re[i] =  cos(theta)*tmpval - sin(theta)*state_re[j];					
-			state_re[j] =  cos(theta)*state_re[j] - sin(theta)*tmpval;					
+			state_re[i] = cos(theta)*tmpval + sin(theta)*state_im[i];
+			state_im[i] = state_im[i]*cos(theta) - tmpval*sin(theta); 
 			
-			tmpval=state_im[i];
-			state_im[i] = cos(theta)*tmpval - sin(theta)*state_im[j];					
-			state_im[j] = cos(theta)*tmpval - sin(theta)*state_im[j];					
+			tmpval=state_re[j];
+			state_re[j] = cos(theta)*tmpval + sin(theta)*state_im[j];
+			state_im[j] = state_im[j]*cos(theta) - tmpval*sin(theta); 
 		}
 		i+=gridDim.x*blockDim.x;
 	}
@@ -283,5 +283,74 @@ void kernel_apply_hopping_evolution_y(double *state_re, double *state_im, uint l
  
 void apply_hopping_evolution_y(ComplexVec& state, uint qlink, uint qferm_m, uint qferm_p, double theta){
 	kernel_apply_hopping_evolution_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), qlink, qferm_m, qferm_p, theta);
+}
+
+void evolution(ComplexVec& state, const double& t, const int& n){
+	const double dt = t/(double)n;
+
+	const double mass_coef = dt*m_mass; // remember the parity of the site
+	const double gauge_coef = dt;
+	const double hopping_theta = -dt*0.25; // remember the parity of the site
+
+	for (uint ti=0; ti<(uint)n; ++ti){
+		DEBUG_CALL(printf("Initial state()\n"));
+		DEBUG_READ_STATE(state);
+		apply_hopping_evolution_y(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution y site 0()\n"));
+		DEBUG_READ_STATE(state);
+		
+		apply_hopping_evolution_y(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution y site 1 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution y site 2 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_hopping_evolution_x(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution x site 0()\n"));
+		DEBUG_READ_STATE(state);
+		
+		apply_hopping_evolution_x(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution x site 1 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution x site 2 ()\n"));
+		DEBUG_READ_STATE(state);
+
+//gauge link part
+
+
+		apply_gauge_link_evolution(state, bm_z2_qlink0, gauge_coef);
+		DEBUG_CALL(printf("After gauge evolution  link0 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_gauge_link_evolution(state, bm_z2_qlink1, gauge_coef);
+		DEBUG_CALL(printf("After gauge evolution  link1 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_gauge_link_evolution(state, bm_z2_qlink2, gauge_coef);
+		DEBUG_CALL(printf("After gauge evolution  link2 ()\n"));
+		DEBUG_READ_STATE(state);
+
+// fermion mass part
+
+		apply_mass_evolution(state, bm_z2_qferm0, -mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 0 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_mass_evolution(state, bm_z2_qferm1, mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 1 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_mass_evolution(state, bm_z2_qferm2, mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 2 ()\n"));
+		DEBUG_READ_STATE(state);
+
+		apply_mass_evolution(state, bm_z2_qferm3, -mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 3 ()\n"));
+		DEBUG_READ_STATE(state);
+	}
 }
  

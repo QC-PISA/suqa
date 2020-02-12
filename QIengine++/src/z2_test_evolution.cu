@@ -76,54 +76,81 @@ int main(int argc, char** argv){
 	 
 	init_state(state, Dim);
 
-    DEBUG_CALL(printf("After init:\n"));
-    DEBUG_READ_STATE(state);	
+	FILE * outfile;
 
-//    DEBUG_CALL(printf("After Lamm Operator:\n"));
-//	  apply_lamm_operator(state);
+	for (uint ii=0; ii<=(uint)total_steps; ++ii){
+		double t = ii*trotter_stepsize;
+		
+		double numb_den0 =0.0;
+		double numb_den0_std =0.0;
+
+		printf("time %.16lg\n", t);
+		init_state(state, Dim);
+		apply_lamm_operator(state);
+		evolution(state, t, ii);
+
+		double p0, p1;
+		suqa::prob_filter(state, bm_z2_qferm0, {1U}, p1);
+		p0 = 1-p1;	
+		printf("p0 = %.12lg; p1 = %.12lg\n", p0, p1);
+		numb_den0=2*p1;
+		numb_den0_std=1;
+		outfile = fopen(outfilename.c_str(), "a");
+		fprintf(outfile, "%.12lg %.12lg %.12lg\n", t, numb_den0, numb_den0_std);
+		printf("%.12lg %.12lg %.12lg\n", t, numb_den0, numb_den0_std);
+		fclose(outfile);
+
+	}
+	
+	suqa::clear();
+	
+	deallocate_state(state);
+//    DEBUG_CALL(printf("After init:\n"));
 //    DEBUG_READ_STATE(state);	
 
-	double theta=m_mass*3;
-	double dt=0.3;	
-	double theta2=-m_mass*0.25;	
-
-//	DEBUG_READ_STATE(state);	
-//	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
-//	apply_mass_evolution(state, bm_z2_qferm0, -theta);
-//	DEBUG_READ_STATE(state);	
+////    DEBUG_CALL(printf("After Lamm Operator:\n"));
+////	  apply_lamm_operator(state);
+////    DEBUG_READ_STATE(state);	
 //
-//	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
-//	apply_mass_evolution(state, bm_z2_qferm1, theta);
-//	DEBUG_READ_STATE(state);	
+//	double theta=m_mass*3;
+//	double dt=0.3;	
+//	double theta2=-m_mass*0.25;	
 //
-//	DEBUG_CALL(printf("After mass evolution operator site 2:\n"));
-//	apply_mass_evolution(state, bm_z2_qferm2, -theta);
-//	DEBUG_READ_STATE(state);	
-// 
-//	DEBUG_CALL(printf("After mass evolution operator site 3:\n"));
-//	apply_mass_evolution(state, bm_z2_qferm3, theta);
+////	DEBUG_READ_STATE(state);	
+////	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
+////	apply_mass_evolution(state, bm_z2_qferm0, -theta);
+////	DEBUG_READ_STATE(state);	
+////
+////	DEBUG_CALL(printf("After mass evolution operator site 1:\n"));
+////	apply_mass_evolution(state, bm_z2_qferm1, theta);
+////	DEBUG_READ_STATE(state);	
+////
+////	DEBUG_CALL(printf("After mass evolution operator site 2:\n"));
+////	apply_mass_evolution(state, bm_z2_qferm2, -theta);
+////	DEBUG_READ_STATE(state);	
+//// 
+////	DEBUG_CALL(printf("After mass evolution operator site 3:\n"));
+////	apply_mass_evolution(state, bm_z2_qferm3, theta);
+////	DEBUG_READ_STATE(state);	
+////        
+////	DEBUG_CALL(printf("After gauge link evolution operator site 12:\n"));
+////	apply_gauge_link_evolution(state, bm_z2_qlink0, dt);
+////	DEBUG_READ_STATE(state);	
+////          
+////	DEBUG_CALL(printf("After gauge link evolution operator site 23:\n"));
+////	apply_gauge_link_evolution(state, bm_z2_qlink1, dt);
+////	DEBUG_READ_STATE(state);	
+//
+//	DEBUG_CALL(printf("After hopping evolution site 2:\n"));
+//	apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], theta2);
 //	DEBUG_READ_STATE(state);	
 //        
-//	DEBUG_CALL(printf("After gauge link evolution operator site 12:\n"));
-//	apply_gauge_link_evolution(state, bm_z2_qlink0, dt);
-//	DEBUG_READ_STATE(state);	
-//          
-//	DEBUG_CALL(printf("After gauge link evolution operator site 23:\n"));
-//	apply_gauge_link_evolution(state, bm_z2_qlink1, dt);
-//	DEBUG_READ_STATE(state);	
-
-	DEBUG_CALL(printf("After hopping evolution site 2:\n"));
-	apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], theta2);
-	DEBUG_READ_STATE(state);	
-        
-//	DEBUG_CALL(printf("After gauge link evolution operator site 34:\n"));
-//	apply_gauge_link_evolution(state, bm_z2_qlink2, dt);
-//	DEBUG_READ_STATE(state);	
+////	DEBUG_CALL(printf("After gauge link evolution operator site 34:\n"));
+////	apply_gauge_link_evolution(state, bm_z2_qlink2, dt);
+////	DEBUG_READ_STATE(state);	
           
 
 
-
-	FILE * outfile;
 
 
 return 0;
