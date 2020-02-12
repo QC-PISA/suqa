@@ -29,28 +29,66 @@ wall_clock timer, tglob;
 
 void dec_to_bin(int dec_state, vector<int>& bin_state, int dimstate){
     for(int i=0;i<dimstate; ++i){
-        bin_state[dimstate-i] = dec_state % 2;
+        bin_state[dimstate-i-1] = dec_state % 2;
         dec_state /= 2;
     }
 }
 
 
-void bin_to_dec(vector<int>& bin_state, int* dec_state, int dimstate){
-    *dec_state=0;
+int bin_to_dec(vector<int>& bin_state, int dimstate){
+    int dec_state=0;
     for(int i=0;i<dimstate; ++i){
-        *dec_state += bin_state[dimstate-i]*(int)pow(2,i);
+        dec_state += bin_state[dimstate-i-1]*(int)pow(2,i);
 //        printf("partial = %d %d\n", (int) pow(2,i), bin_state[dimstate-i]); 
+    }
+    return dec_state;
+}
+
+
+double H_mass_ferm(vector<int>& bin_state_i, vector<int>& bin_state_j, double mass){
+    vector<int> ferm_part_i(4);
+    vector<int> ferm_part_j(4);
+
+
+    for(int i=0; i<4; ++i){
+        ferm_part_i[i] = bin_state_i[i];
+        ferm_part_j[i] = bin_state_j[i];
+    }
+
+    if(ferm_part_i != ferm_part_j){
+        return 0.0;
+    } else if(bin_to_dec(ferm_part_i, 4)%3==0){
+        return 0.0;
+    } else if((bin_to_dec(ferm_part_i, 4)-1)%3==0 && bin_to_dec(ferm_part_i, 4) != 10){
+        return mass;
+    } else if((bin_to_dec(ferm_part_i, 4)+1)%3==0 && bin_to_dec(ferm_part_i, 4) != 5){
+        return -mass;
+    } else if(bin_to_dec(ferm_part_i, 4) == 10){
+        return -2*mass;
+    } else{
+        return 2*mass;
     }
 }
 
 
-
-int main(){
+int main(int argc, char ** argv){
     
+    cout<<"\n\nZ2 gauge theory with staggered fermions. 3 links and 4 fermions.\n"<<endl;
+
+    if(argc<1){
+        cout<<"MASSA\n"<<endl;
+    }
+
+    double mass = stod(argv[1]);
+
+
     vector<int> bin_state(dimstate);
-    int dec_state = 5;
+    vector<int> bin_state2(dimstate);
+
+    int dec_state = 32;
 
     dec_to_bin(dec_state, bin_state, dimstate);
+    dec_to_bin(dec_state, bin_state2, dimstate);
     printf("dec = %d\n", dec_state);
     
     
@@ -59,11 +97,16 @@ int main(){
     }
     printf("\n");
     
-    bin_to_dec(bin_state, &dec_state, dimstate);
+    dec_state = bin_to_dec(bin_state, dimstate);
     printf("decimal again = %d\n", dec_state);
 
-
-
-
+    double a;
+    a = 3;
+    for(int b=0;b<(int)pow(2,7); ++b){
+        dec_to_bin(b, bin_state, dimstate);
+        dec_to_bin(b, bin_state2, dimstate);
+        a=H_mass_ferm(bin_state, bin_state2, mass);
+        printf("stato %d termine %.12lg\n", b, a);
+    }
     return 0;
 }
