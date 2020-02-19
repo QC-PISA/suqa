@@ -62,7 +62,7 @@ int main(int argc, char** argv){
 
     printf("arguments:\n g_beta = %.16lg\n total_steps = %d\n trotter_stepsize = %.16lg\n outfile = %s\n", g_beta, total_steps, trotter_stepsize, outfilename.c_str());
 
-    uint Dim = 1U << 5;//5 is the number of ideal (qu)bits we need to do the simulation. It may be 4
+    uint Dim = 1U << 4;//4 is the number of ideal (qu)bits we need to do the simulation.
     suqa::threads = NUM_THREADS;
     suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;

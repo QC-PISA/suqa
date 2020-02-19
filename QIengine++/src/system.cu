@@ -82,17 +82,15 @@ void inverse_self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr
     left_multiplication(state, qr1, qr0);
 }
 
-void cphases(ComplexVec& state, uint qaux, uint q0b, double alpha1, double alpha2){
-    suqa::apply_cx(state, qaux, q0b);
-    suqa::apply_cu1(state, q0b, qaux, alpha1, 1U);
-    suqa::apply_cx(state, qaux, q0b);
-    suqa::apply_cu1(state, q0b, qaux, alpha2, 1U);
-}
+// void cphases(ComplexVec& state, uint qaux, uint q0b, double alpha1, double alpha2){
+//     suqa::apply_cx(state, qaux, q0b);
+//     suqa::apply_cu1(state, q0b, qaux, alpha1, 1U);
+//     suqa::apply_cx(state, qaux, q0b);
+//     suqa::apply_cu1(state, q0b, qaux, alpha2, 1U);
+// }
 
-void self_trace_operator(ComplexVec& state, const bmReg& qr, const uint& qaux, double th){
-    suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
-    cphases(state, qaux, qr[1], th, -th);
-    suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
+void self_trace_operator(ComplexVec& state, const bmReg& qr, double th){
+  suqa::apply_u1(state,qr[0],th); 
 }
 
 void fourier_transf_z2(ComplexVec& state, const bmReg& qr){
@@ -105,9 +103,9 @@ void inverse_fourier_transf_z2(ComplexVec& state, const bmReg& qr){
     fourier_transf_z2(state,qr);
 }
 
-void momentum_phase(ComplexVec& state, const bmReg& qr, const uint& qaux, double th1){
-    suqa::apply_cu1(state, qaux, qr[0], th1);
-    DEBUG_CALL(printf("\tafter suqa::apply_cu1(state, qaux, qr[0], th1, 0U)\n"));
+void momentum_phase(ComplexVec& state, const bmReg& qr, double th1){
+    suqa::apply_u1(state, qr[0], th1);
+    DEBUG_CALL(printf("\tafter suqa::apply_cu1(state, qr[0], th1, 0U)\n"));
     DEBUG_READ_STATE(state);
 }
 
@@ -137,7 +135,7 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after self_plaquette()\n"));
         DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink1, bm_qaux[0], theta);
+        self_trace_operator(state, bm_qlink1, theta);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE(state);
         inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
@@ -147,7 +145,7 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
         DEBUG_CALL(printf("after self_plaquette()\n"));
         DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink2, bm_qaux[0], theta);
+        self_trace_operator(state, bm_qlink2, theta);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE(state);
         inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
@@ -167,17 +165,17 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink3)\n"));
         DEBUG_READ_STATE(state);
 
-        momentum_phase(state, bm_qlink0, bm_qaux[0], theta1);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink0, bm_qaux[0], theta1, theta2)\n"));
+        momentum_phase(state, bm_qlink0, theta1);
+        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink0, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink1, bm_qaux[0], theta1);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink1, bm_qaux[0], theta1, theta2)\n"));
+        momentum_phase(state, bm_qlink1, theta1);
+        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink1, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink2, bm_qaux[0], theta1);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink2, bm_qaux[0], theta1, theta2)\n"));
+        momentum_phase(state, bm_qlink2, theta1);
+        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink2, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink3, bm_qaux[0], theta1);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, bm_qaux[0], theta1, theta2)\n"));
+        momentum_phase(state, bm_qlink3, theta1);
+        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
 	
 
