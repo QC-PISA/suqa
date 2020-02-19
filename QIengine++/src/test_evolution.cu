@@ -1,3 +1,5 @@
+// -*- C++ -*-
+//^ this is a command that sets emacs in c++-mode
 #include <iostream>
 #include <vector>
 #include <complex>
@@ -45,8 +47,8 @@ void allocate_state(ComplexVec& state, uint Dim){
     state.data_re = state.data;
     state.data_im = state.data_re + state.vecsize;
 }
-
-void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3);
+//definition in src/system.cu
+void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3); //calculate plaquette writing it on ... state?
 
 int main(int argc, char** argv){
     if(argc<5){
@@ -60,21 +62,21 @@ int main(int argc, char** argv){
 
     printf("arguments:\n g_beta = %.16lg\n total_steps = %d\n trotter_stepsize = %.16lg\n outfile = %s\n", g_beta, total_steps, trotter_stepsize, outfilename.c_str());
 
-    uint Dim = 1U << 13;
+    uint Dim = 1U << 5;//5 is the number of ideal (qu)bits we need to do the simulation. It may be 4
     suqa::threads = NUM_THREADS;
     suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
     printf("blocks: %u, threads: %u\n",suqa::blocks, suqa::threads);
-
+    
     ComplexVec state;
-
+    
     allocate_state(state, Dim);
 
-    pcg rangen;
-    rangen.set_seed(time(NULL));
+    // pcg rangen;
+    // rangen.set_seed(time(NULL));
 
     suqa::setup(Dim);
-    init_state(state, Dim);
+    init_state(state, Dim); //remember to correctly initialize the state
 
     FILE * outfile;
 
@@ -82,11 +84,11 @@ int main(int argc, char** argv){
     DEBUG_READ_STATE(state);
 
     for(uint ii=0; ii<=(uint)total_steps; ++ii){
-        double t = ii*trotter_stepsize;
-        printf("time %.16lg\n", t);
-        double plaq_val=0.0;
-        double plaq_val_std=0.0;
-//        for(uint hit=0; hit<(uint)num_hits; ++hit){
+      double t = ii*trotter_stepsize;
+      printf("time %.16lg\n", t);
+      double plaq_val=0.0; 
+      double plaq_val_std=0.0;
+//            for(uint hit=0; hit<(uint)num_hits; ++hit){
 //            printf("\thit %u\n", hit);
 //            init_state(state, Dim, g_beta);
 //            evolution(state, t, ii);
@@ -108,12 +110,11 @@ int main(int argc, char** argv){
         evolution(state, t, ii);
         self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 
-        double p000, p010;
-        suqa::prob_filter(state, bm_qlink1, {0U,0U,0U}, p000);
-        suqa::prob_filter(state, bm_qlink1, {0U,1U,0U}, p010);
-        printf("p000 = %.12lg; p010 = %.12lg\n", p000, p010);
-        plaq_val = 2.0*(p000-p010);
-        plaq_val_std = sqrt(4.0*(p000+p010)-plaq_val*plaq_val);
+        double p0;
+        suqa::prob_filter(state, bm_qlink1, {0U}, p0);
+        printf("p000 = %.12lg\n", p0);
+        plaq_val = 2.0*(p0);
+        plaq_val_std = sqrt(4.0*(p0)-plaq_val*plaq_val);
         outfile = fopen(outfilename.c_str(), "a");
         fprintf(outfile, "%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);
         printf("%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);

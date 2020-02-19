@@ -27,12 +27,9 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
 
 
 __inline__ double f1(double b){
-    return log((3+cosh(2.*b))/(2*sinh(b)*sinh(b)));
+  return log(tanh(b));
 }
 
-__inline__ double f2(double b){
-    return -log(tanh(b));
-}
 
 void init_state(ComplexVec& state, uint Dim){
 
@@ -46,12 +43,7 @@ void init_state(ComplexVec& state, uint Dim){
 
     suqa::apply_h(state, bm_qlink0[0]);
     suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
-    suqa::apply_h(state, bm_qlink0[1]);
-    suqa::apply_cx(state, bm_qlink0[1], bm_qlink3[1]);
-    suqa::apply_h(state, bm_qlink0[2]);
-    suqa::apply_cx(state, bm_qlink0[2], bm_qlink3[2]);
-    suqa::apply_mcx(state, {bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
-
+  
 
 //    state.resize(Dim);
 //    std::fill_n(state.begin(), state.size(), 0.0);
@@ -105,59 +97,19 @@ void self_trace_operator(ComplexVec& state, const bmReg& qr, const uint& qaux, d
     suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
 }
 
-void fourier_transf_d4(ComplexVec& state, const bmReg& qr){
-    suqa::apply_cx(state, qr[2], qr[0]);
-    suqa::apply_cx(state, qr[0], qr[2]);
-    suqa::apply_tdg(state, qr[2]);
-    suqa::apply_tdg(state, qr[2]);
-    suqa::apply_cx(state, qr[1], qr[2]);
+void fourier_transf_z2(ComplexVec& state, const bmReg& qr){
     suqa::apply_h(state, qr[0]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_h(state, qr[2]);
-    suqa::apply_t(state, qr[1]);
-    suqa::apply_tdg(state, qr[2]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_cx(state, qr[0], qr[1]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_t(state, qr[1]);
-    suqa::apply_t(state, qr[1]);
-    suqa::apply_h(state, qr[1]);
+    
 }
 
 
-void inverse_fourier_transf_d4(ComplexVec& state, const bmReg& qr){
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_tdg(state, qr[1]);
-    suqa::apply_tdg(state, qr[1]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_cx(state, qr[0], qr[1]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_t(state, qr[2]);
-    suqa::apply_tdg(state, qr[1]);
-    suqa::apply_h(state, qr[0]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_h(state, qr[2]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_t(state, qr[2]);
-    suqa::apply_t(state, qr[2]);
-    suqa::apply_cx(state, qr[0], qr[2]);
-    suqa::apply_cx(state, qr[2], qr[0]);
+void inverse_fourier_transf_z2(ComplexVec& state, const bmReg& qr){
+    fourier_transf_z2(state,qr);
 }
 
-void momentum_phase(ComplexVec& state, const bmReg& qr, const uint& qaux, double th1, double th2){
-    suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux);
-    DEBUG_CALL(printf("\tafter suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux)\n"));
-    DEBUG_READ_STATE(state);
-    suqa::apply_cx(state, qaux, qr[2]);
-    suqa::apply_cu1(state, qaux, qr[2], th1);
-    suqa::apply_cx(state, qaux, qr[2]);
-    DEBUG_CALL(printf("\tafter suqa::apply_cu1(state, qaux, qr[2], th1, 0U)\n"));
-    DEBUG_READ_STATE(state);
-    suqa::apply_u1(state, qr[2], th2);
-    DEBUG_CALL(printf("\tafter suqa::apply_u1(state, qr[2], th2)\n"));
-    DEBUG_READ_STATE(state);
-    suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux);
-    DEBUG_CALL(printf("\tafter suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux)\n"));
+void momentum_phase(ComplexVec& state, const bmReg& qr, const uint& qaux, double th1){
+    suqa::apply_cu1(state, qaux, qr[0], th1);
+    DEBUG_CALL(printf("\tafter suqa::apply_cu1(state, qaux, qr[0], th1, 0U)\n"));
     DEBUG_READ_STATE(state);
 }
 
@@ -179,7 +131,6 @@ void evolution(ComplexVec& state, const double& t, const int& n){
     const double dt = t/(double)n;
 
     const double theta1 = dt*f1(g_beta);
-    const double theta2 = dt*f2(g_beta);
     const double theta = 2*dt*g_beta;
 //    printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta);
 
@@ -204,44 +155,44 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE(state);
 
-        fourier_transf_d4(state, bm_qlink0);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink0)\n"));
+        fourier_transf_z2(state, bm_qlink0);
+        DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink0)\n"));
         DEBUG_READ_STATE(state);
-        fourier_transf_d4(state, bm_qlink1);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink1)\n"));
+        fourier_transf_z2(state, bm_qlink1);
+        DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink1)\n"));
         DEBUG_READ_STATE(state);
-        fourier_transf_d4(state, bm_qlink2);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink2)\n"));
+        fourier_transf_z2(state, bm_qlink2);
+        DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink2)\n"));
         DEBUG_READ_STATE(state);
-        fourier_transf_d4(state, bm_qlink3);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink3)\n"));
+        fourier_transf_z2(state, bm_qlink3);
+        DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink3)\n"));
         DEBUG_READ_STATE(state);
 
-        momentum_phase(state, bm_qlink0, bm_qaux[0], theta1, theta2);
+        momentum_phase(state, bm_qlink0, bm_qaux[0], theta1);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink0, bm_qaux[0], theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink1, bm_qaux[0], theta1, theta2);
+        momentum_phase(state, bm_qlink1, bm_qaux[0], theta1);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink1, bm_qaux[0], theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink2, bm_qaux[0], theta1, theta2);
+        momentum_phase(state, bm_qlink2, bm_qaux[0], theta1);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink2, bm_qaux[0], theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink3, bm_qaux[0], theta1, theta2);
+        momentum_phase(state, bm_qlink3, bm_qaux[0], theta1);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, bm_qaux[0], theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
+	
 
-
-        inverse_fourier_transf_d4(state, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink3)\n"));
+        inverse_fourier_transf_z2(state, bm_qlink3);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink3)\n"));
         DEBUG_READ_STATE(state);
-        inverse_fourier_transf_d4(state, bm_qlink2);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink2)\n"));
+        inverse_fourier_transf_z2(state, bm_qlink2);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink2)\n"));
         DEBUG_READ_STATE(state);
-        inverse_fourier_transf_d4(state, bm_qlink1);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink1)\n"));
+        inverse_fourier_transf_z2(state, bm_qlink1);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink1)\n"));
         DEBUG_READ_STATE(state);
-        inverse_fourier_transf_d4(state, bm_qlink0);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink0)\n"));
+        inverse_fourier_transf_z2(state, bm_qlink0);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink0)\n"));
         DEBUG_READ_STATE(state);
     }
 }
