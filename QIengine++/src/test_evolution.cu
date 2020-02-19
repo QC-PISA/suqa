@@ -112,9 +112,9 @@ int main(int argc, char** argv){
 
         double p0;
         suqa::prob_filter(state, bm_qlink1, {0U}, p0);
-        printf("p000 = %.12lg\n", p0);
-        plaq_val = 2.0*(p0);
-        plaq_val_std = sqrt(4.0*(p0)-plaq_val*plaq_val);
+        printf("p0 = %.12lg\n", p0);
+        plaq_val = 2.0*p0;
+        plaq_val_std = sqrt(4.0*p0-plaq_val*plaq_val);
         outfile = fopen(outfilename.c_str(), "a");
         fprintf(outfile, "%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);
         printf("%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);

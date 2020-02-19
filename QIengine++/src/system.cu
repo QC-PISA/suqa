@@ -40,10 +40,12 @@ void init_state(ComplexVec& state, uint Dim){
     initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
 
-
     suqa::apply_h(state, bm_qlink0[0]);
     suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
   
+    DEBUG_CALL(printf("after init_state()\n"));
+    DEBUG_READ_STATE(state);
+
 
 //    state.resize(Dim);
 //    std::fill_n(state.begin(), state.size(), 0.0);
@@ -55,31 +57,27 @@ void init_state(ComplexVec& state, uint Dim){
 /* Quantum evolutor of the state */
 
 void inversion(ComplexVec& state, const bmReg& q){
-    suqa::apply_mcx(state,{q[0],q[2]},{1U,0U},q[1]); 
+//    suqa::apply_mcx(state,{q[0],q[2]},{1U,0U},q[1]); 
 }
 
 void left_multiplication(ComplexVec& state, const bmReg& qr1, const bmReg& qr2){
-    suqa::apply_cx(state, qr1[1], qr2[1]);
-    suqa::apply_mcx(state, {qr1[0], qr2[0]}, qr2[1]);
     suqa::apply_cx(state, qr1[0], qr2[0]);
-    suqa::apply_mcx(state, {qr1[0], qr2[2]}, qr2[1]);
-    suqa::apply_cx(state, qr1[2], qr2[2]);
 }
 
 void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
-    inversion(state, qr1);
+//    inversion(state, qr1);
     left_multiplication(state, qr1, qr0);
-    inversion(state, qr1);
-    inversion(state, qr2);
+//    inversion(state, qr1);
+//    inversion(state, qr2);
     left_multiplication(state, qr2, qr0);
-    inversion(state, qr2);
+//    inversion(state, qr2);
     left_multiplication(state, qr3, qr0);
 }
 
 void inverse_self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
-    inversion(state, qr3);
+//    inversion(state, qr3);
     left_multiplication(state, qr3, qr0);
-    inversion(state, qr3);
+//    inversion(state, qr3);
     left_multiplication(state, qr2, qr0);
     left_multiplication(state, qr1, qr0);
 }
@@ -132,7 +130,8 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 
     const double theta1 = dt*f1(g_beta);
     const double theta = 2*dt*g_beta;
-//    printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta);
+
+    DEBUG_CALL(if(n>0) printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg\n", g_beta, dt, theta1, theta));
 
     for(uint ti=0; ti<(uint)n; ++ti){
         self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
