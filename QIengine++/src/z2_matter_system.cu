@@ -109,13 +109,14 @@ void kernel_apply_gauge_link_evolution(double *state_re, double *state_im, uint 
 	while(i<len){
 		if((i & glob_mask) == glob_mask){
 			uint j = i & ~(1U << q); // j has 0 in the site 0 qubit
-			double tmpval=state_re[i];
-			state_re[i] = cos(theta)*tmpval - sin(theta)*state_im[i];
-			state_im[i] = state_im[i]*cos(theta) + tmpval*sin(theta); 
+			double tmpval_re=state_re[i];
+			double tmpval_im=state_im[i];
+			state_re[i] = cos(theta)*tmpval_re - sin(theta)*state_im[j];
+			state_im[i] = tmpval_im*cos(theta) + state_re[j]*sin(theta); 
 			
-			tmpval=state_re[j];
-			state_re[j] = cos(theta)*tmpval - sin(theta)*state_im[j];
-			state_im[j] = state_im[j]*cos(theta) + tmpval*sin(theta); 
+			
+			state_re[j] = cos(theta)*state_re[j] - sin(theta)*tmpval_im;
+			state_im[j] = state_im[j]*cos(theta) + tmpval_re*sin(theta); 
 		}
 		i+=gridDim.x*blockDim.x;
 	}
@@ -271,12 +272,12 @@ void kernel_apply_hopping_evolution_y(double *state_re, double *state_im, uint l
 
 			//i_3 and i_5 couple
 			tmpval=state_re[i_3];
-			state_re[i_3] = tmpval*cos(theta) - state_im[i_5]*sin(theta);
-			state_im[i_5] = state_im[i_5]*cos(theta) + tmpval*sin(theta);
+			state_re[i_3] = tmpval*cos(theta) + state_im[i_5]*sin(theta);
+			state_im[i_5] = state_im[i_5]*cos(theta) - tmpval*sin(theta);
 
 			tmpval=state_im[i_3];
-			state_im[i_3] = tmpval*cos(theta) + state_re[i_5]*sin(theta);
-			state_re[i_5] = state_re[i_5]*cos(theta) - tmpval*sin(theta);
+			state_im[i_3] = tmpval*cos(theta) - state_re[i_5]*sin(theta);
+			state_re[i_5] = state_re[i_5]*cos(theta) + tmpval*sin(theta);
 		}
 		i+=gridDim.x*blockDim.x;
 	}
@@ -289,7 +290,7 @@ void apply_hopping_evolution_y(ComplexVec& state, uint qlink, uint qferm_m, uint
 void evolution(ComplexVec& state, const double& t, const int& n){
 	const double dt = t/(double)n;
 
-	const double mass_coef = dt*m_mass*0.5; // remember the parity of the site
+	const double mass_coef = -dt*m_mass*0.5; // remember the parity of the site
 	const double gauge_coef = -dt;
 	const double hopping_theta = -dt*0.25; // remember the parity of the site
 
