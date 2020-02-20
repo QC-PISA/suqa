@@ -489,10 +489,10 @@ void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q
 }
 
 __global__ 
-void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask00, uint mask_q1, uint mask_q2){
+void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask00, uint mask11, uint mask_q1, uint mask_q2){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
-        if((i & mask00) == mask00){
+        if((i & mask11) == mask00){
             // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
             uint i_1 = i | mask_q1;
             uint i_2 = i | mask_q2;
@@ -511,9 +511,11 @@ void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
     // swap gate: 00->00, 01->10, 10->01, 11->11
     // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
     uint mask00 = gc_mask;
+    uint mask11 = mask00;
     uint mask_q1 = (1U << q1);
     uint mask_q2 = (1U << q2);
-    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask00, mask_q1, mask_q2);
+    mask11 |= mask_q1 | mask_q2;
+    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask00, mask11, mask_q1, mask_q2);
 }
 
 // RESET = measure + classical cx

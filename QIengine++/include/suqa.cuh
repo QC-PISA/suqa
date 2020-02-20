@@ -13,6 +13,7 @@ extern double *host_state_re, *host_state_im;
     cudaMemcpyAsync(host_state_re,state.data_re,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
     cudaMemcpyAsync(host_state_im,state.data_im,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2); \
     cudaDeviceSynchronize(); \
+    printf("vnorm = %.12lg\n",suqa::vnorm(state));\
     sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
 #else
@@ -27,8 +28,14 @@ extern double *host_state_re, *host_state_im;
 #define TWOSQINV 0.7071067811865475 
 
 typedef std::vector<uint> bmReg;
+#define PAULI_ID 0
+#define PAULI_X  1
+#define PAULI_Y  2
+#define PAULI_Z  3
+
 
 namespace suqa{
+
 
 extern uint blocks, threads;
 extern cudaStream_t stream1, stream2;
@@ -103,6 +110,8 @@ void apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask,
 
 void apply_swap(ComplexVec& state, const uint& q1, const uint& q2);
 
+// rotation by phase in the direction of a pauli tensor product
+void apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
 
 /* SUQA utils */
 void measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub);
