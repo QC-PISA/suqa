@@ -10,6 +10,22 @@ double *host_state_re, *host_state_im;
 
 double *host_partial_ret, *dev_partial_ret;
 
+// global control mask:
+// it applies every next operation 
+// using it as condition (the user should make sure
+// to use it only for operations not involving it)
+uint suqa::gc_mask;
+
+void suqa::activate_gc_mask(const bmReg& q_controls){
+    suqa::gc_mask=0U;
+    for(const auto& q : q_controls)
+        suqa::gc_mask |= 1U << q;
+}
+
+void suqa::deactivate_gc_mask(){
+    suqa::gc_mask=0U;
+}
+
 /*XXX: everything is optimizable
  *possible strategies:
  *
@@ -212,10 +228,11 @@ void suqa::vnormalize(ComplexVec& v){
 
 
 __global__ 
-void kernel_suqa_x(double *const state_re, double *const state_im, uint len, uint q){
+void kernel_suqa_x(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U <<q);
     while(i<len){
-        if(i & (1U << q)){
+        if((i & glob_mask) == glob_mask){
             uint j = i & ~(1U << q); // j has 0 on q-th digit
             double tmpval = state_re[i];
             state_re[i]=state_re[j];
@@ -230,7 +247,7 @@ void kernel_suqa_x(double *const state_re, double *const state_im, uint len, uin
 
 
 void suqa::apply_x(ComplexVec& state, uint q){
-    kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+    kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
 }  
 
 // no way...
@@ -250,7 +267,7 @@ void suqa::apply_x(ComplexVec& state, uint q){
 
 void suqa::apply_x(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs)
-        kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+        kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
 }  
 //void suqa::qi_x(ComplexVec& state, const vector<uint>& qs){
 //    for(const auto& q : qs)
@@ -260,12 +277,14 @@ void suqa::apply_x(ComplexVec& state, const bmReg& qs){
 //  HADAMARD GATE
 
 __global__ 
-void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q){
+void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     uint i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
+    
+    uint loc_mask = glob_mask | (1U << q);
     while(i_0<len){
-        if((i_0 & (1U << q)) == 0U){
+        if((i_0 & loc_mask) == glob_mask){
             const uint i_1 = i_0 | (1U << q);
             double a_0_re = state_re[i_0];
             double a_1_re = state_re[i_1];
@@ -283,25 +302,26 @@ void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q){
 
 
 void suqa::apply_h(ComplexVec& state, uint q){
-    kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+  kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
 }  
 
 
 void suqa::apply_h(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs){
-        kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+        kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
     }
 }  
 
 //  PI/8 GATES
 
 __global__ 
-void kernel_suqa_t(double *state_re, double *state_im, uint len, uint q){
+void kernel_suqa_t(double *state_re, double *state_im, uint len, uint q, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U << q);
     while(i_1<len){
-        if(i_1 & (1U << q)){
+        if((i_1 & glob_mask) == glob_mask){
             double a_1_re = state_re[i_1];
             double a_1_im = state_im[i_1];
             
@@ -313,12 +333,13 @@ void kernel_suqa_t(double *state_re, double *state_im, uint len, uint q){
 }
 
 __global__ 
-void kernel_suqa_tdg(double *state_re, double *state_im, uint len, uint q){
+void kernel_suqa_tdg(double *state_re, double *state_im, uint len, uint q, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U << q);
     while(i_1<len){
-        if(i_1 & (1U << q)){
+        if((i_1 & glob_mask) == glob_mask){
             double a_1_re = state_re[i_1];
             double a_1_im = state_im[i_1];
             
@@ -330,37 +351,38 @@ void kernel_suqa_tdg(double *state_re, double *state_im, uint len, uint q){
 }
 
 
-
+// T gate (single qubit)
 void suqa::apply_t(ComplexVec& state, uint q){
-    kernel_suqa_t<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+    kernel_suqa_t<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
 }  
-void suqa::apply_tdg(ComplexVec& state, uint q){
-    kernel_suqa_tdg<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
-}  
-
-
-
+// T gate (multiple qubits)
 void suqa::apply_t(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs){
-        kernel_suqa_t<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+        kernel_suqa_t<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
     }
 }  
 
+// T^{\dagger} gate (single qubit)
+void suqa::apply_tdg(ComplexVec& state, uint q){
+    kernel_suqa_tdg<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+// T^{\dagger} gate (multiple qubits)
 void suqa::apply_tdg(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs){
-        kernel_suqa_tdg<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q);
+        kernel_suqa_tdg<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
     }
 }  
 
 // U1 GATE
 
 __global__ 
-void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Complex phase){
+void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Complex phase, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U << q);
     while(i_1<len){
-        if((i_1 & (1U << q))){
+        if((i_1 & glob_mask) == glob_mask){
             double tmpval = state_re[i_1]; 
             state_re[i_1] = state_re[i_1]*phase.x-state_im[i_1]*phase.y;
             state_im[i_1] = tmpval*phase.y+state_im[i_1]*phase.x;
@@ -374,7 +396,7 @@ void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Comple
 void suqa::apply_u1(ComplexVec& state, uint q, double phase){
     Complex phasec;
     sincos(phase, &phasec.y, &phasec.x);
-    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, phasec);
+    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, phasec, gc_mask);
 }
 
 
@@ -399,14 +421,14 @@ void kernel_suqa_mcx(double *const state_re, double *const state_im, uint len, u
 
 
 void suqa::apply_cx(ComplexVec& state, const uint& q_control, const uint& q_target, const uint& q_mask){
-    uint mask_qs = 1U << q_target;
+    uint mask_qs = (1U << q_target) | gc_mask;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
     kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
 }  
 
 void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const uint& q_target){
-    uint mask = 1U << q_target;
+    uint mask = (1U << q_target) | gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
     kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask, q_target);
@@ -414,10 +436,10 @@ void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const uint& q_t
 
 
 void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target){
-    uint mask = 1U << q_target;
+    uint mask = (1U << q_target) | gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
-    uint mask_qs = 1U << q_target;
+    uint mask_qs = (1U << q_target) | gc_mask;
     for(uint k = 0U; k < q_controls.size(); ++k){
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
@@ -440,7 +462,7 @@ void kernel_suqa_mcu1(double *const state_re, double *const state_im, uint len, 
 }
 
 void suqa::apply_cu1(ComplexVec& state, uint q_control, uint q_target, double phase, uint q_mask){
-    uint mask_qs = 1U << q_target;
+    uint mask_qs = (1U << q_target) | gc_mask;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
 
@@ -451,10 +473,10 @@ void suqa::apply_cu1(ComplexVec& state, uint q_control, uint q_target, double ph
 }
 
 void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
-    uint mask = 1U << q_target;
+    uint mask = (1U << q_target) | gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
-    uint mask_qs = 1U << q_target;
+    uint mask_qs = (1U << q_target) | gc_mask;
     for(uint k = 0U; k < q_controls.size(); ++k){
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
@@ -466,17 +488,19 @@ void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q
 }
 
 __global__ 
-void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask, uint mask_q, uint q2){
+void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask00, uint mask11, uint mask_q1, uint mask_q2){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
-        if((i & mask) == mask_q){
-            uint j = (i & ~mask_q) | (1U << q2);
-            double tmpval = state_re[i];
-            state_re[i]=state_re[j];
-            state_re[j]=tmpval;
-            tmpval = state_im[i];
-            state_im[i]=state_im[j];
-            state_im[j]=tmpval;
+        if((i & mask11) == mask00){
+            // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
+            uint i_1 = i | mask_q1;
+            uint i_2 = i | mask_q2;
+            double tmpval = state_re[i_1];
+            state_re[i_1]=state_re[i_2];
+            state_re[i_2]=tmpval;
+            tmpval = state_im[i_1];
+            state_im[i_1]=state_im[i_2];
+            state_im[i_2]=tmpval;
         }
         i+=gridDim.x*blockDim.x;
     }
@@ -485,9 +509,12 @@ void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, 
 void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
     // swap gate: 00->00, 01->10, 10->01, 11->11
     // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
-    uint mask_q = (1U << q1);
-    uint mask = mask_q | (1U << q2);
-    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_q, q2);
+    uint mask00 = gc_mask;
+    uint mask11 = mask00;
+    uint mask_q1 = (1U << q1);
+    uint mask_q2 = (1U << q2);
+    mask11 |= mask_q1 | mask_q2;
+    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask00, mask11, mask_q1, mask_q2);
 }
 
 // RESET = measure + classical cx
