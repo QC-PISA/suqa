@@ -29,7 +29,7 @@ wall_clock timer, tglob;
 void dec_to_bin(int dec_state, vector<int>& bin_state, int dimstate){
     for(int i=0;i<dimstate; ++i){
         bin_state[dimstate-i-1] = dec_state % 2;
-        dec_state /= 2;
+       dec_state /= 2;
     }
 }
 
@@ -46,7 +46,7 @@ int bin_to_dec(vector<int>& bin_state, int dimstate){
 double H_mass_ferm(vector<int>& bin_state_i, vector<int>& bin_state_j, double mass){
     vector<int> ferm_part_i(num_ferm);
     vector<int> ferm_part_j(num_ferm);
-
+   
     for(int i=0; i<num_ferm; ++i){
         ferm_part_i[i] = bin_state_i[i];
         ferm_part_j[i] = bin_state_j[i];
@@ -57,13 +57,13 @@ double H_mass_ferm(vector<int>& bin_state_i, vector<int>& bin_state_j, double ma
     } else if(bin_to_dec(ferm_part_i, num_ferm)%3==0){
         return 0.0;
     } else if((bin_to_dec(ferm_part_i, num_ferm)-1)%3==0 && bin_to_dec(ferm_part_i, num_ferm) != 10){
-        return -mass;
-    } else if((bin_to_dec(ferm_part_i, num_ferm)+1)%3==0 && bin_to_dec(ferm_part_i, num_ferm) != 5){
         return mass;
+    } else if((bin_to_dec(ferm_part_i, num_ferm)+1)%3==0 && bin_to_dec(ferm_part_i, num_ferm) != 5){
+        return -mass;
     } else if(bin_to_dec(ferm_part_i, num_ferm) == 10){
-        return 2*mass;
-    } else{
         return -2*mass;
+    } else{
+        return 2*mass;
     }
 }
 
@@ -200,6 +200,7 @@ int main(int argc, char ** argv){
                 dec_to_bin(a, a_state, dimstate);
                 dec_to_bin(b, b_state, dimstate);
                 H(b,a) = H_mass_ferm(b_state, a_state, mass);
+                if(H(b,a) !=0) printf("%d %d %.12lf\n", b, a, H(b,a));
                 H(b,a) += H_gauge_link(b_state, a_state);
                 H(b,a) += H_hop_X(b_state, a_state);
                 H(b,a) += H_hop_Y(b_state, a_state);
