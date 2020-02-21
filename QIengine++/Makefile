@@ -9,12 +9,6 @@ INCLUDES = $(wildcard include/*)
 SRC = src
 OBJDIR = obj
 
-release: CXXFLAGS += -O3 -DNDEBUG
-release: main
-	
-debug: CXXFLAGS += -g
-debug: main
-
 release_gpu: NVCCFLAGS += -O3 -DNDEBUG
 release_gpu: main_gpu
 
@@ -23,6 +17,13 @@ debug_gpu: main_gpu
 
 profile_gpu: NVCCFLAGS += -m64 -O3 -G -g -DNDEBUG
 profile_gpu: main_gpu
+
+release: CXXFLAGS += -O3 -DNDEBUG
+release: main
+	
+debug: CXXFLAGS += -g
+debug: main
+
 
 $(OBJDIR):
 	mkdir -p $@

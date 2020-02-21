@@ -19,7 +19,6 @@ struct arg_list{
     double pe_time_factor = 1.0;
     int pe_steps = 10; 
     int thermalization = 100;
-    string Xmatstem = "";
     bool record_reverse = false;
     
     friend ostream& operator<<(ostream& o, const arg_list& al);
@@ -38,7 +37,6 @@ ostream& operator<<(ostream& o, const arg_list& al){
     o<<"time of PE evolution: "<<al.pe_time_factor<<endl;
     o<<"steps of PE evolution: "<<al.pe_steps<<endl;
     o<<"thermalization: "<<al.thermalization<<endl;
-    o<<"file stem for X measure: "<<al.Xmatstem<<endl;
     o<<"record reverse: "<<al.record_reverse<<endl;
     return o;
 }
@@ -120,15 +118,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
            throw "ERROR: set value after '--thermalization' flag"; 
        
        args.thermalization = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
-    }
-
-    // (string) X_mat_stem
-    tmp_idx = argmap["--X-mat-stem"];
-    if(tmp_idx>=fixed_args){
-       if(tmp_idx+1>= argc)
-           throw "ERROR: set value after '--X-mat-stem' flag"; 
-       
-       args.Xmatstem = argmap_inv[tmp_idx+1]; 
     }
 
 
