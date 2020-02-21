@@ -615,6 +615,12 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     suqa::vnormalize(state);
 }
 
+////TODO: can be optimized for multiple qbits measures?
+void suqa::measure_qbits(ComplexVec& state, const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
+    for(uint k = 0U; k < qs.size(); ++k)
+        suqa::measure_qbit(state, qs[k], cs[k], rdoubs[k]);
+}
+
 
 __global__ void kernel_suqa_prob_filter(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len, uint mask_qs, uint mask){
     extern __shared__ double local_ret[];

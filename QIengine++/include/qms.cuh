@@ -8,7 +8,7 @@
 // defined in src/system.cu
 void evolution(ComplexVec& state, const double& t, const int& n);
 
-void fill_meas_cache(const std::vector<uint>& bm_states, const std::string opstem);
+double measure_X(ComplexVec& state, pcg& rgen);
 
 void apply_measure_rotation(ComplexVec& state);
 void apply_measure_antirotation(ComplexVec& state);
@@ -38,7 +38,6 @@ double t_PE_factor;
 int n_phase_estimation;
 uint gCi;
 uint c_acc = 0;
-std::string Xmatstem="";
 
 bool record_reverse=false;
 std::vector<uint> reverse_counters;
@@ -49,7 +48,6 @@ ComplexVec gState;
 ////vector<double> energy_measures;
 std::vector<double> X_measures;
 std::vector<double> E_measures;
-
 
 std::vector<double> rphase_m;
 double c_factor;
@@ -213,13 +211,6 @@ void reset_non_state_qbits(ComplexVec& state){
     suqa::apply_reset(state, bm_acc, rangen.doub());
     DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
     DEBUG_READ_STATE(state);
-}
-
-
-////TODO: can be optimized for multiple qbits measures?
-void measure_qbits(ComplexVec& state, const std::vector<uint>& qs, std::vector<uint>& cs){
-    for(uint k = 0U; k < qs.size(); ++k)
-        suqa::measure_qbit(state, qs[k], cs[k], rangen.doub());
 }
 
 
@@ -495,31 +486,14 @@ void apply_U_inverse(){
 }
 
 
-void init_measure_structs(){
-    
-    fill_meas_cache(bm_states, Xmatstem);
+std::vector<double> extract_rands(uint n){
+    std::vector<double> ret(n);
+    for(auto& el : ret){
+        el = rangen.doub();
+    }
+    return ret;
 }
 
-double measure_X(){
-    if(Xmatstem==""){
-        return 0.0;
-    }
-
-    std::vector<uint> classics(state_qbits);
-    
-    apply_measure_rotation(gState);
-
-    measure_qbits(gState, bm_states, classics);
-
-    apply_measure_antirotation(gState);
-
-    uint meas = 0U;
-    for(uint i=0; i<state_qbits; ++i){
-        meas |= (classics[i] << i);
-    }
-
-    return get_meas_opvals(meas);
-}
 
 int metro_step(bool take_measure){
 
@@ -552,7 +526,7 @@ int metro_step(bool take_measure){
         double Enew_meas_d;
         std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
-        measure_qbits(gState, bm_enes_new, c_E_news);
+        suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
         DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
         DEBUG_READ_STATE(gState)
@@ -563,7 +537,7 @@ int metro_step(bool take_measure){
             for(uint ei=0U; ei<ene_qbits; ++ei){
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
             }
-            X_measures.push_back(measure_X());
+            X_measures.push_back(measure_X(gState,rangen));
 ////            X_measures.push_back(0.0);
             DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
@@ -573,7 +547,7 @@ int metro_step(bool take_measure){
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
             apply_Phi();
-            measure_qbits(gState, bm_enes_new, c_E_news);
+            suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
             DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
             DEBUG_READ_STATE(gState);
             apply_Phi_inverse();
@@ -597,10 +571,10 @@ int metro_step(bool take_measure){
         uint Eold_meas, Enew_meas;
         double Eold_meas_d;
         std::vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
-        measure_qbits(gState, bm_enes_old, c_E_olds);
+        suqa::measure_qbits(gState, bm_enes_old, c_E_olds, extract_rands(ene_qbits));
         Eold_meas = creg_to_uint(c_E_olds);
         Eold_meas_d = Eold_meas/(double)(t_PE_factor*ene_levels);
-        measure_qbits(gState, bm_enes_new, c_E_news);
+        suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
         Enew_meas = creg_to_uint(c_E_news);
         apply_Phi_inverse();
         
@@ -614,14 +588,14 @@ int metro_step(bool take_measure){
 
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
-                X_measures.push_back(measure_X());
+                X_measures.push_back(measure_X(gState,rangen));
                 DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
                 DEBUG_READ_STATE(gState);
                 DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
                 apply_Phi();
-                measure_qbits(gState, bm_enes_new, c_E_news);
+                suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
                 DEBUG_CALL(std::cout<<"\n\nAfter E recollapse"<<std::endl);
                 DEBUG_READ_STATE(gState);
                 apply_Phi_inverse();
@@ -662,9 +636,6 @@ void setup(double beta){
     qms::fill_rphase(qms::ene_qbits+1);
     qms::fill_bitmap();
     qms::fill_W_utils(beta, qms::t_PE_factor);
-    if(qms::Xmatstem!="")
-        qms::init_measure_structs();
-
 
 #if !defined(NDEBUG)
     HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re,qms::Dim*sizeof(double),cudaHostAllocDefault));
