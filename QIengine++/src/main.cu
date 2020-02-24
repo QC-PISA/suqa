@@ -46,7 +46,7 @@ double beta;
 double h;
 int thermalization;
 
-// defined in src/system.cpp
+// defined in src/system.cu
 void init_state(ComplexVec& state, uint Dim);
 
 arg_list args;
@@ -54,11 +54,7 @@ arg_list args;
 void save_measures(string outfilename){
     FILE * fil = fopen(outfilename.c_str(), "a");
     for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
-        if(qms::Xmatstem!=""){
-            fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
-        }else{
-            fprintf(fil, "%.16lg\n", qms::E_measures[ei]);
-        }
+        fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
     }
     fclose(fil);
     qms::E_measures.clear();
@@ -87,7 +83,7 @@ void allocate_state(ComplexVec& state, uint Dim){
 
 int main(int argc, char** argv){
     if(argc < 8){
-        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -105,7 +101,6 @@ int main(int argc, char** argv){
     qms::t_PE_factor = args.pe_time_factor;
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
     qms::n_phase_estimation = args.pe_steps;
-    qms::Xmatstem = args.Xmatstem;
     qms::record_reverse= args.record_reverse;
     qms::iseed = args.seed;
     if(qms::iseed>0)
@@ -144,7 +139,9 @@ int main(int argc, char** argv){
     
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");
-        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
+//        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
+        fprintf(fil, "# E\n");
+        fprintf(fil, "# E A\n");
         fclose(fil);
     }
 

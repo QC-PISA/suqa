@@ -115,6 +115,8 @@ void apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std:
 
 /* SUQA utils */
 void measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub);
+void measure_qbits(ComplexVec& state, const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
+
 
 void apply_reset(ComplexVec& state, uint q, double rdoub);
 void apply_reset(ComplexVec& state, const bmReg& qs, std::vector<double> rdoubs);
