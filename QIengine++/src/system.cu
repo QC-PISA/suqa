@@ -272,15 +272,15 @@ void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
 
 
 void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-  uint s = (Ci<8U) ? 0 : Ci;
+  uint s = (Ci<17U) ? 0 : Ci;
   switch(s){
         case 0U:
 	  link_kinevolve(state,Ci);
             break;
-        case 8U:
+        case 16U:
 	  self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
             break;
-        case 9U:
+        case 17U:
 	  self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
             break;
         default:
@@ -289,14 +289,15 @@ void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
 }
 
 void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-  switch(Ci){
+  uint s = (Ci<17U) ? 0 : Ci;
+  switch(s){
         case 0U:
 	  inverse_link_kinevolve(state,Ci);
             break;
-        case 8U:
+        case 16U:
 	  inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
             break;
-        case 9U:
+        case 17U:
 	  inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
             break;
         default:
