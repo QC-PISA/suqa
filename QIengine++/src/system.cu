@@ -241,18 +241,47 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
+std::vector<double> C_weigthsums = {1./3, 2./3, 1./3, 1.0,
+				    1./3, 2./3, 1./3, 1.0,
+				    1./3, 2./3, 1./3, 1.0,
+				    1./3, 2./3, 1./3, 1.0,
+				    2./5, 2./5};
+std::vector<bmReg> link = {bm_qlink0, bm_qlink1, bm_qlink2, bm_qlink3};
+std::vector<double> phases = {1./3, sqrt(2.)/3, -1./3, -sqrt(2.)/3,
+				    sqrt(2.)/3, 1./3, -sqrt(2.)/3, -1./3,
+				    -1./3, -sqrt(2.)/3, 1./3, sqrt(2.)/3,
+				    -sqrt(2.)/3, -1./3, sqrt(2.)/3, 1./3};
+
+void link_kinevolve(ComplexVec& state, const uint&Ci){
+  int link_index=Ci%4;
+  fourier_transf_z2(state, link[link_index]);
+  momentum_phase(state, link[link_index], phases[Ci]);
+  inverse_fourier_transf_z2(state, link[link_index]);
+  
+}
+
+void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
+  int link_index=Ci%4;
+  inverse_fourier_transf_z2(state, link[link_index]);
+  momentum_phase(state, link[link_index], -phases[Ci]);
+  fourier_transf_z2(state, link[link_index]);
+  
+}
+
+
+
 
 void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-    switch(Ci){
+  uint s = (Ci<17U) ? 0 : Ci;
+  switch(s){
         case 0U:
-            suqa::apply_cx(state,bm_states[1], 0, bm_states[0]);
+	  link_kinevolve(state,Ci);
             break;
-        case 1U:
-            suqa::apply_swap(state,bm_states[1],bm_states[0]);
+        case 16U:
+	  self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
             break;
-        case 2U:
-            suqa::apply_x(state,bm_states);
+        case 17U:
+	  self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
             break;
         default:
             throw std::runtime_error("ERROR: wrong move selection");
@@ -260,7 +289,22 @@ void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
 }
 
 void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-    apply_C(state, bm_states, Ci);
+  uint s = (Ci<17U) ? 0 : Ci;
+  switch(s){
+        case 0U:
+	  inverse_link_kinevolve(state,Ci);
+            break;
+        case 16U:
+	  inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+            break;
+        case 17U:
+	  inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+            break;
+        default:
+            throw std::runtime_error("ERROR: wrong move selection");
+    }
 }
+    
+
 
 std::vector<double> get_C_weigthsums(){ return C_weigthsums; }

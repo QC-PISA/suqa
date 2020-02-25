@@ -41,7 +41,7 @@ void allocate_state(ComplexVec& state, uint Dim){
         deallocate_state(state);
 
 
-    state.vecsize = Dim; 
+    state.vecsize = Dim;
     HANDLE_CUDACALL(cudaMalloc((void**)&(state.data), 2*state.vecsize*sizeof(double)));
     // allocate both using re as offset, and im as access pointer.
     state.data_re = state.data;
@@ -52,7 +52,7 @@ void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const
 
 int main(int argc, char** argv){
     if(argc<5){
-       printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile>\n",argv[0]); 
+       printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile>\n",argv[0]);
        exit(1);
     }
     g_beta = stod(argv[1]); // (extern) def in src/system.cu
