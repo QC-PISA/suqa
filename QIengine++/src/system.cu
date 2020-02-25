@@ -241,21 +241,20 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-std::vector<double> C_weigthsums = {1./3, 2./3, 1./3, 1.0,
-				    1./3, 2./3, 1./3, 1.0,
-				    1./3, 2./3, 1./3, 1.0,
-				    1./3, 2./3, 1./3, 1.0,
-				    2./5, 2./5};
+std::vector<double> C_weigthsums = {1./18, 2./18, 3./18, 4./18,
+				    5./18, 6./18, 7./18, 8./18,
+				    9./18, 10./18, 11./18, 12./18,
+				    13./18, 14./18, 15./18, 16./18,
+				    17./18, 1.};
+
 std::vector<bmReg> link = {bm_qlink0, bm_qlink1, bm_qlink2, bm_qlink3};
-std::vector<double> phases = {1./3, sqrt(2.)/3, -1./3, -sqrt(2.)/3,
-				    sqrt(2.)/3, 1./3, -sqrt(2.)/3, -1./3,
-				    -1./3, -sqrt(2.)/3, 1./3, sqrt(2.)/3,
-				    -sqrt(2.)/3, -1./3, sqrt(2.)/3, 1./3};
+
+std::vector<double> phases = {1./3, sqrt(2.)/3};
 
 void link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], phases[Ci]);
+  momentum_phase(state, link[link_index], phases[Ci/4]*((Ci/8)*2-1));
   inverse_fourier_transf_z2(state, link[link_index]);
   
 }
@@ -263,7 +262,7 @@ void link_kinevolve(ComplexVec& state, const uint&Ci){
 void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   inverse_fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], -phases[Ci]);
+  momentum_phase(state, link[link_index], -phases[Ci/4]*((Ci/8)*2-1));
   fourier_transf_z2(state, link[link_index]);
   
 }
@@ -272,7 +271,7 @@ void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
 
 
 void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-  uint s = (Ci<17U) ? 0 : Ci;
+  uint s = (Ci<16U) ? 0 : Ci;
   switch(s){
         case 0U:
 	  link_kinevolve(state,Ci);
@@ -289,7 +288,7 @@ void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
 }
 
 void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-  uint s = (Ci<17U) ? 0 : Ci;
+  uint s = (Ci<16U) ? 0 : Ci;
   switch(s){
         case 0U:
 	  inverse_link_kinevolve(state,Ci);
