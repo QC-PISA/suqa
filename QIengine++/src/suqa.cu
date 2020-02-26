@@ -605,10 +605,10 @@ void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q
 }
 
 __global__ 
-void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask00, uint mask_q1, uint mask_q2){
+void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask00, uint mask11, uint mask_q1, uint mask_q2){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
-        if((i & mask00) == mask00){
+        if((i & mask11) == mask00){
             // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
             uint i_1 = i | mask_q1;
             uint i_2 = i | mask_q2;
@@ -627,9 +627,11 @@ void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
     // swap gate: 00->00, 01->10, 10->01, 11->11
     // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
     uint mask00 = gc_mask;
+    uint mask11 = mask00;
     uint mask_q1 = (1U << q1);
     uint mask_q2 = (1U << q2);
-    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask00, mask_q1, mask_q2);
+    mask11 |= mask_q1 | mask_q2;
+    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask00, mask11, mask_q1, mask_q2);
 }
 
 // RESET = measure + classical cx
@@ -646,6 +648,259 @@ __global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im,
         i += gridDim.x*blockDim.x;
     }
 }
+
+__global__
+void kernel_suqa_pauli_TP_rotation_x(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    double tmp_re0, tmp_im0, tmp_re1, tmp_im1;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+
+            tmp_re0 = state_re[i_0];
+            tmp_im0 = state_im[i_0];
+            tmp_re1 = state_re[i_1];
+            tmp_im1 = state_im[i_1];
+            
+            state_re[i_0] = tmp_re0*ctheta - tmp_im1*stheta;
+            state_im[i_0] = tmp_im0*stheta + tmp_re1*stheta;
+
+            state_re[i_1] = tmp_re1*ctheta - tmp_im0*stheta; 
+            state_im[i_1] = tmp_im1*stheta + tmp_re0*stheta;
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    double tmp_re0, tmp_im0, tmp_re1, tmp_im1;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+
+            tmp_re0 = state_re[i_0];
+            tmp_im0 = state_im[i_0];
+            tmp_re1 = state_re[i_1];
+            tmp_im1 = state_im[i_1];
+            
+            state_re[i_0] = tmp_re0*ctheta + tmp_re1*stheta;
+            state_im[i_0] = tmp_im0*stheta + tmp_im1*stheta;
+
+            state_re[i_1] = tmp_re1*ctheta - tmp_re0*stheta; 
+            state_im[i_1] = tmp_im1*stheta - tmp_im0*stheta;
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    double tmp_re0, tmp_im0, tmp_re1, tmp_im1;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+
+            tmp_re0 = state_re[i_0];
+            tmp_im0 = state_im[i_0];
+            tmp_re1 = state_re[i_1];
+            tmp_im1 = state_im[i_1];
+            
+            state_re[i_0] = tmp_re0*ctheta - tmp_im0*stheta;
+            state_im[i_0] = tmp_im0*stheta + tmp_re0*stheta;
+
+            state_re[i_1] = tmp_re1*ctheta + tmp_im1*stheta; 
+            state_im[i_1] = tmp_im1*stheta - tmp_re1*stheta;
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zxx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    double tmpval;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            uint i_4 = i_0 | mask_q3;
+            uint i_5 = i_4 | i_1;
+            uint i_6 = i_4 | i_2;
+            uint i_7 = i_4 | i_3;
+            
+            // 0<->3
+            tmpval = state_re[i_0];
+            state_re[i_0] = tmpval*ctheta -state_im[i_3]*stheta;
+            state_im[i_3] = state_im[i_3]*ctheta +tmpval*stheta;
+
+            tmpval = state_im[i_0]; state_im[i_0] = tmpval*ctheta +state_re[i_3]*stheta;
+            state_re[i_3] = state_re[i_3]*ctheta -tmpval*stheta;
+
+            // 5<->6
+            tmpval = state_re[i_5];
+            state_re[i_5] = tmpval*ctheta +state_im[i_6]*stheta;
+            state_im[i_6] = state_im[i_6]*ctheta -tmpval*stheta;
+
+            tmpval = state_im[i_5];
+            state_im[i_5] = tmpval*ctheta -state_re[i_6]*stheta;
+            state_re[i_6] = state_re[i_6]*ctheta +tmpval*stheta;
+
+            // 1<->2
+            tmpval = state_re[i_1];
+            state_re[i_1] = tmpval*ctheta -state_im[i_2]*stheta;
+            state_im[i_2] = state_im[i_2]*ctheta +tmpval*stheta;
+
+            tmpval = state_im[i_1];
+            state_im[i_1] = tmpval*ctheta +state_re[i_2]*stheta;
+            state_re[i_2] = state_re[i_2]*ctheta -tmpval*stheta;
+
+
+            // 4<->7
+            tmpval = state_re[i_4];
+            state_re[i_4] = tmpval*ctheta +state_im[i_7]*stheta;
+            state_im[i_7] = state_im[i_7]*ctheta -tmpval*stheta;
+
+            tmpval = state_im[i_4];
+            state_im[i_4] = tmpval*ctheta -state_re[i_7]*stheta;
+            state_re[i_7] = state_re[i_7]*ctheta +tmpval*stheta;
+
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zyy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    double tmpval;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            uint i_4 = i_0 | mask_q3;
+            uint i_5 = i_4 | i_1;
+            uint i_6 = i_4 | i_2;
+            uint i_7 = i_4 | i_3;
+
+            
+            // 0<->3
+            tmpval = state_re[i_0];
+            state_re[i_0] = tmpval*ctheta +state_im[i_3]*stheta;
+            state_im[i_3] = state_im[i_3]*ctheta -tmpval*stheta;
+
+            tmpval = state_im[i_0];
+            state_im[i_0] = tmpval*ctheta -state_re[i_3]*stheta;
+            state_re[i_3] = state_re[i_3]*ctheta +tmpval*stheta;
+
+            // 5<->6
+            tmpval = state_re[i_5];
+            state_re[i_5] = tmpval*ctheta +state_im[i_6]*stheta;
+            state_im[i_6] = state_im[i_6]*ctheta -tmpval*stheta;
+
+            tmpval = state_im[i_5];
+            state_im[i_5] = tmpval*ctheta -state_re[i_6]*stheta;
+            state_re[i_6] = state_re[i_6]*ctheta +tmpval*stheta;
+
+            // 1<->2
+            tmpval = state_re[i_1];
+            state_re[i_1] = tmpval*ctheta -state_im[i_2]*stheta;
+            state_im[i_2] = state_im[i_2]*ctheta +tmpval*stheta;
+
+            tmpval = state_im[i_1];
+            state_im[i_1] = tmpval*ctheta +state_re[i_2]*stheta;
+            state_re[i_2] = state_re[i_2]*ctheta -tmpval*stheta;
+
+            // 4<->7
+            tmpval = state_re[i_4];
+            state_re[i_4] = tmpval*ctheta -state_im[i_7]*stheta;
+            state_im[i_7] = state_im[i_7]*ctheta +tmpval*stheta;
+
+            tmpval = state_im[i_4];
+            state_im[i_4] = tmpval*ctheta +state_re[i_7]*stheta;
+            state_re[i_7] = state_re[i_7]*ctheta -tmpval*stheta;
+
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+
+// rotation by phase in the direction of a pauli tensor product
+void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
+    uint mask0s = gc_mask;
+    uint mask1s = mask0s;
+    uint mask_q1, mask_q2, mask_q3;
+    for(const auto& q : q_apply){
+        mask1s |= (1U << q);
+    }
+    double sph, cph;
+    sincos(phase, &sph, &cph);
+
+    if(q_apply.size()!=pauli_TPtype.size()){
+        throw std::runtime_error("ERROR: in suqa::apply_pauli_TP_rotation(): mismatch between qubits number and pauli types specified");
+    }
+
+    if(q_apply.size()==1U){
+        mask_q1 = (1U << q_apply[0]);
+        switch(pauli_TPtype[0]){
+            case PAULI_X:
+                kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            case PAULI_Y:
+                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            case PAULI_Z:
+                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            default:
+                break;
+        }
+    }else if(q_apply.size()==3U){
+        int i_z = -1, i1, i2;
+        if(pauli_TPtype[0]==PAULI_Z){ 
+            i_z=0;
+            i1=1;
+            i2=2;
+        }else if(pauli_TPtype[1]==PAULI_Z){
+            i_z=1;
+            i1=0;
+            i2=2;
+        }else if(pauli_TPtype[2]==PAULI_Z){
+            i_z=2;
+            i1=0;
+            i2=1;
+        }else{
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        }
+        mask_q3 = (1U << q_apply[i_z]);
+        mask_q1 = (1U << q_apply[i1]);
+        mask_q2 = (1U << q_apply[i2]);
+        if(pauli_TPtype[i1]==PAULI_X and pauli_TPtype[i2]==PAULI_X){
+                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype[i1]==PAULI_Y and pauli_TPtype[i2]==PAULI_Y){
+                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else{
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        }
+    }else{
+        throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
+    }
+}
+
+
 
 
 void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
@@ -727,6 +982,12 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     // set to 0 coeffs with bm_acc 1-c
     set_ampl_to_zero(state, q, c_conj);
     suqa::vnormalize(state);
+}
+
+////TODO: can be optimized for multiple qbits measures?
+void suqa::measure_qbits(ComplexVec& state, const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
+    for(uint k = 0U; k < qs.size(); ++k)
+        suqa::measure_qbit(state, qs[k], cs[k], rdoubs[k]);
 }
 
 

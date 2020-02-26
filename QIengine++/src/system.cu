@@ -1,4 +1,5 @@
 #include "system.cuh"
+#include "include/Rand.hpp"
 
 /* d4 gauge theory - two plaquettes
  
@@ -242,108 +243,53 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 
 
 /* Measure facilities */
-uint state_levels;
-std::vector<double> meas_opvals;
-std::vector<std::vector<Complex>> SXmat;
-std::vector<uint> iss;//(state_levels);
-std::vector<Complex> ass;//(state_levels);
-uint meas_mask;
-std::vector<uint> meas_mask_combs;
+const uint op_bits = 3; // 2^op_bits is the number of eigenvalues for the observable
+const bmReg bm_op = bm_qlink1; // where the measure has to be taken
+const std::vector<double> op_vals = {2.0,0.0,-2.0, 0.0,0.0,0.0,0.0,0.0}; // eigvals
 
-
-void fill_meas_cache(const bmReg& bm_states, const std::string opstem){
-    state_levels = (1U << bm_states.size());
-
-    iss.resize(state_levels);
-    ass.resize(state_levels);
-
-    meas_opvals.resize(state_levels);
-    SXmat.resize(state_levels,std::vector<Complex>(state_levels));
-
-    FILE * fil_re = fopen((opstem+"_vecs_re").c_str(),"r"); 
-    FILE * fil_im = fopen((opstem+"_vecs_im").c_str(),"r"); 
-    FILE * fil_vals = fopen((opstem+"_vals").c_str(),"r"); 
-    double tmp_re,tmp_im;
-    int fscanf_items=1;
-    for(uint i=0; i<state_levels; ++i){
-        fscanf_items=fscanf(fil_vals, "%lg",&meas_opvals[i]);
-        for(uint j=0; j<state_levels; ++j){
-            fscanf_items*=fscanf(fil_re, "%lg",&tmp_re);
-            fscanf_items*=fscanf(fil_im, "%lg",&tmp_im);
-            SXmat[i][j].x = tmp_re;
-            SXmat[i][j].y = tmp_im;
-        }
-        fscanf_items*=1-fscanf(fil_re, "\n");
-        fscanf_items*=1-fscanf(fil_im, "\n");
-    }
-    if(fscanf_items!=1){
-        std::cout<<fscanf_items<<std::endl;
-        throw std::runtime_error("ERROR: while reading Xmatstem files");
-    }
-
-    fclose(fil_vals);
-    fclose(fil_re);
-    fclose(fil_im);
-
-    meas_mask = 0U;
-    for(const auto& bm : bm_states){
-        meas_mask |= (1U<<bm);
-    }
-    meas_mask_combs.resize(state_levels,0);
-    for(uint lvl=0; lvl<state_levels; ++lvl){
-        for(uint bmi=0; bmi<bm_states.size(); ++bmi){
-            meas_mask_combs[lvl] |= ((lvl>>bmi & 1U) << bm_states[bmi]);
-        }
-    }
-}
-
-double get_meas_opvals(const uint& creg_vals){
-    return meas_opvals[creg_vals];
-}
  
+// change basis to the observable basis somewhere in the system registers
 void apply_measure_rotation(ComplexVec& state){
-
-//	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//        if((i_0 & meas_mask) == 0U){
-//      
-//            for(uint lvl=0; lvl<state_levels; ++lvl){
-//                iss[lvl] = i_0 | meas_mask_combs[lvl];
-//                ass[lvl] = state[iss[lvl]];
-//            }
-//
-//            for(uint r=0; r<state_levels; ++r){
-//                state[iss[r]].x=0.0;
-//                state[iss[r]].y=0.0;
-//                for(uint c=0; c<state_levels; ++c){
-//                     state[iss[r]] += SXmat[r][c]*ass[c];
-//                }
-//            }
-//        }
-//    }
+    self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 }
 
+// inverse of the above function
 void apply_measure_antirotation(ComplexVec& state){
-//
-//	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//        if((i_0 & meas_mask) == 0U){
-//      
-//            for(uint lvl=0; lvl<state_levels; ++lvl){
-//                iss[lvl] = i_0 | meas_mask_combs[lvl];
-//                ass[lvl] = state[iss[lvl]];
-//            }
-//
-//            for(uint r=0; r<state_levels; ++r){
-//                state[iss[r]]=0.0;
-//                for(uint c=0; c<state_levels; ++c){
-//                     state[iss[r]] += conj(SXmat[c][r])*ass[c];
-//                }
-//            }
-//        }
-//    }
+    inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 }
 
+// map the classical measure recorded in creg_vals
+// to the corresponding value of the observable;
+// there is no need to change it
+double get_meas_opvals(const uint& creg_vals){
+    return op_vals[creg_vals];
+}
 
-//TODO: write moves
+// actually perform the measure
+// there is no need to change it
+double measure_X(ComplexVec& state, pcg& rgen){
+    std::vector<uint> classics(op_bits);
+    
+    apply_measure_rotation(state);
+
+    std::vector<double> rdoubs(op_bits);
+    for(auto& el : rdoubs){
+        el = rgen.doub();
+    }
+    suqa::measure_qbits(state, bm_op, classics, rdoubs);
+
+    apply_measure_antirotation(state);
+
+    uint meas = 0U;
+    for(uint i=0; i<op_bits; ++i){
+        meas |= (classics[i] << i);
+    }
+
+    return get_meas_opvals(meas);
+}
+
+/* Moves facilities */
+
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
 void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
