@@ -515,6 +515,9 @@ int metro_step(bool take_measure){
     DEBUG_READ_STATE(gState);
     std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
     suqa::measure_qbits(gState,bm_enes_old, c_E_olds, extract_rands(ene_qbits));
+    DEBUG_CALL(std::cout<<"\n\nAfter measure on bm_enes_old"<<std::endl);
+    DEBUG_READ_STATE(gState);
+    DEBUG_CALL(std::cout<<c_E_olds<<std::endl);
     gCi = draw_C();
     DEBUG_CALL(std::cout<<"\n\ndrawn C = "<<gCi<<std::endl);
     apply_U();
