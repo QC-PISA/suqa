@@ -517,7 +517,7 @@ int metro_step(bool take_measure){
     suqa::measure_qbits(gState,bm_enes_old, c_E_olds, extract_rands(ene_qbits));
     DEBUG_CALL(std::cout<<"\n\nAfter measure on bm_enes_old"<<std::endl);
     DEBUG_READ_STATE(gState);
-    DEBUG_CALL(c_E_olds);
+    DEBUG_CALL(printf("\nEnergy measured: %u %u %u %u \n", c_E_olds[0], c_E_olds[1], c_E_olds[2], c_E_olds[3]));
     gCi = draw_C();
     DEBUG_CALL(std::cout<<"\n\ndrawn C = "<<gCi<<std::endl);
     apply_U();
