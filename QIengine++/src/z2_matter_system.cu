@@ -297,60 +297,74 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 	for (uint ti=0; ti<(uint)n; ++ti){
 		DEBUG_CALL(printf("Initial state()\n"));
 		DEBUG_READ_STATE(state);
-		apply_hopping_evolution_y(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+	//	apply_hopping_evolution_y(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+		
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0]}, {PAULI_Z,PAULI_Y,PAULI_Y}, -hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution y site 0()\n"));
 		DEBUG_READ_STATE(state);
 		
-		apply_hopping_evolution_y(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+//		apply_hopping_evolution_y(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0]}, {PAULI_Z,PAULI_Y,PAULI_Y}, +hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution y site 1 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+//		apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0]}, {PAULI_Z,PAULI_Y,PAULI_Y}, -hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution y site 2 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_hopping_evolution_x(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+//		apply_hopping_evolution_x(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0]}, {PAULI_Z,PAULI_X,PAULI_X}, -hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution x site 0()\n"));
 		DEBUG_READ_STATE(state);
 		
-		apply_hopping_evolution_x(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+//		apply_hopping_evolution_x(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0]}, {PAULI_Z,PAULI_X,PAULI_X}, +hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution x site 1 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_hopping_evolution_x(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+//		apply_hopping_evolution_x(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0]}, {PAULI_Z,PAULI_X,PAULI_X}, -hopping_theta);
 		DEBUG_CALL(printf("After hopping evolution x site 2 ()\n"));
 		DEBUG_READ_STATE(state);
 
 //gauge link part
 
 
-		apply_gauge_link_evolution(state, bm_z2_qlink0, gauge_coef);
+//		apply_gauge_link_evolution(state, bm_z2_qlink0, gauge_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink0[0]}, {PAULI_X}, gauge_coef);
 		DEBUG_CALL(printf("After gauge evolution  link0 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_gauge_link_evolution(state, bm_z2_qlink1, gauge_coef);
+//		apply_gauge_link_evolution(state, bm_z2_qlink1, gauge_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink1[0]}, {PAULI_X}, gauge_coef);
 		DEBUG_CALL(printf("After gauge evolution  link1 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_gauge_link_evolution(state, bm_z2_qlink2, gauge_coef);
+//		apply_gauge_link_evolution(state, bm_z2_qlink2, gauge_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink2[0]}, {PAULI_X}, gauge_coef);
 		DEBUG_CALL(printf("After gauge evolution  link2 ()\n"));
 		DEBUG_READ_STATE(state);
 
 // fermion mass part
 
-		apply_mass_evolution(state, bm_z2_qferm0, -mass_coef);
+//		apply_mass_evolution(state, bm_z2_qferm0, -mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm0[0]}, {PAULI_Z}, -mass_coef);
 		DEBUG_CALL(printf("After mass evolution site 0 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_mass_evolution(state, bm_z2_qferm1, mass_coef);
+//		apply_mass_evolution(state, bm_z2_qferm1, mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm1[0]}, {PAULI_Z}, +mass_coef);
 		DEBUG_CALL(printf("After mass evolution site 1 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_mass_evolution(state, bm_z2_qferm2, -mass_coef);
+//		apply_mass_evolution(state, bm_z2_qferm2, -mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm2[0]}, {PAULI_Z}, -mass_coef);
 		DEBUG_CALL(printf("After mass evolution site 2 ()\n"));
 		DEBUG_READ_STATE(state);
 
-		apply_mass_evolution(state, bm_z2_qferm3, mass_coef);
+//		apply_mass_evolution(state, bm_z2_qferm3, mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm3[0]}, {PAULI_Z}, mass_coef);
 		DEBUG_CALL(printf("After mass evolution site 3 ()\n"));
 		DEBUG_READ_STATE(state);
 	}

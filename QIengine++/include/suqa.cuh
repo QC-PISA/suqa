@@ -4,6 +4,7 @@
 #include <vector>
 #include "io.hpp"
 #include "complex_defines.cuh"
+#include <stdexcept>
 
 #ifdef CUDA
 
