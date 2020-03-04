@@ -665,10 +665,10 @@ void kernel_suqa_pauli_TP_rotation_x(double *const state_re, double *const state
             tmp_im1 = state_im[i_1];
             
             state_re[i_0] = tmp_re0*ctheta - tmp_im1*stheta;
-            state_im[i_0] = tmp_im0*stheta + tmp_re1*stheta;
+            state_im[i_0] = tmp_im0*ctheta + tmp_re1*stheta;
 
             state_re[i_1] = tmp_re1*ctheta - tmp_im0*stheta; 
-            state_im[i_1] = tmp_im1*stheta + tmp_re0*stheta;
+            state_im[i_1] = tmp_im1*ctheta + tmp_re0*stheta;
         }
         i_0+=gridDim.x*blockDim.x;
     }
@@ -690,10 +690,10 @@ void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state
             tmp_im1 = state_im[i_1];
             
             state_re[i_0] = tmp_re0*ctheta + tmp_re1*stheta;
-            state_im[i_0] = tmp_im0*stheta + tmp_im1*stheta;
+            state_im[i_0] = tmp_im0*ctheta + tmp_im1*stheta;
 
             state_re[i_1] = tmp_re1*ctheta - tmp_re0*stheta; 
-            state_im[i_1] = tmp_im1*stheta - tmp_im0*stheta;
+            state_im[i_1] = tmp_im1*stheta - tmp_im0*ctheta;
         }
         i_0+=gridDim.x*blockDim.x;
     }
@@ -715,10 +715,10 @@ void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state
             tmp_im1 = state_im[i_1];
             
             state_re[i_0] = tmp_re0*ctheta - tmp_im0*stheta;
-            state_im[i_0] = tmp_im0*stheta + tmp_re0*stheta;
+            state_im[i_0] = tmp_im0*ctheta + tmp_re0*stheta;
 
             state_re[i_1] = tmp_re1*ctheta + tmp_im1*stheta; 
-            state_im[i_1] = tmp_im1*stheta - tmp_re1*stheta;
+            state_im[i_1] = tmp_im1*ctheta - tmp_re1*stheta;
         }
         i_0+=gridDim.x*blockDim.x;
     }
