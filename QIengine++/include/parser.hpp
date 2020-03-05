@@ -101,7 +101,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
        if(tmp_idx+1>= argc)
            throw "ERROR: set value after '--ene-min' flag"; 
        
-       args.ene_min *= stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+       args.ene_min = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
     }
 
     // (double) ene_max
@@ -110,7 +110,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
        if(tmp_idx+1>= argc)
            throw "ERROR: set value after '--ene-max' flag"; 
        
-       args.ene_max *= stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+       args.ene_max = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
     }
 
     // (int) pe_steps
