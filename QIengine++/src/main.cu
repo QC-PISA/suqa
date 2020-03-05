@@ -83,7 +83,7 @@ void allocate_state(ComplexVec& state, uint Dim){
 
 int main(int argc, char** argv){
     if(argc < 8){
-        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--record-reverse]\n", argv[0]);
+        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -98,8 +98,6 @@ int main(int argc, char** argv){
     qms::ene_qbits = (uint)args.ene_qbits;
     string outfilename(args.outfile);
     qms::max_reverse_attempts = (uint)args.max_reverse_attempts;
-    qms::t_PE_factor = args.pe_time_factor;
-    qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
     qms::n_phase_estimation = args.pe_steps;
     qms::record_reverse= args.record_reverse;
     qms::iseed = args.seed;
@@ -112,6 +110,10 @@ int main(int argc, char** argv){
     qms::Dim = (1U << qms::nqubits);
     qms::ene_levels = (1U << qms::ene_qbits);
     qms::state_levels = (1U << qms::state_qbits);
+
+    qms::t_PE_shift = args.ene_min;
+    qms::t_PE_factor = (args.ene_max-args.ene_min)/(double)(qms::ene_levels-1.0); 
+    qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
     suqa::threads = NUM_THREADS;
     suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;

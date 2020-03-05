@@ -35,6 +35,7 @@ uint reset_each;
 unsigned long long iseed = 0ULL;
 double t_phase_estimation;
 double t_PE_factor;
+double t_PE_shift;
 int n_phase_estimation;
 uint gCi;
 uint c_acc = 0;
@@ -276,6 +277,7 @@ void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state,
     for(int trg = q_target.size() - 1; trg > -1; --trg){
         uint powr = (1U << (q_target.size()-1-trg));
         cevolution(state, powr*t, powr*n, q_target[trg], q_state);
+        suqa::apply_u1(state, q_target[trg], -powr*t*t_PE_shift);
     }
     DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
     DEBUG_READ_STATE(state);
@@ -527,12 +529,12 @@ int metro_step(bool take_measure){
         double Enew_meas_d;
         DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
-        DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
+        DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
         DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
         DEBUG_READ_STATE(gState)
         apply_Phi_inverse();
         if(take_measure){
-            Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
+            Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
@@ -573,7 +575,7 @@ int metro_step(bool take_measure){
         std::vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
         suqa::measure_qbits(gState, bm_enes_old, c_E_olds, extract_rands(ene_qbits));
         Eold_meas = creg_to_uint(c_E_olds);
-        Eold_meas_d = Eold_meas/(double)(t_PE_factor*ene_levels);
+        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels);
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
         Enew_meas = creg_to_uint(c_E_news);
         apply_Phi_inverse();
