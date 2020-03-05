@@ -98,8 +98,6 @@ int main(int argc, char** argv){
     qms::ene_qbits = (uint)args.ene_qbits;
     string outfilename(args.outfile);
     qms::max_reverse_attempts = (uint)args.max_reverse_attempts;
-    qms::t_PE_factor = args.pe_time_factor;
-    qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
     qms::n_phase_estimation = args.pe_steps;
     qms::record_reverse= args.record_reverse;
     qms::iseed = args.seed;
@@ -112,6 +110,10 @@ int main(int argc, char** argv){
     qms::Dim = (1U << qms::nqubits);
     qms::ene_levels = (1U << qms::ene_qbits);
     qms::state_levels = (1U << qms::state_qbits);
+
+    qms::t_PE_shift = args.ene_min;
+    qms::t_PE_factor = (args.ene_max-args.ene_min)/(double)(qms::ene_levels-1.0); 
+    qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
     suqa::threads = NUM_THREADS;
     suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
@@ -149,7 +151,7 @@ int main(int argc, char** argv){
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
         DEBUG_CALL(cout<<"metro step: "<<s<<endl);
-        take_measure = (s>(uint)thermalization and (s>s0 and (s-s0)%qms::reset_each ==0U));
+        take_measure = (s>s0+(uint)thermalization and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
