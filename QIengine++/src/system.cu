@@ -1,16 +1,21 @@
-#include "system.cuh"
-#include "include/Rand.hpp"
+#include "z2_matter_system.cuh"
+#include <math.h>
+#include "suqa.cuh"
+/*  Z2 gauge theory + fermionic fields
 
-/* d4 gauge theory - two plaquettes
- 
-   link state 3 qubits
-   system state: 4 links -> 12 qubits
-   +1 ancillary qubit
+	Open chain with 4 fermions on the sites
+	and 3 z2 gauge links.
+	
+	Fermions -> 4 qubtis
+	z2_gauge_links -> 1 qubti
+	Total -> 7 Qubiti
 
- */
+	The structure is |f3f2f1f0G2G1G0> 
+	First the gauge links and then the fermions.
 
-//TODO: make the number of "state" qubits determined at compilation time in system.cuh
-double g_beta;
+*/
+
+double m_mass;
 
 
 __global__ void initialize_state(double *state_re, double *state_im, uint len){
@@ -20,21 +25,17 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         state_im[i] = 0.0;
         i += gridDim.x*blockDim.x;
     }
-    if(blockIdx.x*blockDim.x+threadIdx.x==1){
+    if(blockIdx.x*blockDim.x+threadIdx.x==0){
         state_re[0] = 1.0;
         state_im[0] = 0.0;
     }
 }
 
+// preparation of the state //
 
-__inline__ double f1(double b){
-    return log((3+cosh(2.*b))/(2*sinh(b)*sinh(b)));
-}
-
-__inline__ double f2(double b){
-    return -log(tanh(b));
-}
-
+// Set the initial state to the projection of |000..0> on the gauge invariant subspace
+// The gauge invariant state is |psi> = (1./sqrt(8))(|000>|0> + |001>|0> + |010>|0> + ... + |111>|0>)
+// The |0> means that the fermions variables remain |0>.
 void init_state(ComplexVec& state, uint Dim){
 
     if(state.size()!=Dim)
@@ -44,272 +45,328 @@ void init_state(ComplexVec& state, uint Dim){
     initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
 
+	suqa::apply_h(state, bm_z2_qlink0);
+	suqa::apply_h(state, bm_z2_qlink1);
+	suqa::apply_h(state, bm_z2_qlink2);
 
-    suqa::apply_h(state, bm_qlink0[0]);
-    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
-    suqa::apply_h(state, bm_qlink0[1]);
-    suqa::apply_cx(state, bm_qlink0[1], bm_qlink3[1]);
-    suqa::apply_h(state, bm_qlink0[2]);
-    suqa::apply_cx(state, bm_qlink0[2], bm_qlink3[2]);
-    suqa::apply_mcx(state, {bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
+}
 
-
-//    state.resize(Dim);
-//    std::fill_n(state.begin(), state.size(), 0.0);
-//    state[1].x = 1.0; //TWOSQINV; 
-////    state[3] = -TWOSQINV; 
+// Apply the operator chi1_chi2_sigma_z12. This is the one used in the paper by Lamm: PRD 100, 034518 (2019).
+// TODO: Generalize it.
+void apply_lamm_operator(ComplexVec& state){
+	
+	suqa::apply_z(state, bm_z2_qlink0);
+	suqa::apply_z(state, bm_z2_qferm0);
+	suqa::apply_sigmam(state, bm_z2_qferm1);
+	suqa::apply_sigmam(state, bm_z2_qferm0);	
 }
 
 
-/* Quantum evolutor of the state */
+// Apply the operator exp(-i*H_m*dt). Where H_m = \Sum_i ( -m/2(-1)^i\sigma^(z)(i)).
+// If \theta_i = m/2 * (-1)^i \delta_t in matrix form is
+// cos(theta)1 + i*sen(theta)sigma^(z)(i)
+__global__ 
+void kernel_apply_mass_evolution(double *state_re, double *state_im, uint len, uint q, double theta){
+	uint i = blockIdx.x*blockDim.x+threadIdx.x;
+	uint glob_mask = 0U;
 
-void inversion(ComplexVec& state, const bmReg& q){
-    suqa::apply_mcx(state,{q[0],q[2]},{1U,0U},q[1]); 
+	glob_mask |= (1U << q);
+	while(i<len){
+		if((i & glob_mask) == glob_mask){
+			uint j = i & ~(1U << q); // j has 0 in the site 0 qubit
+			double tmpval_re=state_re[i];
+			double tmpval_im=state_im[i];
+			state_re[i] =  cos(theta)*tmpval_re + sin(theta)*tmpval_im;					
+			state_im[i] = -sin(theta)*tmpval_re + cos(theta)*tmpval_im;					
+
+			tmpval_re=state_re[j];
+			tmpval_im=state_im[j];			
+			state_re[j] =  cos(theta)*tmpval_re - sin(theta)*tmpval_im;					
+			state_im[j] =  sin(theta)*tmpval_re + cos(theta)*tmpval_im;
+		}
+		i+=gridDim.x*blockDim.x;
+	}
+}
+ 
+void apply_mass_evolution(ComplexVec& state, uint q, double theta){
+	kernel_apply_mass_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
+}
+ 
+void apply_mass_evolution(ComplexVec& state, const bmReg& qs, double theta){
+	for(const auto&q:qs)
+		kernel_apply_mass_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
 }
 
-void left_multiplication(ComplexVec& state, const bmReg& qr1, const bmReg& qr2){
-    suqa::apply_cx(state, qr1[1], qr2[1]);
-    suqa::apply_mcx(state, {qr1[0], qr2[0]}, qr2[1]);
-    suqa::apply_cx(state, qr1[0], qr2[0]);
-    suqa::apply_mcx(state, {qr1[0], qr2[2]}, qr2[1]);
-    suqa::apply_cx(state, qr1[2], qr2[2]);
+// Apply the operator exp(-i*H_kg*dt). Where H_kg \Sum_i ( \sigma^(x)(i, i+1)). It is applied on the links variables.
+// The matrix form is 
+// cos(dt)1 - i*sen(dt)sigma^(x)(i, i+1)
+__global__ 
+void kernel_apply_gauge_link_evolution(double *state_re, double *state_im, uint len, uint q, double theta){
+	uint i = blockIdx.x*blockDim.x+threadIdx.x;
+	uint glob_mask = 0U;
+
+	glob_mask |= (1U << q);
+	while(i<len){
+		if((i & glob_mask) == glob_mask){
+			uint j = i & ~(1U << q); // j has 0 in the site 0 qubit
+			double tmpval_re=state_re[i];
+			double tmpval_im=state_im[i];
+			state_re[i] = cos(theta)*tmpval_re - sin(theta)*state_im[j];
+			state_im[i] = tmpval_im*cos(theta) + state_re[j]*sin(theta); 
+			
+			
+			state_re[j] = cos(theta)*state_re[j] - sin(theta)*tmpval_im;
+			state_im[j] = state_im[j]*cos(theta) + tmpval_re*sin(theta); 
+		}
+		i+=gridDim.x*blockDim.x;
+	}
+}
+ 
+void apply_gauge_link_evolution(ComplexVec& state, uint q, double theta){
+	kernel_apply_gauge_link_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
+}
+ 
+void apply_gauge_link_evolution(ComplexVec& state, const bmReg& qs, double theta){
+	for(const auto&q:qs)
+		kernel_apply_gauge_link_evolution<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, theta);
 }
 
-void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
-    inversion(state, qr1);
-    left_multiplication(state, qr1, qr0);
-    inversion(state, qr1);
-    inversion(state, qr2);
-    left_multiplication(state, qr2, qr0);
-    inversion(state, qr2);
-    left_multiplication(state, qr3, qr0);
+// Apply the operator exp(-i*H_hx*dt). Where H_hx \Sum_i ( (1/4)*(-1)^i*\sigma^{z}(i,i+1)\sigma^(x)(i)\sigma^{x}(i+1)). It is applied on 
+//both on the links variables and on the sites.
+// The inputs are qlink, the link at i,i+1 -- qferm_m the fermion at site i -- and qferm_p the fermion at site i+1
+// The matrix form is (theta = -1/4*(-1)^idt):
+//  cos(theta)1 + isen(theta)sigma^{z}(i,i+1) 
+//  cos(theta)1 + isen(theta)sigma^{x}(i)
+//  cos(theta)1 + isen(theta)sigma^{x}(i+1)
+__global__ 
+void kernel_apply_hopping_evolution_x(double *state_re, double *state_im, uint len, uint qlink, uint qferm_m, uint qferm_p, double theta){
+	uint i = blockIdx.x*blockDim.x+threadIdx.x;
+	
+	uint mask = 0U;
+	
+	mask |= (1U << qlink);
+	mask |= (1U << qferm_m);
+	mask |= (1U << qferm_p);
+
+	double tmpval;
+
+	while(i<len){
+		if((i & mask) == 0U){
+
+			//state[i] = i_0
+			uint i_1 = i | (1U << qlink);
+			uint i_2 = i | (1U << qferm_m);
+			uint i_3 = i_1 | i_2;
+			uint i_4 = i | (1U << qferm_p);
+			uint i_5 = i_4 | i_1;
+			uint i_6 = i_4 | i_2;
+			uint i_7 = i_4 | i_3;
+	
+			//i_0 and i_6 couple
+			tmpval=state_re[i];
+			state_re[i] = tmpval*cos(theta) - state_im[i_6]*sin(theta);
+			state_im[i_6] = state_im[i_6]*cos(theta) + tmpval*sin(theta);
+
+			tmpval=state_im[i];
+			state_im[i] = tmpval*cos(theta) + state_re[i_6]*sin(theta);
+			state_re[i_6] = state_re[i_6]*cos(theta) - tmpval*sin(theta);
+
+			
+			//i_1 and i_7 couple
+			tmpval=state_re[i_1];
+			state_re[i_1] = tmpval*cos(theta) + state_im[i_7]*sin(theta);
+			state_im[i_7] = state_im[i_7]*cos(theta) - tmpval*sin(theta);
+
+			tmpval=state_im[i_1];
+			state_im[i_1] = tmpval*cos(theta) - state_re[i_7]*sin(theta);
+			state_re[i_7] = state_re[i_7]*cos(theta) + tmpval*sin(theta);
+
+
+			//i_2 and i_4 couple
+			tmpval=state_re[i_2];
+			state_re[i_2] = tmpval*cos(theta) - state_im[i_4]*sin(theta);
+			state_im[i_4] = state_im[i_4]*cos(theta) + tmpval*sin(theta);
+
+			tmpval=state_im[i_2];
+			state_im[i_2] = tmpval*cos(theta) + state_re[i_4]*sin(theta);
+			state_re[i_4] = state_re[i_4]*cos(theta) - tmpval*sin(theta);
+
+
+			//i_3 and i_5 couple
+			tmpval=state_re[i_3];
+			state_re[i_3] = tmpval*cos(theta) + state_im[i_5]*sin(theta);
+			state_im[i_5] = state_im[i_5]*cos(theta) - tmpval*sin(theta);
+
+			tmpval=state_im[i_3];
+			state_im[i_3] = tmpval*cos(theta) - state_re[i_5]*sin(theta);
+			state_re[i_5] = state_re[i_5]*cos(theta) + tmpval*sin(theta);
+		}
+		i+=gridDim.x*blockDim.x;
+	}
 }
-
-void inverse_self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
-    inversion(state, qr3);
-    left_multiplication(state, qr3, qr0);
-    inversion(state, qr3);
-    left_multiplication(state, qr2, qr0);
-    left_multiplication(state, qr1, qr0);
+ 
+void apply_hopping_evolution_x(ComplexVec& state, uint qlink, uint qferm_m, uint qferm_p, double theta){
+	kernel_apply_hopping_evolution_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), qlink, qferm_m, qferm_p, theta);
 }
+ 
+// Apply the operator exp(-i*H_hy*dt). Where H_hy \Sum_i ( (1/4)*(-1)^i*\sigma^{z}(i,i+1)\sigma^(y)(i)\sigma^{y}(i+1)). It is applied on 
+//both on the links variables and on the sites.
+// The inputs are qlink, the link at i,i+1 -- qferm_m the fermion at site i -- and qferm_p the fermion at site i+1
+// The matrix form is (theta = -1/4*(-1)^idt):
+//  cos(theta)1 + isen(theta)sigma^{z}(i,i+1) 
+//  cos(theta)1 + isen(theta)sigma^{y}(i)
+//  cos(theta)1 + isen(theta)sigma^{y}(i+1)
+__global__ 
+void kernel_apply_hopping_evolution_y(double *state_re, double *state_im, uint len, uint qlink, uint qferm_m, uint qferm_p, double theta){
+	uint i = blockIdx.x*blockDim.x+threadIdx.x;
+	
+	uint mask = 0U;
+	
+	mask |= (1U << qlink);
+	mask |= (1U << qferm_m);
+	mask |= (1U << qferm_p);
 
-void cphases(ComplexVec& state, uint qaux, uint q0b, double alpha1, double alpha2){
-    suqa::apply_cx(state, qaux, q0b);
-    suqa::apply_cu1(state, q0b, qaux, alpha1, 1U);
-    suqa::apply_cx(state, qaux, q0b);
-    suqa::apply_cu1(state, q0b, qaux, alpha2, 1U);
+	double tmpval;
+
+	while(i<len){
+		if((i & mask) == 0U){
+
+			//state[i] = i_0
+			uint i_1 = i | (1U << qlink);
+			uint i_2 = i | (1U << qferm_m);
+			uint i_3 = i_1 | i_2;
+			uint i_4 = i | (1U << qferm_p);
+			uint i_5 = i_4 | i_1;
+			uint i_6 = i_4 | i_2;
+			uint i_7 = i_4 | i_3;
+	
+			//i_0 and i_6 couple
+			tmpval=state_re[i];
+			state_re[i] = tmpval*cos(theta) + state_im[i_6]*sin(theta);
+			state_im[i_6] = state_im[i_6]*cos(theta) - tmpval*sin(theta);
+
+			tmpval=state_im[i];
+			state_im[i] = tmpval*cos(theta) - state_re[i_6]*sin(theta);
+			state_re[i_6] = state_re[i_6]*cos(theta) + tmpval*sin(theta);
+
+			
+			//i_1 and i_7 couple
+			tmpval=state_re[i_1];
+			state_re[i_1] = tmpval*cos(theta) - state_im[i_7]*sin(theta);
+			state_im[i_7] = state_im[i_7]*cos(theta) + tmpval*sin(theta);
+
+			tmpval=state_im[i_1];
+			state_im[i_1] = tmpval*cos(theta) + state_re[i_7]*sin(theta);
+			state_re[i_7] = state_re[i_7]*cos(theta) - tmpval*sin(theta);
+
+
+			//i_2 and i_4 couple
+			tmpval=state_re[i_2];
+			state_re[i_2] = tmpval*cos(theta) - state_im[i_4]*sin(theta);
+			state_im[i_4] = state_im[i_4]*cos(theta) + tmpval*sin(theta);
+
+			tmpval=state_im[i_2];
+			state_im[i_2] = tmpval*cos(theta) + state_re[i_4]*sin(theta);
+			state_re[i_4] = state_re[i_4]*cos(theta) - tmpval*sin(theta);
+
+
+			//i_3 and i_5 couple
+			tmpval=state_re[i_3];
+			state_re[i_3] = tmpval*cos(theta) + state_im[i_5]*sin(theta);
+			state_im[i_5] = state_im[i_5]*cos(theta) - tmpval*sin(theta);
+
+			tmpval=state_im[i_3];
+			state_im[i_3] = tmpval*cos(theta) - state_re[i_5]*sin(theta);
+			state_re[i_5] = state_re[i_5]*cos(theta) + tmpval*sin(theta);
+		}
+		i+=gridDim.x*blockDim.x;
+	}
 }
-
-void self_trace_operator(ComplexVec& state, const bmReg& qr, const uint& qaux, double th){
-    suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
-    cphases(state, qaux, qr[1], th, -th);
-    suqa::apply_mcx(state, {qr[0],qr[2]}, {0U,0U}, qaux); 
-}
-
-void fourier_transf_d4(ComplexVec& state, const bmReg& qr){
-    suqa::apply_cx(state, qr[2], qr[0]);
-    suqa::apply_cx(state, qr[0], qr[2]);
-    suqa::apply_tdg(state, qr[2]);
-    suqa::apply_tdg(state, qr[2]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_h(state, qr[0]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_h(state, qr[2]);
-    suqa::apply_t(state, qr[1]);
-    suqa::apply_tdg(state, qr[2]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_cx(state, qr[0], qr[1]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_t(state, qr[1]);
-    suqa::apply_t(state, qr[1]);
-    suqa::apply_h(state, qr[1]);
-}
-
-
-void inverse_fourier_transf_d4(ComplexVec& state, const bmReg& qr){
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_tdg(state, qr[1]);
-    suqa::apply_tdg(state, qr[1]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_cx(state, qr[0], qr[1]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_t(state, qr[2]);
-    suqa::apply_tdg(state, qr[1]);
-    suqa::apply_h(state, qr[0]);
-    suqa::apply_h(state, qr[1]);
-    suqa::apply_h(state, qr[2]);
-    suqa::apply_cx(state, qr[1], qr[2]);
-    suqa::apply_t(state, qr[2]);
-    suqa::apply_t(state, qr[2]);
-    suqa::apply_cx(state, qr[0], qr[2]);
-    suqa::apply_cx(state, qr[2], qr[0]);
-}
-
-void momentum_phase(ComplexVec& state, const bmReg& qr, const uint& qaux, double th1, double th2){
-    suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux);
-    DEBUG_CALL(printf("\tafter suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux)\n"));
-    DEBUG_READ_STATE(state);
-    suqa::apply_cx(state, qaux, qr[2]);
-    suqa::apply_cu1(state, qaux, qr[2], th1);
-    suqa::apply_cx(state, qaux, qr[2]);
-    DEBUG_CALL(printf("\tafter suqa::apply_cu1(state, qaux, qr[2], th1, 0U)\n"));
-    DEBUG_READ_STATE(state);
-    suqa::apply_u1(state, qr[2], th2);
-    DEBUG_CALL(printf("\tafter suqa::apply_u1(state, qr[2], th2)\n"));
-    DEBUG_READ_STATE(state);
-    suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux);
-    DEBUG_CALL(printf("\tafter suqa::apply_mcx(state, qr, {0U,0U,0U}, qaux)\n"));
-    DEBUG_READ_STATE(state);
+ 
+void apply_hopping_evolution_y(ComplexVec& state, uint qlink, uint qferm_m, uint qferm_p, double theta){
+	kernel_apply_hopping_evolution_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), qlink, qferm_m, qferm_p, theta);
 }
 
 void evolution(ComplexVec& state, const double& t, const int& n){
+	const double dt = t/(double)n;
+
+	const double mass_coef = -dt*m_mass*0.5; // remember the parity of the site
+	const double gauge_coef = -dt;
+	const double hopping_theta = -dt*0.25; // remember the parity of the site
+
+	for (uint ti=0; ti<(uint)n; ++ti){
+		DEBUG_CALL(printf("Initial state()\n"));
+		DEBUG_READ_STATE(state);
+	//	apply_hopping_evolution_y(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+		
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0]}, {PAULI_Z,PAULI_Y,PAULI_Y}, -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution y site 0()\n"));
+		DEBUG_READ_STATE(state);
+		
+//		apply_hopping_evolution_y(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0]}, {PAULI_Z,PAULI_Y,PAULI_Y}, +hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution y site 1 ()\n"));
+		DEBUG_READ_STATE(state);
+
+//		apply_hopping_evolution_y(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0]}, {PAULI_Z,PAULI_Y,PAULI_Y}, -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution y site 2 ()\n"));
+		DEBUG_READ_STATE(state);
+
+//		apply_hopping_evolution_x(state, bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0], -hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink0[0], bm_z2_qferm0[0], bm_z2_qferm1[0]}, {PAULI_Z,PAULI_X,PAULI_X}, -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution x site 0()\n"));
+		DEBUG_READ_STATE(state);
+		
+//		apply_hopping_evolution_x(state, bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0], hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink1[0], bm_z2_qferm1[0], bm_z2_qferm2[0]}, {PAULI_Z,PAULI_X,PAULI_X}, +hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution x site 1 ()\n"));
+		DEBUG_READ_STATE(state);
+
+//		apply_hopping_evolution_x(state, bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0], -hopping_theta);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink2[0], bm_z2_qferm2[0], bm_z2_qferm3[0]}, {PAULI_Z,PAULI_X,PAULI_X}, -hopping_theta);
+		DEBUG_CALL(printf("After hopping evolution x site 2 ()\n"));
+		DEBUG_READ_STATE(state);
+
+//gauge link part
 
 
-//    uint cmask = (1U << q_control);
-//	uint mask = cmask;
-//    for(const auto& qs : qstate){
-//        mask |= (1U << qs);
-//    }
+//		apply_gauge_link_evolution(state, bm_z2_qlink0, gauge_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink0[0]}, {PAULI_X}, gauge_coef);
+		DEBUG_CALL(printf("After gauge evolution  link0 ()\n"));
+		DEBUG_READ_STATE(state);
 
-    const double dt = t/(double)n;
+//		apply_gauge_link_evolution(state, bm_z2_qlink1, gauge_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink1[0]}, {PAULI_X}, gauge_coef);
+		DEBUG_CALL(printf("After gauge evolution  link1 ()\n"));
+		DEBUG_READ_STATE(state);
 
-    const double theta1 = dt*f1(g_beta);
-    const double theta2 = dt*f2(g_beta);
-    const double theta = 2*dt*g_beta;
-//    printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta);
+//		apply_gauge_link_evolution(state, bm_z2_qlink2, gauge_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qlink2[0]}, {PAULI_X}, gauge_coef);
+		DEBUG_CALL(printf("After gauge evolution  link2 ()\n"));
+		DEBUG_READ_STATE(state);
 
-    for(uint ti=0; ti<(uint)n; ++ti){
-        self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        DEBUG_CALL(printf("after self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink1, bm_qaux[0], theta);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
-        DEBUG_READ_STATE(state);
-        inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
+// fermion mass part
 
-        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink2, bm_qaux[0], theta);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
-        DEBUG_READ_STATE(state);
-        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
+//		apply_mass_evolution(state, bm_z2_qferm0, -mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm0[0]}, {PAULI_Z}, -mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 0 ()\n"));
+		DEBUG_READ_STATE(state);
 
-        fourier_transf_d4(state, bm_qlink0);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink0)\n"));
-        DEBUG_READ_STATE(state);
-        fourier_transf_d4(state, bm_qlink1);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink1)\n"));
-        DEBUG_READ_STATE(state);
-        fourier_transf_d4(state, bm_qlink2);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink2)\n"));
-        DEBUG_READ_STATE(state);
-        fourier_transf_d4(state, bm_qlink3);
-        DEBUG_CALL(printf("after fourier_transf_d4(state, bm_qlink3)\n"));
-        DEBUG_READ_STATE(state);
+//		apply_mass_evolution(state, bm_z2_qferm1, mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm1[0]}, {PAULI_Z}, +mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 1 ()\n"));
+		DEBUG_READ_STATE(state);
 
-        momentum_phase(state, bm_qlink0, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink0, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink1, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink1, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink2, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink2, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink3, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE(state);
+//		apply_mass_evolution(state, bm_z2_qferm2, -mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm2[0]}, {PAULI_Z}, -mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 2 ()\n"));
+		DEBUG_READ_STATE(state);
 
-
-        inverse_fourier_transf_d4(state, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink3)\n"));
-        DEBUG_READ_STATE(state);
-        inverse_fourier_transf_d4(state, bm_qlink2);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink2)\n"));
-        DEBUG_READ_STATE(state);
-        inverse_fourier_transf_d4(state, bm_qlink1);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink1)\n"));
-        DEBUG_READ_STATE(state);
-        inverse_fourier_transf_d4(state, bm_qlink0);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(state, bm_qlink0)\n"));
-        DEBUG_READ_STATE(state);
-    }
+//		apply_mass_evolution(state, bm_z2_qferm3, mass_coef);
+		suqa::apply_pauli_TP_rotation(state, {bm_z2_qferm3[0]}, {PAULI_Z}, mass_coef);
+		DEBUG_CALL(printf("After mass evolution site 3 ()\n"));
+		DEBUG_READ_STATE(state);
+	}
 }
-
-
-/* Measure facilities */
-const uint op_bits = 3; // 2^op_bits is the number of eigenvalues for the observable
-const bmReg bm_op = bm_qlink1; // where the measure has to be taken
-const std::vector<double> op_vals = {2.0,0.0,-2.0, 0.0,0.0,0.0,0.0,0.0}; // eigvals
-
  
-// change basis to the observable basis somewhere in the system registers
-void apply_measure_rotation(ComplexVec& state){
-    self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-}
-
-// inverse of the above function
-void apply_measure_antirotation(ComplexVec& state){
-    inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-}
-
-// map the classical measure recorded in creg_vals
-// to the corresponding value of the observable;
-// there is no need to change it
-double get_meas_opvals(const uint& creg_vals){
-    return op_vals[creg_vals];
-}
-
-// actually perform the measure
-// there is no need to change it
-double measure_X(ComplexVec& state, pcg& rgen){
-    std::vector<uint> classics(op_bits);
-    
-    apply_measure_rotation(state);
-
-    std::vector<double> rdoubs(op_bits);
-    for(auto& el : rdoubs){
-        el = rgen.doub();
-    }
-    suqa::measure_qbits(state, bm_op, classics, rdoubs);
-
-    apply_measure_antirotation(state);
-
-    uint meas = 0U;
-    for(uint i=0; i<op_bits; ++i){
-        meas |= (classics[i] << i);
-    }
-
-    return get_meas_opvals(meas);
-}
-
-/* Moves facilities */
-
-std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
-
-void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-    switch(Ci){
-        case 0U:
-            suqa::apply_cx(state,bm_states[1], 0, bm_states[0]);
-            break;
-        case 1U:
-            suqa::apply_swap(state,bm_states[1],bm_states[0]);
-            break;
-        case 2U:
-            suqa::apply_x(state,bm_states);
-            break;
-        default:
-            throw std::runtime_error("ERROR: wrong move selection");
-    }
-}
-
-void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-    apply_C(state, bm_states, Ci);
-}
-
-std::vector<double> get_C_weigthsums(){ return C_weigthsums; }

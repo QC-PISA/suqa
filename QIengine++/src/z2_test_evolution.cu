@@ -15,7 +15,7 @@
 #include <cuda_device_runtime_api.h>
 #include "io.hpp"
 #include "suqa.cuh"
-#include "z2_matter_system.cuh"
+#include "system.cuh"
 #include "Rand.hpp"
 
 
