@@ -693,7 +693,7 @@ void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state
             state_im[i_0] = tmp_im0*ctheta + tmp_im1*stheta;
 
             state_re[i_1] = tmp_re1*ctheta - tmp_re0*stheta; 
-            state_im[i_1] = tmp_im1*stheta - tmp_im0*ctheta;
+            state_im[i_1] = tmp_im1*ctheta - tmp_im0*stheta;
         }
         i_0+=gridDim.x*blockDim.x;
     }
