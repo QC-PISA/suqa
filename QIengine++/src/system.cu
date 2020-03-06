@@ -11,7 +11,6 @@
 	Total -> 7 Qubiti
 
 	The structure is |f3f2f1f0G2G1G0> 
-	First the gauge links and then the fermions.
 
 */
 
@@ -369,4 +368,33 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 		DEBUG_READ_STATE(state);
 	}
 }
- 
+
+
+/******* QMS and Measures *******/
+
+const uint op_bits = 3;
+const bmReg ibm_op = bm_z2_qferm0; // where the measure has to be taken
+
+double measure_X(ComplexVec& state, pcg& rgen){
+	std::vector<uint> classics(op_bits);
+
+	std::vector<double> rdoubs(op_bits);
+	for(auto& el :rdoubs){
+		el = rgen.doub();
+	}
+
+	suqa::measure_qbits(state, bm_op, classics, rdoubs);
+
+	
+
+	uint meas = 0U;
+	for(uint i=0; i<op_bits; ++i){
+		meas |= (classics[i] << i);
+	}	
+
+	return meas;
+
+	std::vector<double> C_weightsum = {
+
+
+}
