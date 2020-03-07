@@ -1,6 +1,7 @@
-#include "z2_matter_system.cuh"
+#include "system.cuh"
 #include <math.h>
 #include "suqa.cuh"
+#include "include/Rand.hpp"
 /*  Z2 gauge theory + fermionic fields
 
 	Open chain with 4 fermions on the sites
@@ -373,7 +374,13 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 /******* QMS and Measures *******/
 
 const uint op_bits = 3;
-const bmReg ibm_op = bm_z2_qferm0; // where the measure has to be taken
+const bmReg bm_op = bm_z2_qferm0; // where the measure has to be taken
+
+std::vector<double> C_weigthsums = {1./12, 2./12, 3./12, 4./12, 5./12, 6./12, 
+									7./12, 8./12, 9./12, 10./12, 11./12, 1.};
+
+std::vector<bmReg> link = {bm_z2_qlink0, bm_z2_qlink1, bm_z2_qlink2};
+std::vector<bmReg> ferm = {bm_z2_qferm0, bm_z2_qferm1, bm_z2_qferm2, bm_z2_qferm3};
 
 double measure_X(ComplexVec& state, pcg& rgen){
 	std::vector<uint> classics(op_bits);
@@ -385,16 +392,35 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 	suqa::measure_qbits(state, bm_op, classics, rdoubs);
 
-	
-
 	uint meas = 0U;
 	for(uint i=0; i<op_bits; ++i){
 		meas |= (classics[i] << i);
 	}	
 
 	return meas;
-
-	std::vector<double> C_weightsum = {
-
-
 }
+
+void apply_C(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
+	int link_index = Ci%3;
+	int ferm_index = Ci%3;
+
+	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);		
+	suqa::apply_x(state, ferm[ferm_index]);	
+	suqa::apply_x(state, link[link_index]);	
+}
+
+void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
+	int link_index = Ci%3;
+	int ferm_index = Ci%3;
+
+	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);		
+	suqa::apply_x(state, ferm[ferm_index]);	
+	suqa::apply_x(state, link[link_index]);	
+}
+
+std::vector<double> get_C_weigthsums() { return C_weigthsums;} 
+
+
+
+
+

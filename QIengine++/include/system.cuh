@@ -37,3 +37,11 @@ void apply_hopping_evolution_x(ComplexVec& state, uint qlink, uint qferm_m, uint
 void apply_hopping_evolution_y(ComplexVec& state, uint qlink, uint qferm_m, uint qferm_p, double theta);
 
 void evolution(ComplexVec& state, const double& t, const int& n);
+
+void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint& Ci);
+
+void apply_C(ComplexVec& state, const bmReg& bm_states, const uint& Ci);
+
+void fill_meas_cache(const bmReg& bm_states, const std::string opstem);
+
+std::vector<double> get_C_weigthsums();

@@ -37,6 +37,7 @@ $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR)
 main: $(OBJDIR)/main.cpp.o $(OBJDIR)/system.cpp.o $(OBJDIR)/suqa.cpp.o 
 	$(CXX) $(CXXFLAGS) $(OBJDIR)/main.cpp.o $(OBJDIR)/system.cpp.o $(OBJDIR)/suqa.cpp.o  -o main
 
+main_gpu: NVCCFLAGS += -DNDEBUG
 main_gpu: $(OBJDIR)/main.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
 
