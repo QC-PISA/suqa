@@ -725,6 +725,39 @@ void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state
 }
 
 __global__
+void kernel_suqa_pauli_TP_rotation_xx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    double tmpval;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // 0<->3
+            tmpval = state_re[i_0];
+            state_re[i_0] = tmpval*ctheta -state_im[i_3]*stheta;
+            state_im[i_3] = state_im[i_3]*ctheta +tmpval*stheta;
+
+            tmpval = state_im[i_0]; state_im[i_0] = tmpval*ctheta +state_re[i_3]*stheta;
+            state_re[i_3] = state_re[i_3]*ctheta -tmpval*stheta;
+
+            // 1<->2
+            tmpval = state_re[i_1];
+            state_re[i_1] = tmpval*ctheta -state_im[i_2]*stheta;
+            state_im[i_2] = state_im[i_2]*ctheta +tmpval*stheta;
+
+            tmpval = state_im[i_1];
+            state_im[i_1] = tmpval*ctheta +state_re[i_2]*stheta;
+            state_re[i_2] = state_re[i_2]*ctheta -tmpval*stheta;
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+
+__global__
 void kernel_suqa_pauli_TP_rotation_zxx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     double tmpval;
@@ -868,6 +901,14 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
             default:
                 break;
         }
+    }else if(q_apply.size()==2U){
+        if(pauli_TPtype[0]!=PAULI_X || pauli_TPtype[1]!=PAULI_X)
+            throw std::runtime_error("ERROR: in suqa::apply_pauli_TP_rotation(), unimplemented pauli TP rotation with 2 qubits not both X");
+
+        mask_q1 = (1U << q_apply[0]);
+        mask_q2 = (1U << q_apply[1]);
+        kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+
     }else if(q_apply.size()==3U){
         int i_z = -1, i1, i2;
         if(pauli_TPtype[0]==PAULI_Z){ 
