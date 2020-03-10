@@ -241,11 +241,12 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-std::vector<double> C_weigthsums = {1./18, 2./18, 3./18, 4./18,
-				    5./18, 6./18, 7./18, 8./18,
-				    9./18, 10./18, 11./18, 12./18,
-				    13./18, 14./18, 15./18, 16./18,
-				    17./18, 1.};
+std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
+				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
+				    9./24, 10./24, 11./24, 12./24, //8<=Ci<=11
+				    13./24, 14./24, 15./24, 16./24, //12<=Ci<=15
+				    17./24, 18./24, 19./24, 20./24, //16<=Ci<=19
+				    21./24, 22./24, 23./24, 1.}; //20<=Ci<=23
 
 std::vector<bmReg> link = {bm_qlink0, bm_qlink1, bm_qlink2, bm_qlink3};
 
@@ -254,7 +255,7 @@ std::vector<double> phases = {1./3, sqrt(2.)/3};
 void link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], phases[Ci/4]*((Ci/8)*2-1));
+  momentum_phase(state, link[link_index], phases[(Ci/4)%2]*((Ci/8)*2-1)); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
   inverse_fourier_transf_z2(state, link[link_index]);
   
 }
@@ -262,25 +263,35 @@ void link_kinevolve(ComplexVec& state, const uint&Ci){
 void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   inverse_fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], -phases[Ci/4]*((Ci/8)*2-1));
+  momentum_phase(state, link[link_index], -phases[(Ci/4)%2]*((Ci/8)*2-1));
   fourier_transf_z2(state, link[link_index]);
   
 }
 
+void link_plaqevolve(ComplexVec& state, const uint&Ci){
+  int link_index=Ci%2;  //(Ci%2)+1 (Ci%2)*3  2-(Ci%2)     (Ci%2)*3
+  self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);
+  self_trace_operator(state, link[1], phases[(Ci/2)%2]*((Ci/20)*2-1));// p1-1 p2-1 p1-2 p2-2 p11 p21 p12 p22
+  inverse_self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);  
+}
+
+void inverse_link_plaqevolve(ComplexVec& state, const uint&Ci){
+  int link_index=Ci%2;  //(Ci%2)+1 (Ci%2)*3  2-(Ci%2)     (Ci%2)*3
+  inverse_self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);
+  self_trace_operator(state, link[1], -phases[(Ci/2)%2]*((Ci/20)*2-1));// p1-1 p2-1 p1-2 p2-2 p11 p21 p12 p22
+  self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);  
+}
 
 
 
 void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-  uint s = (Ci<16U) ? 0 : Ci;
+  uint s = (Ci<16U) ? 0 : 1;
   switch(s){
         case 0U:
 	  link_kinevolve(state,Ci);
             break;
-        case 16U:
-	  self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-            break;
-        case 17U:
-	  self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+        case 1U:
+	 link_plaqevolve(state,Ci);
             break;
         default:
             throw std::runtime_error("ERROR: wrong move selection");
@@ -288,16 +299,13 @@ void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
 }
 
 void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-  uint s = (Ci<16U) ? 0 : Ci;
+  uint s = (Ci<16U) ? 0 : 1;
   switch(s){
         case 0U:
 	  inverse_link_kinevolve(state,Ci);
             break;
-        case 16U:
-	  inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-            break;
-        case 17U:
-	  inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+        case 1U:
+	  inverse_link_plaqevolve(state,Ci);
             break;
         default:
             throw std::runtime_error("ERROR: wrong move selection");
