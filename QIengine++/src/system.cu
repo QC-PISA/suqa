@@ -255,7 +255,7 @@ std::vector<double> phases = {1./3, sqrt(2.)/3};
 void link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], phases[(Ci/4)%2]*((Ci/8)*2-1)); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
+  momentum_phase(state, link[link_index], phases[(Ci/4)%2]*(((int)Ci/8)*2-1)); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
   inverse_fourier_transf_z2(state, link[link_index]);
   
 }
@@ -263,7 +263,7 @@ void link_kinevolve(ComplexVec& state, const uint&Ci){
 void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   inverse_fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], -phases[(Ci/4)%2]*((Ci/8)*2-1));
+  momentum_phase(state, link[link_index], -phases[(Ci/4)%2]*(((int)Ci/8)*2-1));
   fourier_transf_z2(state, link[link_index]);
   
 }
@@ -271,14 +271,14 @@ void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
 void link_plaqevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%2;  //(Ci%2)+1 (Ci%2)*3  2-(Ci%2)     (Ci%2)*3
   self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);
-  self_trace_operator(state, link[1], phases[(Ci/2)%2]*((Ci/20)*2-1));// p1-1 p2-1 p1-2 p2-2 p11 p21 p12 p22
+  self_trace_operator(state, link[1], phases[(Ci/2)%2]*(((int)Ci/20)*2-1));// p1-1 p2-1 p1-2 p2-2 p11 p21 p12 p22
   inverse_self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);  
 }
 
 void inverse_link_plaqevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%2;  //(Ci%2)+1 (Ci%2)*3  2-(Ci%2)     (Ci%2)*3
   inverse_self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);
-  self_trace_operator(state, link[1], -phases[(Ci/2)%2]*((Ci/20)*2-1));// p1-1 p2-1 p1-2 p2-2 p11 p21 p12 p22
+  self_trace_operator(state, link[1], -phases[(Ci/2)%2]*(((int)Ci/20)*2-1));// p1-1 p2-1 p1-2 p2-2 p11 p21 p12 p22
   self_plaquette(state, link[link_index+1], link[link_index*3], link[2-link_index], link[link_index*3]);  
 }
 
