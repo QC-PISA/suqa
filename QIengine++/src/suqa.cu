@@ -698,7 +698,7 @@ void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state
             // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
             uint i_1 = i_0 | mask_q1;
 
-            util_rotate4(&state_re[i_0],&state_im[i_0],&state_re[i_1],&state_im[i_1],ctheta,stheta);
+            util_rotate4(&state_re[i_0],&state_im[i_0],&state_im[i_1],&state_re[i_1],ctheta,stheta);
         }
         i_0+=gridDim.x*blockDim.x;
     }
