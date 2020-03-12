@@ -541,7 +541,7 @@ int metro_step(bool take_measure){
         DEBUG_READ_STATE(gState)
         apply_Phi_inverse();
         if(take_measure){
-            Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
+            Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels*(ene_levels-1));
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
@@ -582,7 +582,7 @@ int metro_step(bool take_measure){
         std::vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
         suqa::measure_qbits(gState, bm_enes_old, c_E_olds, extract_rands(ene_qbits));
         Eold_meas = creg_to_uint(c_E_olds);
-        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels);
+        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels*(ene_levels-1));
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
         Enew_meas = creg_to_uint(c_E_news);
         apply_Phi_inverse();

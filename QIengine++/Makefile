@@ -46,8 +46,8 @@ test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/su
 	$(NVCC) $^ -o $@
 
 z2_matter_test_evolution: NVCCFLAGS += -DNDEBUG
-z2_matter_test_evolution: $(OBJDIR)/z2_test_evolution.cu.o $(OBJDIR)/z2_matter_system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
-	$(NVCC) $^ -o $@
+z2_matter_test_evolution:  $(OBJDIR)/z2_test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
+	$(NVCC)  $^ -o $@
 
 
 clean:
