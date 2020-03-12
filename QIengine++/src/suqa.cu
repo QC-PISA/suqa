@@ -532,6 +532,372 @@ __global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im,
     }
 }
 
+/* Pauli Tensor Product rotations */
+__device__ __inline__
+void util_rotate4(double *a, double *b, double *c, double *d, double ctheta, double stheta){
+    // utility function for pauli rotation
+    double cpy = *a;
+    *a = cpy*ctheta -(*b)*stheta;
+    *b = (*b)*ctheta + cpy*stheta;
+    cpy = *c;
+    *c = cpy*ctheta -(*d)*stheta;
+    *d = (*d)*ctheta + cpy*stheta;
+}
+
+
+__global__
+void kernel_suqa_pauli_TP_rotation_x(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+            util_rotate4(&state_re[i_0],&state_im[i_1],&state_re[i_1],&state_im[i_0],ctheta,stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+            util_rotate4(&state_re[i_0],&state_re[i_1],&state_im[i_0],&state_im[i_1],ctheta,-stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+            util_rotate4(&state_re[i_0],&state_im[i_0],&state_re[i_1],&state_im[i_1],ctheta,stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_xx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // 0<->3
+            util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,stheta);
+
+            // 1<->2
+            util_rotate4(&state_re[i_1],&state_im[i_2],&state_re[i_2],&state_im[i_1],ctheta,stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_yy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+
+            // 0<->3 yy is real negative on 0,3
+            util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,-stheta);
+
+            // 1<->2 yy is real positive on 1,2
+            util_rotate4(&state_re[i_1],&state_im[i_2],&state_re[i_2],&state_im[i_1],ctheta,stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zz(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // kl -> i(-)^(k+l) kl
+
+            // +i
+            util_rotate4(&state_re[i_0],&state_im[i_0],&state_re[i_3],&state_im[i_3],ctheta,stheta);
+
+            // -i
+            util_rotate4(&state_re[i_1],&state_im[i_1],&state_re[i_2],&state_im[i_2],ctheta,-stheta);
+
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_xy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // 0<->3
+            util_rotate4(&state_re[i_0],&state_re[i_3],&state_im[i_0],&state_im[i_3],ctheta,-stheta);
+
+            // 2<->1
+            util_rotate4(&state_re[i_2],&state_re[i_1],&state_im[i_2],&state_im[i_1],ctheta,-stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // ix on 0<->1
+            util_rotate4(&state_re[i_0],&state_im[i_1],&state_re[i_1],&state_im[i_0],ctheta,stheta);
+
+            // -ix on 2<->3
+            util_rotate4(&state_re[i_2],&state_im[i_3],&state_re[i_3],&state_im[i_2],ctheta,-stheta);
+
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // iy on 0<->1
+            util_rotate4(&state_re[i_0],&state_re[i_1],&state_im[i_0],&state_im[i_1],ctheta,-stheta);
+
+            // -iy on 2<->3
+            util_rotate4(&state_re[i_2],&state_re[i_3],&state_im[i_2],&state_im[i_3],ctheta,stheta);
+
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zxx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            uint i_4 = i_0 | mask_q3;
+            uint i_5 = i_4 | i_1;
+            uint i_6 = i_4 | i_2;
+            uint i_7 = i_4 | i_3;
+
+            // 0<->3
+            util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,stheta);
+
+            // 1<->2
+            util_rotate4(&state_re[i_1],&state_im[i_2],&state_re[i_2],&state_im[i_1],ctheta,stheta);
+
+            // 4<->7
+            util_rotate4(&state_re[i_4],&state_im[i_7],&state_re[i_7],&state_im[i_4],ctheta,-stheta);
+
+            // 5<->6
+            util_rotate4(&state_re[i_5],&state_im[i_6],&state_re[i_6],&state_im[i_5],ctheta,-stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zyy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            uint i_4 = i_0 | mask_q3;
+            uint i_5 = i_4 | i_1;
+            uint i_6 = i_4 | i_2;
+            uint i_7 = i_4 | i_3;
+
+
+            // 0<->3 zyy is real negative on 0,3
+            util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,-stheta);
+
+            // 1<->2 zyy is real positive on 1,2
+            util_rotate4(&state_re[i_1],&state_im[i_2],&state_re[i_2],&state_im[i_1],ctheta,stheta);
+
+            // 4<->7 zyy is real positive on 4,7
+            util_rotate4(&state_re[i_4],&state_im[i_7],&state_re[i_7],&state_im[i_4],ctheta,stheta);
+
+            // 5<->6 zyy is real negative on 5,6
+            util_rotate4(&state_re[i_5],&state_im[i_6],&state_re[i_6],&state_im[i_5],ctheta,-stheta);
+            
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+__global__
+void kernel_suqa_pauli_TP_rotation_zzz(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+    int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+    while(i_0<len){
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            uint i_4 = i_0 | mask_q3;
+            uint i_5 = i_4 | i_1;
+            uint i_6 = i_4 | i_2;
+            uint i_7 = i_4 | i_3;
+
+            // +i on 0, 3, 5, 6
+            util_rotate4(&state_re[i_0],&state_im[i_0],&state_re[i_3],&state_im[i_3],ctheta,stheta);
+            util_rotate4(&state_re[i_5],&state_im[i_5],&state_re[i_6],&state_im[i_6],ctheta,stheta);
+
+            // -i on 1, 2, 4, 7
+            util_rotate4(&state_re[i_1],&state_im[i_1],&state_re[i_2],&state_im[i_2],ctheta,-stheta);
+            util_rotate4(&state_re[i_4],&state_im[i_4],&state_re[i_7],&state_im[i_7],ctheta,-stheta);
+        }
+        i_0+=gridDim.x*blockDim.x;
+    }
+}
+
+
+// rotation by phase in the direction of a pauli tensor product
+void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
+    uint mask0s = gc_mask;
+    uint mask1s = mask0s;
+    uint mask_q1, mask_q2, mask_q3;
+    for(const auto& q : q_apply){
+        mask1s |= (1U << q);
+    }
+    double sph, cph;
+    sincos(phase, &sph, &cph);
+
+    if(q_apply.size()!=pauli_TPtype.size()){
+        throw std::runtime_error("ERROR: in suqa::apply_pauli_TP_rotation(): mismatch between qubits number and pauli types specified");
+    }
+
+    std::vector<uint> pauli_TPtype_cpy(pauli_TPtype);
+    std::vector<uint> q_apply_cpy(q_apply);
+
+    if(q_apply.size()==1U){
+        mask_q1 = (1U << q_apply[0]);
+        switch(pauli_TPtype[0]){
+            case PAULI_X:
+                kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            case PAULI_Y:
+                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            case PAULI_Z:
+                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            default:
+                break;
+        }
+    }else if(q_apply.size()==2U){
+        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+        }
+        mask_q1 = (1U << q_apply_cpy[0]);
+        mask_q2 = (1U << q_apply_cpy[1]);
+
+        if(pauli_TPtype_cpy[0]==PAULI_X && pauli_TPtype_cpy[1]==PAULI_X){
+            kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_Y && pauli_TPtype_cpy[1]==PAULI_Y){
+            kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_Z && pauli_TPtype_cpy[1]==PAULI_Z){
+            kernel_suqa_pauli_TP_rotation_zz<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_X && pauli_TPtype_cpy[1]==PAULI_Y){
+            kernel_suqa_pauli_TP_rotation_xy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_X && pauli_TPtype_cpy[1]==PAULI_Z){
+            kernel_suqa_pauli_TP_rotation_zx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_Y && pauli_TPtype_cpy[1]==PAULI_Z){
+            kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+        }
+
+    }else if(q_apply.size()==3U){
+        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+        }
+        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[2]){ //sort cases
+            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[2]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[2]);
+        }
+        if(pauli_TPtype_cpy[1]>pauli_TPtype_cpy[2]){ //sort cases
+            std::swap(pauli_TPtype_cpy[1],pauli_TPtype_cpy[2]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[2]);
+        }
+
+        int i_z = -1, i1, i2;
+        if(pauli_TPtype_cpy[2]==PAULI_Z){
+            i_z=2;
+            i1=0;
+            i2=1;
+        }else{
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        }
+        mask_q3 = (1U << q_apply[i_z]);
+        mask_q1 = (1U << q_apply[i1]);
+        mask_q2 = (1U << q_apply[i2]);
+        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
+                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
+                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
+                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else{
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        }
+    }else{
+        throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
+    }
+}
+
+/* End of Pauli Tensor Product rotations */
+
+
 
 void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
     kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data_re, state.data_im, state.size(), q, val);
