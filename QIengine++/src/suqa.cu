@@ -581,7 +581,7 @@ void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state
             // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
             uint i_1 = i_0 | mask_q1;
 
-            util_rotate4(&state_re[i_0],&state_im[i_0],&state_re[i_1],&state_im[i_1],ctheta,stheta);
+            util_rotate4(&state_re[i_0],&state_im[i_0],&state_im[i_1],&state_re[i_1],ctheta,stheta);
         }
         i_0+=gridDim.x*blockDim.x;
     }
@@ -861,13 +861,13 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
             std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
             std::swap(q_apply_cpy[0],q_apply_cpy[1]);
         }
-        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[2]){ //sort cases
-            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[2]);
-            std::swap(q_apply_cpy[0],q_apply_cpy[2]);
-        }
         if(pauli_TPtype_cpy[1]>pauli_TPtype_cpy[2]){ //sort cases
             std::swap(pauli_TPtype_cpy[1],pauli_TPtype_cpy[2]);
-            std::swap(q_apply_cpy[0],q_apply_cpy[2]);
+            std::swap(q_apply_cpy[1],q_apply_cpy[2]);
+        }
+        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
         }
 
         int i_z = -1, i1, i2;
@@ -878,9 +878,9 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
         }else{
             throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
         }
-        mask_q3 = (1U << q_apply[i_z]);
-        mask_q1 = (1U << q_apply[i1]);
-        mask_q2 = (1U << q_apply[i2]);
+        mask_q3 = (1U << q_apply_cpy[i_z]);
+        mask_q1 = (1U << q_apply_cpy[i1]);
+        mask_q2 = (1U << q_apply_cpy[i2]);
         if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
                 kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
         }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
