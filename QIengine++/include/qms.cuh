@@ -520,7 +520,7 @@ int metro_step(bool take_measure){
     suqa::measure_qbits(gState,bm_enes_old, c_E_olds, extract_rands(ene_qbits));
     DEBUG_CALL(std::cout<<"\n\nAfter measure on bm_enes_old"<<std::endl);
     DEBUG_READ_STATE(gState);
-    DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
+    DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels*(ene_levels-1)));
     DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<std::endl); 
 
     gCi = draw_C();
@@ -536,7 +536,7 @@ int metro_step(bool take_measure){
         std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
-        DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
+        DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels*(ene_levels-1)));
         DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
         DEBUG_READ_STATE(gState)
         apply_Phi_inverse();
