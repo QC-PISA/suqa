@@ -2,6 +2,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <vector>
+#include <algorithm>
 #include "io.hpp"
 #include "complex_defines.cuh"
 #include <stdexcept>
