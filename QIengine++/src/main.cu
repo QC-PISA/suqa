@@ -112,7 +112,7 @@ int main(int argc, char** argv){
     qms::state_levels = (1U << qms::state_qbits);
 
     qms::t_PE_shift = args.ene_min;
-    qms::t_PE_factor = (args.ene_max-args.ene_min)/(double)(qms::ene_levels); 
+    qms::t_PE_factor = (double)1./((args.ene_max-args.ene_min)*(double)(qms::ene_levels)); 
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
     suqa::threads = NUM_THREADS;
