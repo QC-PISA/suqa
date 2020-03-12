@@ -402,16 +402,17 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 void apply_C(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
 	int link_index = Ci%3;
-	int ferm_index = Ci%3;
+	int ferm_index = Ci%4;
 
 	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);		
 	suqa::apply_x(state, ferm[ferm_index]);	
 	suqa::apply_x(state, link[link_index]);	
+
 }
 
 void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
 	int link_index = Ci%3;
-	int ferm_index = Ci%3;
+	int ferm_index = Ci%4;
 
 	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);		
 	suqa::apply_x(state, ferm[ferm_index]);	
