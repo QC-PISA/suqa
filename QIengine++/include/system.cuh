@@ -26,13 +26,8 @@ void init_state(ComplexVec& state, uint Dim);
 
 void evolution(ComplexVec& state, const double& t, const int& n);
 
-void fill_meas_cache(const bmReg& bm_states, const std::string opstem);
+void apply_C(ComplexVec& state, const uint &Ci);
 
-void apply_measure_rotation(ComplexVec& state);
-void apply_measure_antirotation(ComplexVec& state);
-
-void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci);
-
-void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci);
+void apply_C_inverse(ComplexVec& state, const uint &Ci);
 
 std::vector<double> get_C_weigthsums();

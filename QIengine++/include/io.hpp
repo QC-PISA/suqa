@@ -2,6 +2,8 @@
 #include <iostream>
 #include <complex>
 #include <vector>
+#include <cmath>
+#include <bitset>
 
 #ifndef NDEBUG
     #define DEBUG_CALL(x) x

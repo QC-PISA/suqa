@@ -292,24 +292,24 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
-void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-    switch(Ci){
-        case 0U:
-            suqa::apply_cx(state,bm_states[1], 0, bm_states[0]);
-            break;
-        case 1U:
-            suqa::apply_swap(state,bm_states[1],bm_states[0]);
-            break;
-        case 2U:
-            suqa::apply_x(state,bm_states);
-            break;
-        default:
-            throw std::runtime_error("ERROR: wrong move selection");
-    }
+void apply_C(ComplexVec& state, const uint &Ci){
+//    switch(Ci){
+//        case 0U:
+//            suqa::apply_cx(state,bm_states[1], 0, bm_states[0]);
+//            break;
+//        case 1U:
+//            suqa::apply_swap(state,bm_states[1],bm_states[0]);
+//            break;
+//        case 2U:
+//            suqa::apply_x(state,bm_states);
+//            break;
+//        default:
+//            throw std::runtime_error("ERROR: wrong move selection");
+//    }
 }
 
-void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
-    apply_C(state, bm_states, Ci);
+void apply_C_inverse(ComplexVec& state, const uint &Ci){
+    apply_C(state, Ci);
 }
 
 std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
