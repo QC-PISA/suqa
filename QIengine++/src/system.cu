@@ -400,7 +400,7 @@ double measure_X(ComplexVec& state, pcg& rgen){
 	return meas;
 }
 
-void apply_C(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
+void apply_C(ComplexVec& state, const uint& Ci){
 	int link_index = Ci%3;
 	int ferm_index = Ci%4;
 
@@ -410,7 +410,7 @@ void apply_C(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
 
 }
 
-void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint& Ci){
+void apply_C_inverse(ComplexVec& state, const uint& Ci){
 	int link_index = Ci%3;
 	int ferm_index = Ci%4;
 

@@ -12,7 +12,7 @@ OBJDIR = obj
 release_gpu: NVCCFLAGS += -O3 -DNDEBUG
 release_gpu: main_gpu
 
-debug_gpu: NVCCFLAGS += -O3
+debug_gpu: NVCCFLAGS += -O3 -DNDEBUG
 debug_gpu: main_gpu
 
 profile_gpu: NVCCFLAGS += -m64 -O3 -G -g -DNDEBUG

@@ -28,10 +28,14 @@ void sparse_print(double *v, uint size){
 
 void sparse_print(double *v_re, double *v_im, uint size){
     // for non-contiguous even-odd entries corresponding to real and imag parts
+    size_t index_size = (int)std::round(std::log2(size));
     for(uint i=0; i<size; ++i){
-        std::complex<double> var(v_re[i],v_im[i]);
-       if(norm(var)>1e-10)
-            printf("i=%u -> (%.12e, %.12e)\n",i,v_re[i],v_im[i]);
+       std::complex<double> var(v_re[i],v_im[i]);
+       if(norm(var)>1e-10){
+            std::string index= std::bitset<32>(i).to_string();
+            index.erase(0,32-index_size);
+            printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e, phase= %.3e pi\n",index.c_str(),i, v_re[i], v_im[i], norm(var),atan2(v_im[i],v_re[i])/M_PI);
+       }
     }
     std::cout<<std::endl;
 }
