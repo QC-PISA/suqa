@@ -230,7 +230,7 @@ void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& 
     for(uint trg = 0; trg < q_target.size(); ++trg){
         double powr = (double)(1U << (q_target.size()-1-trg));
         cevolution(state, powr*t, powr*n, q_target[trg], q_state);
-        suqa::apply_u1(state, q_target[trg], +powr*t*t_PE_shift);
+        suqa::apply_u1(state, q_target[trg], powr*t*t_PE_shift);
     }
 
     DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
