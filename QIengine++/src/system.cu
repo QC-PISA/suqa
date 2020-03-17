@@ -284,7 +284,7 @@ void inverse_link_plaqevolve(ComplexVec& state, const uint&Ci){
 
 
 
-void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
+void apply_C(ComplexVec& state, const uint &Ci){
   uint s = (Ci<16U) ? 0 : 1;
   switch(s){
         case 0U:
@@ -298,7 +298,7 @@ void apply_C(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
     }
 }
 
-void apply_C_inverse(ComplexVec& state, const bmReg& bm_states, const uint &Ci){
+void apply_C_inverse(ComplexVec& state, const uint &Ci){
   uint s = (Ci<16U) ? 0 : 1;
   switch(s){
         case 0U:
