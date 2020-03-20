@@ -49,14 +49,12 @@ std::vector<double> E_measures;
 std::vector<double> rphase_m;
 double c_factor;
 
-void fill_rphase(const uint& nlevels){
-    rphase_m.resize(nlevels);
+void fill_rphase(const uint& nqubits){
+    rphase_m.resize(nqubits);
     uint c=1;
-    for(uint i=0; i<nlevels; ++i){
+    for(uint i=0; i<nqubits; ++i){
         rphase_m[i] = (2.0*M_PI/(double)c);
-//        rphase_m[i].y = sin((2.0*M_PI/(double)c));
         c<<=1;
-	//printf("rphase_m[i] %.12lf %.12lf\n", real(rphase_m[i]), imag(rphase_m[i]));
     }
 } 
 
@@ -86,7 +84,7 @@ uint W_mask_Enew;
 //double *W_fs1, *W_fs2; // holds fs1 = exp(-b dE/2) and fs2 = sqrt(1-fs1^2)
 
 void fill_W_utils(double beta, double t_PE_factor){
-    c_factor = beta/(t_PE_factor*ene_levels*(ene_levels-1));
+    c_factor = beta/(t_PE_factor*ene_levels);
     W_mask=0U;
     W_mask = (1U << bm_acc);
     W_mask_Eold = 0U;
@@ -109,8 +107,6 @@ void cevolution(ComplexVec& state, const double& t, const int& n, const uint& q_
     suqa::deactivate_gc_mask();
 }
 
-
-
 uint creg_to_uint(const std::vector<uint>& c_reg){
     if(c_reg.size()<1)
         throw std::runtime_error("ERROR: size of register zero.");
@@ -121,7 +117,6 @@ uint creg_to_uint(const std::vector<uint>& c_reg){
 
     return ret;
 }
-//XXX: the following two functions commented have parts define in suqa
 
 void reset_non_state_qbits(ComplexVec& state){
     DEBUG_CALL(std::cout<<"\n\nBefore reset"<<std::endl);
@@ -145,30 +140,16 @@ void reset_non_state_qbits(ComplexVec& state){
     DEBUG_READ_STATE(state);
 }
 
-
-//__global__ 
-//void kernel_qms_crm(double *const state_re, double *const state_im, uint len, uint q_control, uint q_target, Complex rphase){
-//     
-//    int i = blockDim.x*blockIdx.x + threadIdx.x;    
-//    while(i<len){
-//        if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-//            double tmpval = state_re[i]; 
-//            state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
-//            state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
-//        }
-//        i+=gridDim.x*blockDim.x;
-//    }
-//}
-
-
 void qms_crm(ComplexVec& state, const uint& q_control, const uint& q_target, const int& m){
     double rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
     if(m<=0) rphase*=-1;
 
-//    kernel_qms_crm<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q_control, q_target, rphase);
+    DEBUG_CALL(std::cout<<"crm phase: m="<<m<<", rphase="<<rphase/M_PI<<" pi"<<std::endl);
+
     suqa::apply_cu1(state, q_control, q_target, rphase);
 }
 
+//TODO: put in suqa
 void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
@@ -176,19 +157,19 @@ void qms_qft(ComplexVec& state, const std::vector<uint>& qact){
             DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
             DEBUG_READ_STATE(state);
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
-            qms_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            qms_crm(state, qact[inner_i], qact[outer_i], +1+(outer_i-inner_i));
             DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
             DEBUG_READ_STATE(state);
         }
     }
 }
 
-
+//TODO: put in suqa
 void qms_qft_inverse(ComplexVec& state, const std::vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
-            qms_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+            qms_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
             DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
             DEBUG_READ_STATE(state);
         }
@@ -207,8 +188,13 @@ void apply_phase_estimation(ComplexVec& state, const std::vector<uint>& q_state,
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
         double powr = (double)(1U << (q_target.size()-1-trg));
+        DEBUG_CALL(std::cout<<"\nafter powr="<<powr<<", "<<"t="<<t<<", powr*t="<<powr*t<<std::endl);
         cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
+        DEBUG_CALL(std::cout<<"\nafter trg="<<trg<<" cevolution"<<std::endl);
+        DEBUG_READ_STATE(state);
         suqa::apply_u1(state, q_target[trg], -powr*t*t_PE_shift);
+        DEBUG_CALL(std::cout<<"\nafter energy shift by Emin="<<t_PE_shift<<std::endl);
+        DEBUG_READ_STATE(state);
     }
     DEBUG_CALL(std::cout<<"\nafter evolutions"<<std::endl);
     DEBUG_READ_STATE(state);
@@ -240,29 +226,10 @@ void apply_phase_estimation_inverse(ComplexVec& state, const std::vector<uint>& 
 }
 
 
-void apply_Phi_old(){
-
-    apply_phase_estimation(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
-
-}
-
-void apply_Phi_old_inverse(){
-
-    apply_phase_estimation_inverse(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation);
-
-}
-
-void apply_Phi(){
-
-    apply_phase_estimation(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation);
-
-}
-
-void apply_Phi_inverse(){
-
-    apply_phase_estimation_inverse(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation);
-
-}
+void apply_Phi_old(){ apply_phase_estimation(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation); }
+void apply_Phi_old_inverse(){ apply_phase_estimation_inverse(gState, bm_states, bm_enes_old, t_phase_estimation, n_phase_estimation); }
+void apply_Phi(){ apply_phase_estimation(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation); }
+void apply_Phi_inverse(){ apply_phase_estimation_inverse(gState, bm_states, bm_enes_new, t_phase_estimation, n_phase_estimation); }
 
 
 uint draw_C(){
@@ -286,10 +253,8 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
     while(i<len){
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
-//        printf("i = %u, j = %u\n",i,j);
         uint Eold = (i & dev_W_mask_Eold) >> dev_bm_enes_old;
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-//        printf("Eold[%u] = %u, Enew[%u] = %u\n",j,Eold,j,Enew);
         if(Enew>Eold){
             fs1 = exp(-((Enew-Eold)*c)/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
@@ -300,8 +265,6 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         double tmpval = state_comp[j];
         state_comp[j] = fs2*state_comp[j] + fs1*state_comp[i];
         state_comp[i] = fs1*tmpval        - fs2*state_comp[i]; // recall: i has 1 in the q_acc qbit 
-//        }
-
         i+=gridDim.x*blockDim.x;
     }
 }
@@ -377,7 +340,7 @@ int metro_step(bool take_measure){
     suqa::measure_qbits(gState,bm_enes_old, c_E_olds, extract_rands(ene_qbits));
     DEBUG_CALL(std::cout<<"\n\nAfter measure on bm_enes_old"<<std::endl);
     DEBUG_READ_STATE(gState);
-    DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels*(ene_levels-1)));
+    DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_olds)/(double)(t_PE_factor*ene_levels));
     DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<std::endl); 
 
     gCi = draw_C();
@@ -393,18 +356,18 @@ int metro_step(bool take_measure){
         std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
-        DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels*(ene_levels-1)));
-        DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
+        DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
+        DEBUG_CALL(std::cout<<"  energy measure: "<<creg_to_uint(c_E_news)<<" --> "<<tmp_E<<"\nstate after measure:"<<std::endl); 
+        DEBUG_CALL(std::cout<<"t_PE_factor = "<<t_PE_factor<<std::endl); 
         DEBUG_READ_STATE(gState)
         apply_Phi_inverse();
         if(take_measure){
-            Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels*(ene_levels-1));
+            Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels); // -1 + 3/(3/4)= -1 + 4
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
                 suqa::apply_reset(gState, bm_enes_new[ei],rangen.doub());
             }
             X_measures.push_back(measure_X(gState,rangen));
-////            X_measures.push_back(0.0);
             DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
             DEBUG_READ_STATE(gState);
@@ -439,7 +402,7 @@ int metro_step(bool take_measure){
         std::vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
         suqa::measure_qbits(gState, bm_enes_old, c_E_olds, extract_rands(ene_qbits));
         Eold_meas = creg_to_uint(c_E_olds);
-        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels*(ene_levels-1));
+        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels);
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
         Enew_meas = creg_to_uint(c_E_news);
         apply_Phi_inverse();
@@ -508,9 +471,6 @@ void setup(double beta){
 }
 
 void clear(){
-//    HANDLE_CUDACALL(cudaFree(dev_W_case_masks));
-//    HANDLE_CUDACALL(cudaFree(dev_W_fs2));
-//    HANDLE_CUDACALL(cudaFree(dev_W_fs1));
 #ifndef NDEBUG
     HANDLE_CUDACALL(cudaFreeHost(host_state_re));
     HANDLE_CUDACALL(cudaFreeHost(host_state_im));
