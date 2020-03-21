@@ -302,7 +302,7 @@ void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q, uint gl
 
 
 void suqa::apply_h(ComplexVec& state, uint q){
-  kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+    kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
 }  
 
 

@@ -112,7 +112,7 @@ int main(int argc, char** argv){
     qms::state_levels = (1U << qms::state_qbits);
 
     qms::t_PE_shift = args.ene_min;
-    qms::t_PE_factor = 1.0/(double)(qms::ene_levels*(args.ene_max-args.ene_min)); 
+    qms::t_PE_factor = (qms::ene_levels-1)/(double)(qms::ene_levels*(args.ene_max-args.ene_min)); 
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
     suqa::threads = NUM_THREADS;
@@ -134,7 +134,9 @@ int main(int argc, char** argv){
     // known eigenstate of the system (see src/system.cu)
     
     allocate_state(qms::gState, qms::Dim);
-    init_state(qms::gState, qms::Dim);
+    init_state(qms::gState,qms::Dim);
+
+
 
     //TODO: make it an args option?
     uint perc_mstep = (qms::metro_steps+19)/20; // batched saves
@@ -142,7 +144,7 @@ int main(int argc, char** argv){
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");
 //        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
-        fprintf(fil, "# E\n");
+//        fprintf(fil, "# E\n");
         fprintf(fil, "# E A\n");
         fclose(fil);
     }
