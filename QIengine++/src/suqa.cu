@@ -648,6 +648,49 @@ __global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im,
     }
 }
 
+#define MAX_PHASES_NUM 128
+__constant__ Complex const_phase_list[MAX_PHASES_NUM];
+//supports up to PHASES_NUM complex phases
+
+__global__ 
+void kernel_suqa_phase_list(double *const state_re, double *const state_im, uint len, uint mask0s, uint bm_offset, uint size_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    while(i<len){
+        if(i & mask0s){ // any state with gmask set
+            uint ph_idx=(i>>bm_offset) & size_mask; //index in the phases list
+            Complex cph = const_phase_list[ph_idx];
+            double tmpval = state_re[i]; 
+            state_re[i] = state_re[i]*cph.x-state_im[i]*cph.y;
+            state_im[i] = tmpval*cph.y+state_im[i]*cph.x;
+        }
+        i+=gridDim.x*blockDim.x;
+    }
+}
+
+
+void suqa::apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::vector<double>& phases){
+    if (not (q_size>0U and phases.size()==(1U<<q_size))){
+        throw std::runtime_error("ERROR: in suqa::apply_phase_list(): invalid q_size or phases.size()");
+    }
+
+    uint mask0s = gc_mask;
+    uint size_mask = 1U; // 2^0
+    for(uint i=1U; i<q_size; ++i){
+        size_mask |= (1U << i); // 2^i
+    }
+
+    std::vector<Complex> c_phases(phases.size());
+    for(uint i=0U; i<phases.size(); ++i){
+        sincos(phases[i],&c_phases[i].y,&c_phases[i].x);
+    }
+
+    HANDLE_CUDACALL(cudaMemcpyToSymbol("const_phase_list", c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
+
+
+    kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(state.data_re,state.data_im,state.size(),mask0s,q0,size_mask);
+     
+}
+
 /* Pauli Tensor Product rotations */
 __device__ __inline__
 void util_rotate4(double *a, double *b, double *c, double *d, double ctheta, double stheta){

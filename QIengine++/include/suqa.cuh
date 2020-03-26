@@ -124,6 +124,9 @@ void apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask,
 
 void apply_swap(ComplexVec& state, const uint& q1, const uint& q2);
 
+// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
+void apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::vector<double>& phases);
+
 // rotation by phase in the direction of a pauli tensor product
 void apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
 
