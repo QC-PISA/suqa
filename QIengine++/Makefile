@@ -1,7 +1,7 @@
 .PHONY: release debug release_gpu debug_gpu profile_gpu clean 
 
 CXX = g++
-NVCC = nvcc
+NVCC = /usr/local/cuda-9.1/bin/nvcc
 CXXFLAGS = -Wall -Wextra -std=c++11 -I./include -I.
 NVCCFLAGS = -std=c++11 -I. -I./include -DCUDA -lcudart
 INCLUDES = $(wildcard include/*)

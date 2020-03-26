@@ -400,22 +400,32 @@ double measure_X(ComplexVec& state, pcg& rgen){
 	return meas;
 }
 
-void apply_C(ComplexVec& state, const uint& Ci){
-	int link_index = Ci%3;
-	int ferm_index = Ci%4;
-
-	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);		
-	suqa::apply_x(state, ferm[ferm_index]);	
-	suqa::apply_x(state, link[link_index]);	
-
-}
-
 void apply_C_inverse(ComplexVec& state, const uint& Ci){
 	int link_index = Ci%3;
 	int ferm_index = Ci%4;
 
-	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);		
-	suqa::apply_x(state, ferm[ferm_index]);	
+//	for(int i=0;i<ferm_index;i++){
+//		suqa::apply_z(state, ferm[i]);
+//	}	
+	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+	suqa::apply_x(state, ferm[ferm_index]);		
+	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+	
+	suqa::apply_x(state, link[link_index]);	
+}
+
+void apply_C(ComplexVec& state, const uint& Ci){
+	int link_index = Ci%3;
+	int ferm_index = Ci%4;
+	
+
+	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+	suqa::apply_x(state, ferm[ferm_index]);		
+	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+//	for(int i=0;i<ferm_index;i++){
+//		suqa::apply_z(state, ferm[i]);
+//	}	
+
 	suqa::apply_x(state, link[link_index]);	
 }
 

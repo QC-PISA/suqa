@@ -85,9 +85,11 @@ uint W_mask_Enew;
 
 void fill_W_utils(double beta, double t_PE_factor){
     c_factor = beta/(t_PE_factor*ene_levels);
+//    c_factor = beta;
     W_mask=0U;
     W_mask = (1U << bm_acc);
     W_mask_Eold = 0U;
+    W_mask_Enew = 0U;
     for(uint i=0; i<ene_qbits; ++i){
         W_mask |= (1U << bm_enes_old[i]) | (1U << bm_enes_new[i]);
         W_mask_Eold |= (1U << bm_enes_old[i]);
@@ -257,6 +259,7 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
         if(Enew>Eold){
             fs1 = exp(-((Enew-Eold)*c)/2.0);
+			//printf("il cazzo di beta di merda viene= %.12lg, %.12lg\n", fs1, c);
             fs2 = sqrt(1.0 - fs1*fs1);
         }else{
             fs1 = 1.0;

@@ -153,7 +153,15 @@ int main(int argc, char** argv){
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
         DEBUG_CALL(cout<<"metro step: "<<s<<endl);
-        take_measure = (s>s0+(uint)thermalization and (s-s0)%qms::reset_each ==0U);
+        DEBUG_CALL(cout<<"prima dell'applicazione della C: "<<s<<endl);
+		DEBUG_READ_STATE(qms::gState);
+        DEBUG_CALL(cout<<"apply C 8; "<<endl);
+		apply_C(qms::gState, 8);
+		DEBUG_READ_STATE(qms::gState);
+		DEBUG_CALL(cout<<"apply C inverse 8 "<<endl);
+		apply_C_inverse(qms::gState, 8);
+		DEBUG_READ_STATE(qms::gState);
+		take_measure = (s>s0+(uint)thermalization and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
