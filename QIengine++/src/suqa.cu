@@ -568,7 +568,7 @@ void suqa::apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::
         sincos(phases[i],&c_phases[i].y,&c_phases[i].x);
     }
 
-    HANDLE_CUDACALL(cudaMemcpyToSymbol("const_phase_list", c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
+    HANDLE_CUDACALL(cudaMemcpyToSymbol(const_phase_list, c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
 
 
     kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(state.data_re,state.data_im,state.size(),mask0s,q0,size_mask);
