@@ -26,9 +26,12 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
     }
 }
 
+__inline__ double fp(double b){
+  return log(exp(2*b)+1);
+}
 
-__inline__ double f1(double b){
-  return log(tanh(b));
+__inline__ double fm(double b){
+  return log(exp(2*b)-1);
 }
 
 
@@ -104,8 +107,11 @@ void inverse_fourier_transf_z2(ComplexVec& state, const bmReg& qr){
     fourier_transf_z2(state,qr);
 }
 
-void momentum_phase(ComplexVec& state, const bmReg& qr, double th1){
+void momentum_phase(ComplexVec& state, const bmReg& qr, double th1, double th2){
+    suqa::apply_u1(state, qr[0],th2);
+    suqa::apply_x(state, qr[0]);
     suqa::apply_u1(state, qr[0], th1);
+    suqa::apply_x(state, qr[0]);
     DEBUG_CALL(printf("\tafter suqa::apply_cu1(state, qr[0], th1, 0U)\n"));
     DEBUG_READ_STATE(state);
 }
@@ -119,9 +125,10 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 //        mask |= (1U << qs);
 //    }
 
-    const double dt = t/(double)n;
+    const double dt = -t/(double)n;
 
-    const double theta1 = dt*f1(g_beta);
+    const double theta1 = dt*fp(g_beta);
+    const double theta2 = dt*fm(g_beta);
     const double theta = 2*dt*g_beta;
 
     DEBUG_CALL(if(n>0) printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg\n", g_beta, dt, theta1, theta));
@@ -160,16 +167,16 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink3)\n"));
         DEBUG_READ_STATE(state);
 
-        momentum_phase(state, bm_qlink0, theta1);
+        momentum_phase(state, bm_qlink0, theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink0, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink1, theta1);
+        momentum_phase(state, bm_qlink1, theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink1, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink2, theta1);
+        momentum_phase(state, bm_qlink2, theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink2, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink3, theta1);
+        momentum_phase(state, bm_qlink3, theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
 	
@@ -255,7 +262,7 @@ std::vector<double> phases = {1./3, sqrt(2.)/3};
 void link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], phases[(Ci/4)%2]*(((int)Ci/8)*2-1)); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
+  momentum_phase(state, link[link_index],fp(phases[(Ci/4)%2]*(((int)Ci/8)*2-1)),fm(phases[(Ci/4)%2]*(((int)Ci/8)*2-1))); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
   inverse_fourier_transf_z2(state, link[link_index]);
   
 }
@@ -263,7 +270,7 @@ void link_kinevolve(ComplexVec& state, const uint&Ci){
 void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   inverse_fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], -phases[(Ci/4)%2]*(((int)Ci/8)*2-1));
+  momentum_phase(state, link[link_index], -fp(phases[(Ci/4)%2]*(((int)Ci/8)*2-1)), -fm(phases[(Ci/4)%2]*(((int)Ci/8)*2-1)));
   fourier_transf_z2(state, link[link_index]);
   
 }
