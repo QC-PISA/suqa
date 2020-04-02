@@ -31,6 +31,7 @@ __inline__ double fp(double b){
 }
 
 __inline__ double fm(double b){
+  if (b<0) std::runtime_error("ERROR: fm(b) failed because of b<0");
   return log(exp(2*b)-1);
 }
 
@@ -262,7 +263,7 @@ std::vector<double> phases = {1./3, sqrt(2.)/3};
 void link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index],fp(phases[(Ci/4)%2]*(((int)Ci/8)*2-1)),fm(phases[(Ci/4)%2]*(((int)Ci/8)*2-1))); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
+  momentum_phase(state, link[link_index],fp(phases[(Ci/4)%2])*(((int)Ci/8)*2-1),fm(phases[(Ci/4)%2])*(((int)Ci/8)*2-1)); //0-1 1-1 2-1 3-1 0-2 1-2 2-2 3-2 01 11 21 31 02 12 22 32
   inverse_fourier_transf_z2(state, link[link_index]);
   
 }
@@ -270,7 +271,7 @@ void link_kinevolve(ComplexVec& state, const uint&Ci){
 void inverse_link_kinevolve(ComplexVec& state, const uint&Ci){
   int link_index=Ci%4;
   inverse_fourier_transf_z2(state, link[link_index]);
-  momentum_phase(state, link[link_index], -fp(phases[(Ci/4)%2]*(((int)Ci/8)*2-1)), -fm(phases[(Ci/4)%2]*(((int)Ci/8)*2-1)));
+  momentum_phase(state, link[link_index], -fp(phases[(Ci/4)%2])*(((int)Ci/8)*2-1), -fm(phases[(Ci/4)%2])*(((int)Ci/8)*2-1));
   fourier_transf_z2(state, link[link_index]);
   
 }
