@@ -141,6 +141,7 @@ int main(int argc, char** argv){
     //TODO: make it an args option?
     uint perc_mstep = (qms::metro_steps+19)/20; // batched saves
     
+    uint count_accepted = 0U;
     if( access( outfilename.c_str(), F_OK ) == -1 ){
         FILE * fil = fopen(outfilename.c_str(), "w");
 //        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
@@ -161,6 +162,9 @@ int main(int argc, char** argv){
             //ensure new rethermalization
             s0 = s+1; 
         }
+        if(ret==1 or ret==2){
+            count_accepted++;
+        }
         if(s%perc_mstep==0){
             cout<<"iteration: "<<s<<"/"<<qms::metro_steps<<endl;
             save_measures(outfilename);
@@ -168,6 +172,9 @@ int main(int argc, char** argv){
     }
 
     cout<<endl;
+    printf("\n\tacceptance: %.2e\%\n",count_accepted/(double)(qms::metro_steps*100.0));
+
+
     deallocate_state(qms::gState);
     qms::clear();
     suqa::clear();
