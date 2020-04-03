@@ -172,7 +172,7 @@ int main(int argc, char** argv){
     }
 
     cout<<endl;
-    printf("\n\tacceptance: %.2e\%\n",count_accepted/(double)(qms::metro_steps*100.0));
+    printf("\n\tacceptance: %.2e%%\n",count_accepted/(double)(qms::metro_steps*100.0));
 
 
     deallocate_state(qms::gState);
