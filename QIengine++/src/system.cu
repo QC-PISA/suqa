@@ -383,50 +383,57 @@ std::vector<bmReg> link = {bm_z2_qlink0, bm_z2_qlink1, bm_z2_qlink2};
 std::vector<bmReg> ferm = {bm_z2_qferm0, bm_z2_qferm1, bm_z2_qferm2, bm_z2_qferm3};
 
 double measure_X(ComplexVec& state, pcg& rgen){
-	std::vector<uint> classics(op_bits);
-
-	std::vector<double> rdoubs(op_bits);
-	for(auto& el :rdoubs){
-		el = rgen.doub();
-	}
-
-	suqa::measure_qbits(state, bm_op, classics, rdoubs);
-
-	uint meas = 0U;
-	for(uint i=0; i<op_bits; ++i){
-		meas |= (classics[i] << i);
-	}	
-
-	return meas;
+//	std::vector<uint> classics(op_bits);
+//
+//	std::vector<double> rdoubs(op_bits);
+//	for(auto& el :rdoubs){
+//		el = rgen.doub();
+//	}
+//
+//	suqa::measure_qbits(state, bm_op, classics, rdoubs);
+//
+//	uint meas = 0U;
+//	for(uint i=0; i<op_bits; ++i){
+//		meas |= (classics[i] << i);
+//	}	
+//
+	return 0;
 }
 
 void apply_C_inverse(ComplexVec& state, const uint& Ci){
 	int link_index = Ci%3;
-	int ferm_index = Ci%4;
+//	int ferm_index = Ci%4;
+	int ferm_index = link_index+1;
 
+//	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+	suqa::apply_x(state, ferm[ferm_index]);
+	suqa::apply_x(state, ferm[ferm_index-1]);		
+//	suqa::apply_x(state, link[link_index]);	
+	suqa::apply_z(state, link[link_index]);	
+	suqa::apply_z(state, ferm[ferm_index-1]);		
+//	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
 //	for(int i=0;i<ferm_index;i++){
 //		suqa::apply_z(state, ferm[i]);
 //	}	
-	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
-	suqa::apply_x(state, ferm[ferm_index]);		
-	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
-	
-	suqa::apply_x(state, link[link_index]);	
+
 }
 
 void apply_C(ComplexVec& state, const uint& Ci){
 	int link_index = Ci%3;
-	int ferm_index = Ci%4;
-	
+//	int ferm_index = Ci%4;
+	int ferm_index = link_index+1;
 
-	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
-	suqa::apply_x(state, ferm[ferm_index]);		
-	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+//	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
+	suqa::apply_x(state, ferm[ferm_index]);
+	suqa::apply_z(state, ferm[ferm_index-1]);		
+	suqa::apply_x(state, ferm[ferm_index-1]);		
+	suqa::apply_z(state, link[link_index]);	
+//	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
 //	for(int i=0;i<ferm_index;i++){
 //		suqa::apply_z(state, ferm[i]);
 //	}	
 
-	suqa::apply_x(state, link[link_index]);	
+//	suqa::apply_x(state, link[link_index]);	
 }
 
 std::vector<double> get_C_weigthsums() { return C_weigthsums;} 
