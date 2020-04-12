@@ -1,5 +1,4 @@
 #include "system.cuh"
-#include "include/Rand.hpp"
 
 /* d4 gauge theory - two plaquettes
  
@@ -8,6 +7,8 @@
    +1 ancillary qubit
 
  */
+
+
 
 //TODO: make the number of "state" qubits determined at compilation time in system.cuh
 double g_beta;

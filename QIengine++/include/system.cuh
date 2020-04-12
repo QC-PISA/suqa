@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include "io.hpp"
 #include "suqa.cuh"
+#include "Rand.hpp"
 
 
 

@@ -4,19 +4,20 @@
 #include <string>
 #include <cstring>
 #include <stdio.h>
-#include <bits/stdc++.h>
-#include <unistd.h>
+//#include <bits/stdc++.h>
+//#include <unistd.h>
 #include <cmath>
 #include <cassert>
-#include "Rand.hpp"
+//#include "Rand.hpp"
 #include <chrono>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cuda_device_runtime_api.h>
+#include <device_launch_parameters.h>
 #include "io.hpp"
 #include "suqa.cuh"
 #include "system.cuh"
-#include "Rand.hpp"
+//#include "Rand.hpp"
 
 
 using namespace std;
@@ -35,7 +36,7 @@ void deallocate_state(ComplexVec& state){
 }
 
 void allocate_state(ComplexVec& state, uint Dim){
-    if(state.data!=nullptr or Dim!=state.vecsize)
+    if(state.data!=nullptr || Dim!=state.vecsize)
         deallocate_state(state);
 
 
@@ -51,7 +52,7 @@ void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const
 int main(int argc, char** argv){
     if(argc<5){
        printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile>\n",argv[0]); 
-       exit(1);
+       exit(0);
     }
     g_beta = stod(argv[1]); // (extern) def in src/system.cu
     int total_steps = atoi(argv[2]);
@@ -70,8 +71,8 @@ int main(int argc, char** argv){
 
     allocate_state(state, Dim);
 
-    pcg rangen;
-    rangen.set_seed(time(NULL));
+//    pcg rangen;
+//    rangen.set_seed(time(NULL));
 
     suqa::setup(Dim);
     init_state(state, Dim);
