@@ -5,15 +5,15 @@
 #include <cstring>
 #include <stdio.h>
 #include <bits/stdc++.h>
+#include <unistd.h>
 #include <cmath>
 #include <cassert>
-#include "include/Rand.hpp"
+#include "Rand.hpp"
 #include <chrono>
-#include <unistd.h>
-#include "include/io.hpp"
-#include "include/parser.hpp"
-#include "include/suqa_gates.hpp"
-#include "include/qms.hpp"
+#include "io.hpp"
+#include "parser.hpp"
+#include "suqa.hpp"
+#include "qms.hpp"
 
 using namespace std;
 
@@ -27,34 +27,37 @@ void print_banner(){
 "    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
 "    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
 "                                          \n" 
-"\nSimulator for Universal Quantum Algorithms\n");
+"\nSimulator for Universal Quantum Algorithms\n\n");
 }
 
-
-
-/* Hamiltonian
- *
- * H = 1/4 (1 + X1 X0 + X2 X0 + X2 X1)
- *
- */
 
 
 // simulation parameters
 double beta;
 double h;
 
-void init_state(){
-    qms::gState.resize(qms::Dim);
-    std::fill_n(qms::gState.begin(), qms::gState.size(), 0.0);
-    qms::gState[0] = TWOSQINV; 
-    qms::gState[3] = -TWOSQINV; 
-}
+// defined in src/system.cpp
+void init_state(std::vector<Complex>& state, uint Dim, double g_beta);
 
 arg_list args;
 
+void save_measures(string outfilename){
+    FILE * fil = fopen(outfilename.c_str(), "a");
+    for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
+        if(qms::Xmatstem!=""){
+            fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
+        }else{
+            fprintf(fil, "%.16lg\n", qms::E_measures[ei]);
+        }
+    }
+    fclose(fil);
+    qms::E_measures.clear();
+    qms::X_measures.clear();
+}
+
 int main(int argc, char** argv){
-    if(argc < 7){
-        printf("usage: ./%s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+    if(argc < 8){
+        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -100,9 +103,15 @@ int main(int argc, char** argv){
     // Initialization:
     // known eigenstate of the system: psi=0, E_old = 0
     
-    init_state();
+    init_state(qms::gState, qms::Dim, h);
 
-    uint perc_mstep = qms::metro_steps/20;
+    uint perc_mstep = (qms::metro_steps+19)/20;
+    
+    if( access( outfilename.c_str(), F_OK ) == -1 ){
+        FILE * fil = fopen(outfilename.c_str(), "w");
+        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
+        fclose(fil);
+    }
 
     FILE * fil;
     // manage header
@@ -115,36 +124,23 @@ int main(int argc, char** argv){
     bool take_measure;
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
+        DEBUG_CALL(cout<<"metro step: "<<s<<endl);
         take_measure = (s>s0 and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
-            init_state();
+            init_state(qms::gState, qms::Dim);
             //ensure new rethermalization
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
-            fil = fopen(outfilename.c_str(), "a");
-            for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
-                if(qms::Xmatstem!=""){
-                    fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
-                }else{
-                    fprintf(fil, "%.16lg\n", qms::E_measures[ei]);
-                }
-            }
-            fclose(fil);
-            qms::E_measures.clear();
-            qms::X_measures.clear();
-
-#ifdef NDEBUG
-            cout<<("\riteration: "+to_string(s)+"/"+to_string(qms::metro_steps));
-            cout.flush();
-#else
             cout<<("iteration: "+to_string(s)+"/"+to_string(qms::metro_steps))<<endl;
-#endif
+            save_measures(outfilename);
         }
     }
     cout<<endl;
+
+    save_measures(outfilename);
 
     cout<<"all fine :)\n"<<endl;
 
