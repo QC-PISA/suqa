@@ -5,7 +5,6 @@
 #include <stdexcept>
 #include "io.hpp"
 #include "suqa.cuh"
-#include "Rand.hpp"
 
 
 
@@ -15,13 +14,9 @@
 //const bmReg bm_qaux   =  {9, 10, 11};
 //const bmReg bm_qlink1 =  {12, 13, 14};
 
-const bmReg bm_qlink0 =  {0,  1, 2};
-const bmReg bm_qlink1 =  {3,  4, 5};
-const bmReg bm_qlink2 =  {6,  7, 8};
-const bmReg bm_qlink3 =  {9, 10, 11};
-const bmReg bm_qaux   =  {12};
-
+const bmReg bm_spin={0,1,2};
 extern double g_beta;
+
 
 void init_state(ComplexVec& state, uint Dim);
 

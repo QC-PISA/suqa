@@ -161,7 +161,7 @@ int main(int argc, char** argv){
     }
 
     cout<<endl;
-    printf("\n\tacceptance: %.2e%%\n",count_accepted/(double)(qms::metro_steps*100.0));
+    printf("\n\tacceptance: %3.2lg%%\n",(count_accepted/static_cast<double>(qms::metro_steps))*100.0);
 
 
     deallocate_state(qms::gState);
@@ -175,9 +175,8 @@ int main(int argc, char** argv){
     if(qms::record_reverse){
         FILE * fil_rev = fopen((outfilename+"_revcounts").c_str(), "w");
 
-
         for(uint i = 0; i < qms::reverse_counters.size(); ++i){
-            fprintf(fil_rev, "%d %d\n", i, (int)qms::reverse_counters[i]);
+            fprintf(fil_rev, "%d %d\n", i, static_cast<int>(qms::reverse_counters[i]));
         }
         fclose(fil_rev);
     }
