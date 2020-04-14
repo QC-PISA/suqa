@@ -1,7 +1,7 @@
 #pragma once
-#include "include/Rand.hpp"
-#include "include/io.hpp"
-#include "include/suqa_gates.hpp"
+#include "Rand.hpp"
+#include "io.hpp"
+#include "suqa.hpp"
 
 
 // defined in src/evolution.cpp
@@ -108,6 +108,7 @@ void fill_W_utils(double beta, double t_PE_factor){
             for(uint k=0; k<ene_qbits; ++k){
                 W_case_masks[i][Ei] |= ((Ei>>k & 1U) << bm_enes_old[k]) | ((Ej>>k & 1U) << bm_enes_new[k]);
             }
+            DEBUG_CALL(std::cout<<"W_case_masks["<<i<<"]["<<Ei<<"] = "<<W_case_masks[i][Ei]<<std::endl);
         }
     }
 }
@@ -126,9 +127,13 @@ uint creg_to_uint(const vector<uint>& c_reg){
 void reset_non_state_qbits(vector<Complex>& state){
     DEBUG_CALL(cout<<"\n\nBefore reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
-    qi_reset(state, bm_enes_old);
-    qi_reset(state, bm_enes_new);
-    qi_reset(state, bm_acc);
+    suqa::qi_reset(state, bm_enes_old);
+    DEBUG_CALL(cout<<"\n\nafter enes_old reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    suqa::qi_reset(state, bm_enes_new);
+    DEBUG_CALL(cout<<"\n\nafter enes_new reset"<<endl);
+    DEBUG_CALL(sparse_print(gState));
+    suqa::qi_reset(state, bm_acc);
     DEBUG_CALL(cout<<"\n\nAfter reset"<<endl);
     DEBUG_CALL(sparse_print(gState));
 }
@@ -156,7 +161,7 @@ void measure_qbit(vector<Complex>& state, const uint& q, uint& c){
                 state[i] = {0.0, 0.0};        
         }
     }
-    vnormalize(state);
+    suqa::vnormalize(state);
 }
 
 //TODO: can be optimized for multiple qbits measures?
@@ -167,10 +172,11 @@ void measure_qbits(vector<Complex>& state, const vector<uint>& qs, vector<uint>&
 
 
 void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target, const int& m){
+    Complex rphase = (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
     for(uint i = 0U; i < state.size(); ++i){
         // for the swap, not only q_target:1 but also q_control:1
         if(((i >> q_control) & 1U) && ((i >> q_target) & 1U)){
-            state[i] *= (m>0) ? rphase_m[m] : conj(rphase_m[-m]);
+            state[i] *= rphase;
         }
     }
 }
@@ -178,9 +184,14 @@ void qi_crm(vector<Complex>& state, const uint& q_control, const uint& q_target,
 void qi_qft(vector<Complex>& state, const vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=qsize-1; outer_i>=0; outer_i--){
-        qi_h(state, qact[outer_i]);
+        suqa::qi_h(state, qact[outer_i]);
+        DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_CALL(sparse_print(state));
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
             qi_crm(state, qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+
+            DEBUG_CALL(sparse_print(state));
         }
     }
 }
@@ -191,22 +202,27 @@ void qi_qft_inverse(vector<Complex>& state, const vector<uint>& qact){
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qi_crm(state, qact[inner_i], qact[outer_i], 1+(outer_i-inner_i));
+
+            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+
+            DEBUG_CALL(sparse_print(state));
         }
-        qi_h(state, qact[outer_i]);
+        suqa::qi_h(state, qact[outer_i]);
+        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_CALL(sparse_print(state));
     }
 }
 
 void apply_phase_estimation(vector<Complex>& state, const vector<uint>& q_state, const vector<uint>& q_target, const double& t, const uint& n){
     DEBUG_CALL(cout<<"apply_phase_estimation()"<<endl);
-    qi_h(state,q_target);
+    suqa::qi_h(state,q_target);
     DEBUG_CALL(cout<<"after qi_h(state,q_target)"<<endl);
     DEBUG_CALL(sparse_print(state));
 
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
-        for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-            cevolution(state, t, n, q_target[trg], q_state);
-        }
+        uint powr = pow(2,q_target.size()-1-trg);
+        cevolution(state, powr*t, powr*n, q_target[trg], q_state);
     }
     DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
     DEBUG_CALL(sparse_print(state));
@@ -221,18 +237,20 @@ void apply_phase_estimation_inverse(vector<Complex>& state, const vector<uint>& 
 
     // apply QFT
     qi_qft(state, q_target); 
+    DEBUG_CALL(std::cout<<"\nafter qft"<<std::endl);
+    DEBUG_CALL(sparse_print(state));
 
 
     // apply CUs
     for(uint trg = 0; trg < q_target.size(); ++trg){
-        for(uint itrs = 0; itrs < q_target.size()-trg; ++itrs){
-            for(uint ti = 0; ti < n; ++ti){
-                cevolution(state, -t, n, q_target[trg], q_state);
-            }
-        }
+        uint powr = pow(2,q_target.size()-1-trg);
+        cevolution(state, -powr*t, powr*n, q_target[trg], q_state);
     }
+
+    DEBUG_CALL(cout<<"\nafter evolutions"<<endl);
+    DEBUG_CALL(sparse_print(state));
     
-    qi_h(state,q_target);
+    suqa::qi_h(state,q_target);
 
 }
 
@@ -265,8 +283,8 @@ void apply_Phi_inverse(){
 uint draw_C(){
     vector<double> C_weigthsums = get_C_weigthsums();
     double extract = rangen.doub();
-    for(uint Ci =0; Ci < C_weigthsums.size(); ++Ci){
-        if (extract<C_weigthsums[Ci]){
+    for(uint Ci =0U; Ci < C_weigthsums.size(); ++Ci){
+        if(extract<C_weigthsums[Ci]){
             return Ci;
         }
     }
@@ -282,7 +300,9 @@ void apply_W(){
         bool matching = false;
         uint dE;
         for(dE=1; dE<ene_levels; ++dE){
+//            DEBUG_CALL(printf("W_case_masks[dE].size() = %zu\n",W_case_masks[dE].size()));
             for(uint k=0; k<W_case_masks[dE].size() && !matching; ++k){
+//                DEBUG_CALL(printf("W_case_masks[%u][%u] = %u\n",dE,k,W_case_masks[dE][k]));
                 matching = ((i & W_mask) == W_case_masks[dE][k]);
             }
             if(matching)
@@ -291,15 +311,15 @@ void apply_W(){
         if(matching){
             uint j = i & ~(1U << bm_acc);
             const double fdE = W_fs[dE];
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
-            apply_2x2mat(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case1: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+            suqa::apply_2x2mat<Complex>(gState[j], gState[i], sqrt(1.-fdE), sqrt(fdE), sqrt(fdE), -sqrt(1.-fdE));
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }else if((i >> bm_acc) & 1U){
             uint j = i & ~(1U << bm_acc);
 
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"case3: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
             std::swap(gState[i],gState[j]);
-            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
+//            DEBUG_CALL(if(norm(gState[i])+norm(gState[j])>1e-8) cout<<"after: gState["<<i<<"] = "<<gState[i]<<", gState["<<j<<"] = "<<gState[j]<<endl);
         }
     }
 }
@@ -314,14 +334,9 @@ void apply_U(){
     DEBUG_CALL(cout<<"\n\nAfter apply C = "<<gCi<<endl);
     DEBUG_CALL(sparse_print(gState));
 
-
-
-
     apply_Phi();
     DEBUG_CALL(cout<<"\n\nAfter second phase estimation"<<endl);
     DEBUG_CALL(sparse_print(gState));
-
-
 
     apply_W();
     DEBUG_CALL(cout<<"\n\nAfter apply W"<<endl);
@@ -342,6 +357,7 @@ void apply_U_inverse(){
 
 
 void init_measure_structs(){
+    
     fill_meas_cache(bm_states, Xmatstem);
 }
 
@@ -365,149 +381,6 @@ double measure_X(){
 
     return get_meas_opvals(meas);
 }
-
-
-// double measure_X(){
-//     if(Xmatstem==""){
-//         return 0.0;
-//     }
-// 
-// 	uint meas_mask = 0U;
-//     for(const auto& bm : bm_states){
-//         meas_mask |= (1U<<bm);
-//     }
-// 	vector<uint> classics(state_qbits);
-// 
-//     vector<double> vals(state_levels);
-// 
-//     FILE * fil_re = fopen((Xmatstem+"_vecs_re").c_str(),"r"); 
-//     FILE * fil_im = fopen((Xmatstem+"_vecs_im").c_str(),"r"); 
-//     FILE * fil_vals = fopen((Xmatstem+"_vals").c_str(),"r"); 
-//     double tmp_re,tmp_im;
-//     for(int i=0; i<8; ++i){
-//         fscanf(fil_vals, "%lg",&vals[i]);
-// //        cout<<"vals = "<<vals[i]<<endl;
-//         for(int j=0; j<8; ++j){
-//             fscanf(fil_re, "%lg",&tmp_re);
-//             fscanf(fil_im, "%lg",&tmp_im);
-//             SXmat[i][j] = tmp_re+tmp_im*iu;
-// //            cout<<real(SXmat[i][j])<<imag(SXmat[i][j])<<" ";
-//         }
-//         fscanf(fil_re, "\n");
-//         fscanf(fil_im, "\n");
-// //        cout<<endl;
-//     }
-// 
-//     fclose(fil_vals);
-//     fclose(fil_re);
-//     fclose(fil_im);
-// 
-//     vector<uint> iss(state_levels);
-//     vector<Complex> ass(state_levels);
-//     
-// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//         if((i_0 & meas_mask) == 0U){
-//       
-//             iss[0] = i_0;
-//             iss[1] = i_0 | 1U;
-//             iss[2] = i_0 | 2U;
-//             iss[3] = i_0 | 3U;
-//             iss[4] = i_0 | 4U;
-//             iss[5] = i_0 | 5U;
-//             iss[6] = i_0 | 6U;
-//             iss[7] = i_0 | 7U;
-// 
-// 
-//             ass[0] = gState[iss[0]];
-//             ass[1] = gState[iss[1]];
-//             ass[2] = gState[iss[2]];
-//             ass[3] = gState[iss[3]];
-//             ass[4] = gState[iss[4]];
-//             ass[5] = gState[iss[5]];
-//             ass[6] = gState[iss[6]];
-//             ass[7] = gState[iss[7]];
-// 
-// 
-//             for(int r=0; r<8; ++r){
-//                 gState[iss[r]]=0.0;
-//                 for(int c=0; c<8; ++c){
-//                      gState[iss[r]] += SXmat[r][c]*ass[c];
-//                 }
-//             }
-//             
-// 
-//         }
-//     }
-//     measure_qbits(gState, bm_states, classics);
-// 
-// 	for(uint i_0 = 0U; i_0 < gState.size(); ++i_0){
-//         if((i_0 & meas_mask) == 0U){
-//             iss[0] = i_0;
-//             iss[1] = i_0 | 1U;
-//             iss[2] = i_0 | 2U;
-//             iss[3] = i_0 | 3U;
-//             iss[4] = i_0 | 4U;
-//             iss[5] = i_0 | 5U;
-//             iss[6] = i_0 | 6U;
-//             iss[7] = i_0 | 7U;
-// 
-// 
-//             ass[0] = gState[iss[0]];
-//             ass[1] = gState[iss[1]];
-//             ass[2] = gState[iss[2]];
-//             ass[3] = gState[iss[3]];
-//             ass[4] = gState[iss[4]];
-//             ass[5] = gState[iss[5]];
-//             ass[6] = gState[iss[6]];
-//             ass[7] = gState[iss[7]];
-// 
-//             for(int r=0; r<8; ++r){
-//                 gState[iss[r]]=0.0;
-//                 for(int c=0; c<8; ++c){
-//                      gState[iss[r]] += conj(SXmat[c][r])*ass[c];
-//                 }
-//             }
-//         }
-//     }
-// 
-//     uint meas = classics[0] + 2*classics[1] + 4*classics[2];
-//     return vals[meas];
-// //    switch(meas){
-// //        case 0:
-// //            return vals[0];
-// //            break;
-// //        case 1:
-// //            return phi;
-// //            break;
-// //        case 2:
-// //            return mphi_inv;
-// //            break;
-// //        default:
-// //            throw "Error!";
-// //    }
-// //    return 0.0;
-// }
-
-// double measure_X(){
-// 	vector<uint> classics(2);
-//     measure_qbits(gState, {bm_psi0,bm_psi1}, classics);
-//     uint meas = classics[0] + 2*classics[1];
-//     switch(meas){
-//         case 0:
-//             return 1.0;
-//             break;
-//         case 1:
-//             return 2.0;
-//             break;
-//         case 2:
-//             return 3.0;
-//             break;
-//         default:
-//             throw "Error!";
-//     }
-//     return 0.0;
-// }
-
 
 int metro_step(bool take_measure){
     // return values:
@@ -541,12 +414,13 @@ int metro_step(bool take_measure){
         vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         measure_qbits(gState, bm_enes_new, c_E_news);
         DEBUG_CALL(double tmp_E=creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));
-        DEBUG_CALL(cout<<"  energy measure : "<<tmp_E<<endl); 
+        DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<"\nstate after measure:"<<std::endl); 
+        DEBUG_CALL(sparse_print(gState));
         apply_Phi_inverse();
         if(take_measure){
             Enew_meas_d = creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels);
             E_measures.push_back(Enew_meas_d);
-            qi_reset(gState, bm_enes_new);
+            suqa::qi_reset(gState, bm_enes_new);
             X_measures.push_back(measure_X());
 ////            X_measures.push_back(0.0);
             DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
@@ -554,7 +428,7 @@ int metro_step(bool take_measure){
             DEBUG_CALL(sparse_print(gState));
             DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
 //            reset_non_state_qbits();
-            qi_reset(gState, bm_enes_new);
+            suqa::qi_reset(gState, bm_enes_new);
             apply_Phi();
             measure_qbits(gState, bm_enes_new, c_E_news);
             DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
@@ -594,12 +468,12 @@ int metro_step(bool take_measure){
                 DEBUG_CALL(cout<<"  energy measure : "<<Eold_meas_d<<endl); 
                 DEBUG_CALL(cout<<"\n\nBefore X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
-                qi_reset(gState, bm_enes_new);
+                suqa::qi_reset(gState, bm_enes_new);
                 X_measures.push_back(measure_X());
                 DEBUG_CALL(cout<<"\n\nAfter X measure"<<endl);
                 DEBUG_CALL(sparse_print(gState));
                 DEBUG_CALL(cout<<"  X measure : "<<X_measures.back()<<endl); 
-                qi_reset(gState, bm_enes_new);
+                suqa::qi_reset(gState, bm_enes_new);
                 apply_Phi();
                 measure_qbits(gState, bm_enes_new, c_E_news);
                 DEBUG_CALL(cout<<"\n\nAfter E recollapse"<<endl);
