@@ -46,8 +46,7 @@ void init_state(ComplexVec& state, uint Dim){
     cudaDeviceSynchronize();
 
     suqa::apply_h(state, bm_qlink0[0]);
-    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
-  
+    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);  
     DEBUG_CALL(printf("after init_state()\n"));
     DEBUG_READ_STATE(state);
 
@@ -226,7 +225,7 @@ double get_meas_opvals(const uint& creg_vals){
 // actually perform the measure
 // there is no need to change it
 double measure_X(ComplexVec& state, pcg& rgen){
-    std::vector<uint> classics(op_bits);
+  /*    std::vector<uint> classics(op_bits);
     
     apply_measure_rotation(state);
 
@@ -243,12 +242,15 @@ double measure_X(ComplexVec& state, pcg& rgen){
         meas |= (classics[i] << i);
     }
 
-    return get_meas_opvals(meas);
+    return get_meas_opvals(meas);*/
+  return 0;
 
 }
 
 /* Moves facilities */
 
+std::vector<double> C_weigthsums = {1./3, 2./3, 1.};
+/*
 std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
 				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
 				    9./24, 10./24, 11./24, 12./24, //8<=Ci<=11
@@ -320,6 +322,35 @@ void apply_C_inverse(ComplexVec& state, const uint &Ci){
     }
 }
     
+*/
 
+void apply_C(ComplexVec& state, const uint &Ci){
+  switch(Ci){
+  case 0U:
+    suqa::apply_x(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink0[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 1U:
+    suqa::apply_x(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink1[0])\n"));
+    DEBUG_READ_STATE(state);
+    suqa::apply_x(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 2U:
+    suqa::apply_x(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  default:
+    throw std::runtime_error("ERROR: wrong move selection");
+  }
+}
+
+void apply_C_inverse(ComplexVec& state, const uint &Ci){
+  apply_C(state,Ci);
+}
 
 std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
