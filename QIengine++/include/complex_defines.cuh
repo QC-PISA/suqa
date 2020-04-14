@@ -5,8 +5,8 @@
 #include <cuda_device_runtime_api.h>
 #include <cuComplex.h>
 
-
 // single structure
+typedef unsigned int uint;
 typedef cuDoubleComplex Complex; 
 
 // structure of arrays
@@ -96,7 +96,13 @@ __host__ __device__ static __inline__ Complex expi(double z){
 
     Complex res;
 
-    sincos (z, &res.y, &res.x);
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+    res.y = sin(z);
+    res.x = cos(z);
+#else
+    sincos(z, &res.y, &res.x);
+#endif
+
 
     return res;
 

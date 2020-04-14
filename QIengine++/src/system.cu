@@ -1,13 +1,7 @@
 #include "system.cuh"
-#include "include/Rand.hpp"
+#include "Rand.hpp"
 
-/* d4 gauge theory - two plaquettes
- 
-   link state 3 qubits
-   system state: 4 links -> 12 qubits
-   +1 ancillary qubit
 
- */
 
 //TODO: make the number of "state" qubits determined at compilation time in system.cuh
 double g_beta;
@@ -20,7 +14,7 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         state_im[i] = 0.0;
         i += gridDim.x*blockDim.x;
     }
-    if(blockIdx.x*blockDim.x+threadIdx.x==1){
+    if(blockIdx.x*blockDim.x+threadIdx.x==0){
         state_re[0] = 1.0;
         state_im[0] = 0.0;
     }
@@ -39,10 +33,10 @@ __inline__ double fm(double b){
 void init_state(ComplexVec& state, uint Dim){
 
     if(state.size()!=Dim)
-        throw std::runtime_error("ERROR: init_state() failed");
+	throw std::runtime_error("ERROR: init_state() failed");
     
     // zeroes entries and set state to all the computational element |000...00>
-    initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
+    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
 
     suqa::apply_h(state, bm_qlink0[0]);
@@ -57,8 +51,6 @@ void init_state(ComplexVec& state, uint Dim){
 ////    state[3] = -TWOSQINV; 
 }
 
-
-/* Quantum evolutor of the state */
 
 void inversion(ComplexVec& state, const bmReg& q){
 //    suqa::apply_mcx(state,{q[0],q[2]},{1U,0U},q[1]); 
@@ -120,13 +112,6 @@ void momentum_phase(ComplexVec& state, const bmReg& qr, double th1, double th2){
 }
 
 void evolution(ComplexVec& state, const double& t, const int& n){
-
-
-//    uint cmask = (1U << q_control);
-//	uint mask = cmask;
-//    for(const auto& qs : qstate){
-//        mask |= (1U << qs);
-//    }
 
     const double dt = -t/(double)n;
 
@@ -202,9 +187,9 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 
 /* Measure facilities */
 
-const uint op_bits = 3; // 2^op_bits is the number of eigenvalues for the observable
+const uint op_bits = 1; // 2^op_bits is the number of eigenvalues for the observable
 const bmReg bm_op = bm_qlink1; // where the measure has to be taken
-const std::vector<double> op_vals = {2.0,0.0,-2.0, 0.0,0.0,0.0,0.0,0.0}; // eigvals
+const std::vector<double> op_vals = {2.0,0.0}; // eigvals
 
  
 // change basis to the observable basis somewhere in the system registers
@@ -215,7 +200,6 @@ void apply_measure_rotation(ComplexVec& state){
 // inverse of the above function
 void apply_measure_antirotation(ComplexVec& state){
     inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-
 }
 
 // map the classical measure recorded in creg_vals
@@ -297,6 +281,9 @@ void inverse_link_plaqevolve(ComplexVec& state, const uint&Ci){
 
 
 
+
+
+
 void apply_C(ComplexVec& state, const uint &Ci){
   uint s = (Ci<16U) ? 0 : 1;
   switch(s){
@@ -352,8 +339,10 @@ void apply_C(ComplexVec& state, const uint &Ci){
   }
 }
 
+
 void apply_C_inverse(ComplexVec& state, const uint &Ci){
   apply_C(state,Ci);
 }
 
 std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
+

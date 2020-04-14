@@ -1,10 +1,31 @@
+﻿#ifndef __CUDACC__  
+#define __CUDACC__
+#endif
 #include "suqa.cuh"
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+#include <device_launch_parameters.h>
+
+void suqa::print_banner(){
+    printf("\n"
+"                                          \n" 
+"    ███████╗██╗   ██╗ ██████╗  █████╗     \n" 
+"    ██╔════╝██║   ██║██╔═══██╗██╔══██╗    \n" 
+"    ███████╗██║   ██║██║   ██║███████║    \n" 
+"    ╚════██║██║   ██║██║▄▄ ██║██╔══██║    \n" 
+"    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
+"    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
+"                                          \n" 
+"\nSimulator for Universal Quantum Algorithms\n\n");
+}
+
+
 //#include "cub/cub/cub.cuh" 
 //#include <thrust/transform_reduce.h>
 //#include <thrust/execution_policy.h>
 //#include <thrust/functional.h>
 
-#if !defined(NDEBUG)
+#ifndef NDEBUG
 double *host_state_re, *host_state_im;
 #endif
 
@@ -553,7 +574,7 @@ void kernel_suqa_phase_list(double *const state_re, double *const state_im, uint
 
 
 void suqa::apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::vector<double>& phases){
-    if (not (q_size>0U and phases.size()==(1U<<q_size))){
+    if(!(q_size>0U and phases.size()==(1U<<q_size))){
         throw std::runtime_error("ERROR: in suqa::apply_phase_list(): invalid q_size or phases.size()");
     }
 
@@ -885,17 +906,17 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
         mask_q1 = (1U << q_apply_cpy[0]);
         mask_q2 = (1U << q_apply_cpy[1]);
 
-        if(pauli_TPtype_cpy[0]==PAULI_X && pauli_TPtype_cpy[1]==PAULI_X){
+        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
             kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Y && pauli_TPtype_cpy[1]==PAULI_Y){
+        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
             kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Z && pauli_TPtype_cpy[1]==PAULI_Z){
+        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
             kernel_suqa_pauli_TP_rotation_zz<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_X && pauli_TPtype_cpy[1]==PAULI_Y){
+        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
             kernel_suqa_pauli_TP_rotation_xy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_X && pauli_TPtype_cpy[1]==PAULI_Z){
+        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
             kernel_suqa_pauli_TP_rotation_zx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Y && pauli_TPtype_cpy[1]==PAULI_Z){
+        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
             kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
         }
 
@@ -1173,3 +1194,8 @@ void suqa::clear(){
     }
 
 }
+
+//int main(){
+//    std::cout<<"Suqa unit testing to be implemented"<<std::endl;
+//    return 0;
+//}

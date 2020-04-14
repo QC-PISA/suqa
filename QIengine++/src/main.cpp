@@ -10,11 +10,18 @@
 #include <cassert>
 #include "Rand.hpp"
 #include <chrono>
+<<<<<<< HEAD
 #include <unistd.h>
 #include "include/io.hpp"
 #include "include/parser.hpp"
 #include "include/suqa_gates.hpp"
 #include "include/qms.hpp"
+=======
+#include "io.hpp"
+#include "parser.hpp"
+#include "suqa.hpp"
+#include "qms.hpp"
+>>>>>>> master
 
 using namespace std;
 
@@ -57,8 +64,13 @@ void save_measures(string outfilename){
 }
 
 int main(int argc, char** argv){
+<<<<<<< HEAD
     if(argc < 7){
         printf("usage: ./%s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+=======
+    if(argc < 8){
+        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+>>>>>>> master
         exit(1);
     }
 
@@ -135,6 +147,7 @@ int main(int argc, char** argv){
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
+<<<<<<< HEAD
             fil = fopen(outfilename.c_str(), "a");
             for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
                 if(qms::Xmatstem!=""){
@@ -151,6 +164,8 @@ int main(int argc, char** argv){
             cout<<("\riteration: "+to_string(s)+"/"+to_string(qms::metro_steps));
             cout.flush();
 #else
+=======
+>>>>>>> master
             cout<<("iteration: "+to_string(s)+"/"+to_string(qms::metro_steps))<<endl;
             save_measures(outfilename);
         }
@@ -159,6 +174,11 @@ int main(int argc, char** argv){
 
     save_measures(outfilename);
 
+<<<<<<< HEAD
+=======
+    cout<<"all fine :)\n"<<endl;
+
+>>>>>>> master
 
 
     if(qms::record_reverse){

@@ -5,8 +5,10 @@
 #include <algorithm>
 #include "io.hpp"
 #include "complex_defines.cuh"
+#include "device_launch_parameters.h"
 
-#ifdef CUDA
+
+//#ifdef CUDA
 
 #if !defined(NDEBUG) 
 extern double *host_state_re, *host_state_im;
@@ -17,9 +19,9 @@ extern double *host_state_re, *host_state_im;
     printf("vnorm = %.12lg\n",suqa::vnorm(state));\
     sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
-#else
-#define DEBUG_READ_STATE(state)
-#endif
+//#else
+//#define DEBUG_READ_STATE(state)
+//#endif
 
 #else
 #define DEBUG_READ_STATE(state)
@@ -46,6 +48,8 @@ extern cudaStream_t stream1, stream2;
 // using it as condition (the user should make sure
 // to use it only for operations not involving it)
 extern uint gc_mask;
+
+void print_banner();
 
 void activate_gc_mask(const bmReg& q_controls);
 void deactivate_gc_mask();
