@@ -1,13 +1,7 @@
 #include "system.cuh"
-#include "include/Rand.hpp"
+#include "Rand.hpp"
 
-/* d4 gauge theory - two plaquettes
- 
-   link state 3 qubits
-   system state: 4 links -> 12 qubits
-   +1 ancillary qubit
 
- */
 
 //TODO: make the number of "state" qubits determined at compilation time in system.cuh
 double g_beta;
@@ -20,7 +14,7 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         state_im[i] = 0.0;
         i += gridDim.x*blockDim.x;
     }
-    if(blockIdx.x*blockDim.x+threadIdx.x==1){
+    if(blockIdx.x*blockDim.x+threadIdx.x==0){
         state_re[0] = 1.0;
         state_im[0] = 0.0;
     }
@@ -39,15 +33,14 @@ __inline__ double fm(double b){
 void init_state(ComplexVec& state, uint Dim){
 
     if(state.size()!=Dim)
-        throw std::runtime_error("ERROR: init_state() failed");
+	throw std::runtime_error("ERROR: init_state() failed");
     
     // zeroes entries and set state to all the computational element |000...00>
-    initialize_state<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(state.data_re, state.data_im,Dim);
+    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im,Dim);
     cudaDeviceSynchronize();
 
     suqa::apply_h(state, bm_qlink0[0]);
-    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
-  
+    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);  
     DEBUG_CALL(printf("after init_state()\n"));
     DEBUG_READ_STATE(state);
 
@@ -58,8 +51,6 @@ void init_state(ComplexVec& state, uint Dim){
 ////    state[3] = -TWOSQINV; 
 }
 
-
-/* Quantum evolutor of the state */
 
 void inversion(ComplexVec& state, const bmReg& q){
 //    suqa::apply_mcx(state,{q[0],q[2]},{1U,0U},q[1]); 
@@ -95,7 +86,10 @@ void inverse_self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr
 // }
 
 void self_trace_operator(ComplexVec& state, const bmReg& qr, double th){
+  suqa::apply_x(state, qr[0]);  
   suqa::apply_u1(state,qr[0],th); 
+  suqa::apply_x(state, qr[0]);
+
 }
 
 void fourier_transf_z2(ComplexVec& state, const bmReg& qr){
@@ -119,18 +113,11 @@ void momentum_phase(ComplexVec& state, const bmReg& qr, double th1, double th2){
 
 void evolution(ComplexVec& state, const double& t, const int& n){
 
-
-//    uint cmask = (1U << q_control);
-//	uint mask = cmask;
-//    for(const auto& qs : qstate){
-//        mask |= (1U << qs);
-//    }
-
     const double dt = -t/(double)n;
 
     const double theta1 = dt*fp(g_beta);
     const double theta2 = dt*fm(g_beta);
-    const double theta = 2*dt*g_beta;
+    const double theta = 4*dt*g_beta;
 
     DEBUG_CALL(if(n>0) printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg\n", g_beta, dt, theta1, theta));
 
@@ -145,15 +132,15 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE(state);
 
-        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink2, theta);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
-        DEBUG_READ_STATE(state);
-        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
+//        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+//        DEBUG_CALL(printf("after self_plaquette()\n"));
+//        DEBUG_READ_STATE(state);
+//        self_trace_operator(state, bm_qlink2, theta);
+//        DEBUG_CALL(printf("after self_trace_operator()\n"));
+//        DEBUG_READ_STATE(state);
+//        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+//        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
+//        DEBUG_READ_STATE(state);
 
         fourier_transf_z2(state, bm_qlink0);
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink0)\n"));
@@ -200,9 +187,9 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 
 /* Measure facilities */
 
-const uint op_bits = 3; // 2^op_bits is the number of eigenvalues for the observable
+const uint op_bits = 1; // 2^op_bits is the number of eigenvalues for the observable
 const bmReg bm_op = bm_qlink1; // where the measure has to be taken
-const std::vector<double> op_vals = {2.0,0.0,-2.0, 0.0,0.0,0.0,0.0,0.0}; // eigvals
+const std::vector<double> op_vals = {2.0,0.0}; // eigvals
 
  
 // change basis to the observable basis somewhere in the system registers
@@ -213,7 +200,6 @@ void apply_measure_rotation(ComplexVec& state){
 // inverse of the above function
 void apply_measure_antirotation(ComplexVec& state){
     inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-
 }
 
 // map the classical measure recorded in creg_vals
@@ -226,7 +212,7 @@ double get_meas_opvals(const uint& creg_vals){
 // actually perform the measure
 // there is no need to change it
 double measure_X(ComplexVec& state, pcg& rgen){
-    std::vector<uint> classics(op_bits);
+  /*    std::vector<uint> classics(op_bits);
     
     apply_measure_rotation(state);
 
@@ -243,12 +229,15 @@ double measure_X(ComplexVec& state, pcg& rgen){
         meas |= (classics[i] << i);
     }
 
-    return get_meas_opvals(meas);
+    return get_meas_opvals(meas);*/
+  return 0;
 
 }
 
 /* Moves facilities */
 
+std::vector<double> C_weigthsums = {1./3, 2./3, 1.};
+/*
 std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
 				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
 				    9./24, 10./24, 11./24, 12./24, //8<=Ci<=11
@@ -292,6 +281,9 @@ void inverse_link_plaqevolve(ComplexVec& state, const uint&Ci){
 
 
 
+
+
+
 void apply_C(ComplexVec& state, const uint &Ci){
   uint s = (Ci<16U) ? 0 : 1;
   switch(s){
@@ -320,6 +312,37 @@ void apply_C_inverse(ComplexVec& state, const uint &Ci){
     }
 }
     
+*/
 
+void apply_C(ComplexVec& state, const uint &Ci){
+  switch(Ci){
+  case 0U:
+    suqa::apply_x(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink0[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 1U:
+    suqa::apply_x(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink1[0])\n"));
+    DEBUG_READ_STATE(state);
+    suqa::apply_x(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 2U:
+    suqa::apply_x(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  default:
+    throw std::runtime_error("ERROR: wrong move selection");
+  }
+}
+
+
+void apply_C_inverse(ComplexVec& state, const uint &Ci){
+  apply_C(state,Ci);
+}
 
 std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
+

@@ -10,60 +10,43 @@ void init_state(std::vector<Complex>& state, uint Dim){
 //    state[3] = -TWOSQINV; 
 }
 
-// /* Hamiltonian
-//  *
-//  * H = {{1, 0, 0},{0, 1, 1},{0, 1, 1}}; -> E = 1, 2, 0
-//  *
-//  */
-// 
-// /* Quantum evolutor of the state */
-// void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
-// 
-//      (void)n; // Trotter not needed
-//      double dt = t;
-//  
-// 
-//     if(qstate.size()!=2)
-//         throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
-// 
-//     uint cmask = (1U << q_control);
-// 	uint mask = cmask;
-//     for(const auto& qs : qstate){
-//         mask |= (1U << qs);
-//     }
-// 
-// 	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
-//         if((i_0 & mask) == cmask){
-//       
-//             uint i_1 = i_0 | (1U << qstate[0]);
-//             uint i_2 = i_0 | (1U << qstate[1]);
-// //            uint i_3 = i_1 | i_2;
-// 
-//             std::complex<double> a_0 = state[i_0];
-//             std::complex<double> a_1 = state[i_1];
-//             std::complex<double> a_2 = state[i_2];
-// //            std::complex<double> a_3 = state[i_3];
-//             
-//             state[i_0] = exp(-dt*iu)*a_0;
-//             state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
-//             state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
-// //            state[i_3] = exp(-dt*iu)*a_3;
-//         }
-//     }
-// 
-// }
-
-/* Hamiltonian
- *
- * H = E = 0, 1/2, 1/sqrt(2), 3/4
- *
- */
-
-#define eig1 (1./sqrt(2.0))
-#define eig2 (1./2.)     
-#define eig3 (3./4.) 
-
 /* Quantum evolutor of the state */
+//void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
+//
+//     (void)n; // Trotter not needed
+//     double dt = t;
+// 
+//
+//    if(qstate.size()!=2)
+//        throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+//
+//    uint cmask = (1U << q_control);
+//	uint mask = cmask;
+//    for(const auto& qs : qstate){
+//        mask |= (1U << qs);
+//    }
+//
+//	for(uint i_0 = 0U; i_0 < state.size(); ++i_0){
+//        if((i_0 & mask) == cmask){
+//      
+//            uint i_1 = i_0 | (1U << qstate[0]);
+//            uint i_2 = i_0 | (1U << qstate[1]);
+//            uint i_3 = i_1 | i_2;
+//
+//            std::complex<double> a_0 = state[i_0];
+//            std::complex<double> a_1 = state[i_1];
+//            std::complex<double> a_2 = state[i_2];
+//            std::complex<double> a_3 = state[i_3];
+//            
+//            state[i_0] = exp(-dt*iu)*a_0;
+//            state[i_1] = exp(-dt*iu)*(cos(dt)*a_1 -sin(dt)*iu*a_2);
+//            state[i_2] = exp(-dt*iu)*(-sin(dt)*iu*a_1 + cos(dt)*a_2);
+//            state[i_3] = exp(-dt*iu)*a_3;
+//        }
+//    }
+//
+//}
+
 void cevolution(std::vector<std::complex<double>>& state, const double& t, const int& n, const uint& q_control, const std::vector<uint>& qstate){
 
      (void)n; // Trotter not needed
