@@ -94,7 +94,10 @@ void inverse_self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr
 // }
 
 void self_trace_operator(ComplexVec& state, const bmReg& qr, double th){
+  suqa::apply_x(state, qr[0]);  
   suqa::apply_u1(state,qr[0],th); 
+  suqa::apply_x(state, qr[0]);
+
 }
 
 void fourier_transf_z2(ComplexVec& state, const bmReg& qr){
@@ -129,7 +132,7 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 
     const double theta1 = dt*fp(g_beta);
     const double theta2 = dt*fm(g_beta);
-    const double theta = 2*dt*g_beta;
+    const double theta = 4*dt*g_beta;
 
     DEBUG_CALL(if(n>0) printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg\n", g_beta, dt, theta1, theta));
 
@@ -144,15 +147,15 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE(state);
 
-        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink2, theta);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
-        DEBUG_READ_STATE(state);
-        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
-        DEBUG_READ_STATE(state);
+//        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+//        DEBUG_CALL(printf("after self_plaquette()\n"));
+//        DEBUG_READ_STATE(state);
+//        self_trace_operator(state, bm_qlink2, theta);
+//        DEBUG_CALL(printf("after self_trace_operator()\n"));
+//        DEBUG_READ_STATE(state);
+//        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+//        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
+//        DEBUG_READ_STATE(state);
 
         fourier_transf_z2(state, bm_qlink0);
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink0)\n"));
