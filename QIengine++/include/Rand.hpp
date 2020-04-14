@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * \file Rand.hpp
  * Lattice class definition.
@@ -7,16 +9,24 @@
  * \author Giuseppe Clemente <giuseppe.clemente93@gmail.com> 
  * \version 1.0
  */
-#pragma once
 #include <fstream>
 #include <string>
 #include <math.h>
-#include <sys/time.h>
 #include <iostream>
 #include "pcg32.h"
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
-constexpr auto M_PI = 3.141592653589793238462643383279502884L;
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(__MINGW64__)
+#ifndef M_PI
+#define M_PI (3.141592653589793238462643383279502884L)
+#endif
+#include <chrono>
+#include <winsock.h>
+
+int rand_get_time(struct timeval* tp, struct timezone* tzp);
+#else
+#include <sys/time.h>
+#define rand_get_time gettimeofday
 #endif
 
 typedef unsigned long long int Ullong;
@@ -41,7 +51,7 @@ class Ran {
 		Ran(Ullong j) : v(4101842887655102017ULL), w(1) {
 			if(j==0){
 				struct timeval tval;
-				gettimeofday(&tval,NULL);
+				rand_get_time(&tval,NULL);
 				j=tval.tv_sec*1000000ULL+tval.tv_usec;
 			}
 			u = j ^ v; int64();
@@ -70,7 +80,7 @@ class Ran {
 		
 		void restart(){
 			struct timeval tval;
-			gettimeofday(&tval,NULL);
+			rand_get_time(&tval,NULL);
 			Ullong j=tval.tv_sec*1000000ULL+tval.tv_usec;
 			v=4101842887655102017ULL;
 			w=1;
@@ -247,7 +257,7 @@ class pcg{
         pcg(Ullong j){
             if(j==0){
                 struct timeval tval;
-                gettimeofday(&tval,NULL);
+                rand_get_time(&tval,NULL);
                 j=tval.tv_sec*1000000ULL+tval.tv_usec;
             }
             seed = j;

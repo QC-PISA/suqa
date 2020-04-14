@@ -16,6 +16,7 @@ const bmReg bm_qlink3 =  {3};
 
 extern double g_beta;
 
+
 void init_state(ComplexVec& state, uint Dim);
 
 void evolution(ComplexVec& state, const double& t, const int& n);
