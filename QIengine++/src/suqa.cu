@@ -1010,9 +1010,10 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     uint c_conj = c^1U; // 1U-c, since c=0U or 1U
 
 
-#ifndef NDEBUG
-    std::cout<<"prob1="<<prob1<<", c_conj="<<c_conj<<std::endl;
-#endif
+// #ifndef NDEBUG
+//     std::cout<<"prob1="<<prob1<<", c_conj="<<c_conj<<std::endl;
+// #endif
+
 //#if defined(CUDA_HOST)
 //    DEBUG_CALL(std::cout<<"before flipping qbit "<<c_conj<<std::endl);
 //    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
