@@ -125,7 +125,7 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after self_plaquette()\n"));
         DEBUG_READ_STATE(state);
-        self_trace_operator(state, bm_qlink1, theta);
+        self_trace_operator(state, bm_qlink1, theta*0.5);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE(state);
         inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
@@ -181,6 +181,17 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         inverse_fourier_transf_z2(state, bm_qlink0);
         DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink0)\n"));
         DEBUG_READ_STATE(state);
+
+        self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        DEBUG_CALL(printf("after self_plaquette()\n"));
+        DEBUG_READ_STATE(state);
+        self_trace_operator(state, bm_qlink1, theta*0.5);
+        DEBUG_CALL(printf("after self_trace_operator()\n"));
+        DEBUG_READ_STATE(state);
+        inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
+        DEBUG_READ_STATE(state);
+
     }
 }
 
@@ -325,9 +336,9 @@ void apply_C(ComplexVec& state, const uint &Ci){
     suqa::apply_x(state, bm_qlink1[0]);
     DEBUG_CALL(printf("after apply_x(state, bm_qlink1[0])\n"));
     DEBUG_READ_STATE(state);
-    suqa::apply_x(state, bm_qlink2[0]);
-    DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
-    DEBUG_READ_STATE(state);
+    //suqa::apply_x(state, bm_qlink2[0]);
+    //DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
+    //DEBUG_READ_STATE(state);
     break;
   case 2U:
     suqa::apply_x(state, bm_qlink2[0]);
