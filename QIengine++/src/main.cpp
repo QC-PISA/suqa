@@ -10,10 +10,11 @@
 #include <cassert>
 #include "Rand.hpp"
 #include <chrono>
-#include "io.hpp"
-#include "parser.hpp"
-#include "suqa.hpp"
-#include "qms.hpp"
+#include <unistd.h>
+#include "include/io.hpp"
+#include "include/parser.hpp"
+#include "include/suqa_gates.hpp"
+#include "include/qms.hpp"
 
 using namespace std;
 
@@ -56,8 +57,8 @@ void save_measures(string outfilename){
 }
 
 int main(int argc, char** argv){
-    if(argc < 8){
-        printf("usage: %s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--thermalization <steps>=100] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
+    if(argc < 7){
+        printf("usage: ./%s <beta> <h> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts>=20] [--seed <seed>=random] [--PE-time <factor for time in PE (coeff. of 2pi)>=1.0] [--PE-steps <steps of PE evolution>=10] [--X-mat-stem <stem for X measure matrix>] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
@@ -113,6 +114,14 @@ int main(int argc, char** argv){
         fclose(fil);
     }
 
+    FILE * fil;
+    // manage header
+    if( access(outfilename.c_str(), F_OK) == -1){
+        fil = fopen(outfilename.c_str(), "w");
+        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
+        fclose(fil);
+    }
+
     bool take_measure;
     uint s0 = 0U;
     for(uint s = 0U; s < qms::metro_steps; ++s){
@@ -126,6 +135,22 @@ int main(int argc, char** argv){
             s0 = s+1; 
         }
         if(s%perc_mstep==0){
+            fil = fopen(outfilename.c_str(), "a");
+            for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
+                if(qms::Xmatstem!=""){
+                    fprintf(fil, "%.16lg %.16lg\n", qms::E_measures[ei], qms::X_measures[ei]);
+                }else{
+                    fprintf(fil, "%.16lg\n", qms::E_measures[ei]);
+                }
+            }
+            fclose(fil);
+            qms::E_measures.clear();
+            qms::X_measures.clear();
+
+#ifdef NDEBUG
+            cout<<("\riteration: "+to_string(s)+"/"+to_string(qms::metro_steps));
+            cout.flush();
+#else
             cout<<("iteration: "+to_string(s)+"/"+to_string(qms::metro_steps))<<endl;
             save_measures(outfilename);
         }
@@ -134,13 +159,10 @@ int main(int argc, char** argv){
 
     save_measures(outfilename);
 
-    cout<<"all fine :)\n"<<endl;
-
 
 
     if(qms::record_reverse){
         FILE * fil_rev = fopen((outfilename+"_revcounts").c_str(), "w");
-
 
         for(uint i = 0; i < qms::reverse_counters.size(); ++i){
             fprintf(fil_rev, "%d %d\n", i, (int)qms::reverse_counters[i]);
