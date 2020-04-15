@@ -32,14 +32,17 @@ $(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES) $(OBJDIR)
 
 $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR)
 	$(NVCC) $(NVCCFLAGS) -o $@ -c $< 
+	
+main: $(OBJDIR)/system.o $(OBJDIR)/main.o
+	$(CXX) $(CXXFLAGS) $(OBJDIR)/system.o $(OBJDIR)/main.o -o main
 
-main: $(OBJDIR)/main.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
+main_gpu: $(OBJDIR)/main.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
 
-test_evolution: NVCCFLAGS += -DNDEBUG
-test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
+#test_evolution: NVCCFLAGS += -DNDEBUG
+test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
 
 clean:
-	rm -rf main test_evolution $(OBJDIR)
+	rm -rf main main_gpu $(OBJDIR) test_evolution
 
