@@ -1,6 +1,7 @@
 #include "io.hpp"
 
 int get_time(struct timeval* tp, struct timezone* tzp){
+	(void)tzp;
 	namespace sc = std::chrono;
 	sc::system_clock::duration d = sc::system_clock::now().time_since_epoch();
 	sc::seconds s = sc::duration_cast<sc::seconds>(d);

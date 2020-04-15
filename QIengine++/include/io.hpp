@@ -4,6 +4,7 @@
 #include <vector>
 #include <cmath>
 #include <bitset>
+#include <chrono>
 
 typedef unsigned int uint;
 #ifndef M_PI
@@ -18,7 +19,6 @@ int get_time(struct timeval* tp, struct timezone* tzp);
 #define or ||
 #pragma comment(lib, "Shlwapi.lib")
 #include <Shlwapi.h>
-#include <chrono>
 #include <winsock.h>
 #else
 #include <unistd.h>

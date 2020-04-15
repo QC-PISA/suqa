@@ -36,6 +36,9 @@ $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR)
 main: $(OBJDIR)/system.o $(OBJDIR)/main.o
 	$(CXX) $(CXXFLAGS) $(OBJDIR)/system.o $(OBJDIR)/main.o -o main
 
+main_gpu: $(OBJDIR)/main.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
+	$(NVCC) $^ -o $@
+
 #test_evolution: NVCCFLAGS += -DNDEBUG
 test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
