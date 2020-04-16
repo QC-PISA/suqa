@@ -328,21 +328,27 @@ void apply_C_inverse(ComplexVec& state, const uint &Ci){
 void apply_C(ComplexVec& state, const uint &Ci){
   switch(Ci){
   case 0U:
-    suqa::apply_x(state, bm_qlink0[0]);
-    DEBUG_CALL(printf("after apply_x(state, bm_qlink0[0])\n"));
+    suqa::apply_h(state, bm_qlink1[0]);
+    suqa::apply_x(state, bm_qlink1[0]);
+    suqa::apply_h(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after Z(state, bm_qlink1[0])\n"));
     DEBUG_READ_STATE(state);
     break;
   case 1U:
-    suqa::apply_x(state, bm_qlink1[0]);
-    DEBUG_CALL(printf("after apply_x(state, bm_qlink1[0])\n"));
+    suqa::apply_h(state, bm_qlink2[0]);
+    suqa::apply_x(state, bm_qlink2[0]);
+    suqa::apply_h(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after Z(state, bm_qlink2[0])\n"));
     DEBUG_READ_STATE(state);
-    //suqa::apply_x(state, bm_qlink2[0]);
-    //DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
-    //DEBUG_READ_STATE(state);
     break;
   case 2U:
+    suqa::apply_x(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after i*Y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 3U:
     suqa::apply_x(state, bm_qlink2[0]);
-    DEBUG_CALL(printf("after apply_x(state, bm_qlink2[0])\n"));
+    DEBUG_CALL(printf("after i*Y(state, bm_qlink2[0])\n"));
     DEBUG_READ_STATE(state);
     break;
   default:
