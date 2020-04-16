@@ -1,3 +1,8 @@
 # Thermal methods for Quantum Information
 
-contributors: Marco Cardinali and Giuseppe Clemente
+## Collaborators (chronological order)
+Giuseppe Clemente
+Marco Cardinali
+Lorenzo Maio
+Claudio Bonanno
+Riccardo Aiudi
