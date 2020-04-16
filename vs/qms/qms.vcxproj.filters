@@ -49,5 +49,6 @@
     <CudaCompile Include="..\..\src\system.cu">
       <Filter>sources</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\..\src\qms.cu" />
   </ItemGroup>
 </Project>

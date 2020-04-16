@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="..\..\src\main.cu" />
+    <CudaCompile Include="..\..\src\qms.cu" />
     <CudaCompile Include="..\..\src\suqa.cu" />
     <CudaCompile Include="..\..\src\system.cu" />
   </ItemGroup>
