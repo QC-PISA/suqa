@@ -346,11 +346,6 @@ void apply_C(ComplexVec& state, const uint &Ci){
     DEBUG_CALL(printf("after i*Y(state, bm_qlink2[0])\n"));
     DEBUG_READ_STATE(state);
     break;
-  case 3U:
-    suqa::apply_x(state, bm_qlink2[0]);
-    DEBUG_CALL(printf("after i*Y(state, bm_qlink2[0])\n"));
-    DEBUG_READ_STATE(state);
-    break;
   default:
     throw std::runtime_error("ERROR: wrong move selection");
   }
