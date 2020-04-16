@@ -90,6 +90,12 @@ void vnormalize(ComplexVec& v);
 void apply_x(ComplexVec& state, uint q);
 void apply_x(ComplexVec& state, const bmReg& qs);
 
+void apply_y(ComplexVec& state, uint q);
+void apply_y(ComplexVec& state, const bmReg& qs);
+
+void apply_z(ComplexVec& state, uint q);
+void apply_z(ComplexVec& state, const bmReg& qs);
+
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const bmReg& qs);
 
@@ -99,7 +105,10 @@ void apply_t(ComplexVec& state, const bmReg& qs);
 void apply_tdg(ComplexVec& state, uint q);
 void apply_tdg(ComplexVec& state, const bmReg& qs);
 
+// matrix:   1     0
+//           0     exp(i phase)
 void apply_u1(ComplexVec& state, uint q, double phase);
+void apply_u1(ComplexVec& state, uint q, uint q_mask, double phase);
 
 // multiple qbit gates
 //void apply_cx(ComplexVec& state, uint q_control, uint q_target);
