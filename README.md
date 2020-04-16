@@ -32,7 +32,7 @@ The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
 │   ├ qms.cu (runs the qms algorithm)  
 │   ├ suqa.cu (core engine with the implementation of quantum gates)  
 │   ├ system.cu (definitions system-specifics)  
-│   └ test\_evolution.cu (test for evolution of the system)  
+│   └ test\_evolution.cu (test evolution of the system)  
 └ vs (visual studio solution and project folders)  
     ├ qms  
     ├ suqa.sln  
@@ -63,7 +63,7 @@ In order to compile, run:
 ```bash
 make <target>
 ```
-where <target> can be 'release' for the qms algorithm in production, 
+where \<target\> can be 'release' for the qms algorithm in production, 
 'debug' for qms in debug mode, 'profile' for qms in profile mode, 
 or 'test\_evolution' for compiling test code for the system evolutor.
 
