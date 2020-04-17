@@ -38,7 +38,7 @@ double h;
 int thermalization;
 
 // defined in src/system.cu
-void init_state(ComplexVec& state, uint Dim);
+void init_state(ComplexVec& state, uint Dim, uint j=0);
 
 arg_list args;
 
@@ -147,7 +147,7 @@ int main(int argc, char** argv){
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
-            init_state(qms::gState, qms::Dim);
+	  init_state(qms::gState, qms::Dim);
             //ensure new rethermalization
             s0 = s+1; 
         }

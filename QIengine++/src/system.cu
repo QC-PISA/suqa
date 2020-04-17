@@ -7,7 +7,7 @@
 double g_beta;
 
 
-__global__ void initialize_state(double *state_re, double *state_im, uint len){
+__global__ void initialize_state(double *state_re, double *state_im, uint len, int j){
     uint i = blockIdx.x*blockDim.x+threadIdx.x;
     while(i<len){
         state_re[i] = 0.0;
@@ -15,8 +15,18 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         i += gridDim.x*blockDim.x;
     }
     if(blockIdx.x*blockDim.x+threadIdx.x==0){
+      switch(j){
+      case 0:
         state_re[0] = 1.0;
         state_im[0] = 0.0;
+	break;
+      default:
+	state_re[j] = sqrt(0.5);
+	state_im[j]= 0;
+	state_re[j+9-(2*(j%2))] = sqrt(0.5);
+	state_im[j+9-(2*(j%2))] = 0.0;
+	
+      }
     }
 }
 
@@ -30,25 +40,25 @@ __inline__ double fm(double b){
 }
 
 
-void init_state(ComplexVec& state, uint Dim){
+void init_state(ComplexVec& state, uint Dim, uint j=0){
 
     if(state.size()!=Dim)
 	throw std::runtime_error("ERROR: init_state() failed");
-    
+
+    if(j>=8)
+      throw std::runtime_error("ERROR: attempt to initialize with more than 8 basis vectors init_state()");
+
     // zeroes entries and set state to all the computational element |000...00>
-    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im,Dim);
+    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, Dim, j);
     cudaDeviceSynchronize();
 
-    suqa::apply_h(state, bm_qlink0[0]);
-    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);  
+    if(j==0){
+      suqa::apply_h(state, bm_qlink0[0]);
+      suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
+    }
+    
     DEBUG_CALL(printf("after init_state()\n"));
     DEBUG_READ_STATE(state);
-
-
-//    state.resize(Dim);
-//    std::fill_n(state.begin(), state.size(), 0.0);
-//    state[1].x = 1.0; //TWOSQINV; 
-////    state[3] = -TWOSQINV; 
 }
 
 
