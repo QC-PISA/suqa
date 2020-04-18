@@ -7,7 +7,7 @@
 double g_beta;
 
 
-__global__ void initialize_state(double *state_re, double *state_im, uint len){
+__global__ void initialize_state(double *state_re, double *state_im, uint len, int j){
     uint i = blockIdx.x*blockDim.x+threadIdx.x;
     while(i<len){
         state_re[i] = 0.0;
@@ -15,8 +15,18 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len){
         i += gridDim.x*blockDim.x;
     }
     if(blockIdx.x*blockDim.x+threadIdx.x==0){
+      switch(j){
+      case 0:
         state_re[0] = 1.0;
         state_im[0] = 0.0;
+      	break;
+      default:
+	// state_re[j] = sqrt(0.5);
+	// state_im[j]= 0;
+	// state_re[j+9-(2*(j%2))] = sqrt(0.5);
+	// state_im[j+9-(2*(j%2))] = 0.0;
+	break;
+      }
     }
 }
 
@@ -30,25 +40,25 @@ __inline__ double fm(double b){
 }
 
 
-void init_state(ComplexVec& state, uint Dim){
+void init_state(ComplexVec& state, uint Dim, uint j=0){
 
     if(state.size()!=Dim)
 	throw std::runtime_error("ERROR: init_state() failed");
-    
+
+    if(j>=8)
+      throw std::runtime_error("ERROR: attempt to initialize with more than 8 basis vectors init_state()");
+
     // zeroes entries and set state to all the computational element |000...00>
-    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im,Dim);
+    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, Dim, j);
     cudaDeviceSynchronize();
 
-    suqa::apply_h(state, bm_qlink0[0]);
-    suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);  
+    if(j==0){
+      suqa::apply_h(state, bm_qlink0[0]);
+      suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
+    }
+    
     DEBUG_CALL(printf("after init_state()\n"));
     DEBUG_READ_STATE(state);
-
-
-//    state.resize(Dim);
-//    std::fill_n(state.begin(), state.size(), 0.0);
-//    state[1].x = 1.0; //TWOSQINV; 
-////    state[3] = -TWOSQINV; 
 }
 
 
@@ -131,16 +141,6 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         inverse_self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE(state);
-
-//        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-//        DEBUG_CALL(printf("after self_plaquette()\n"));
-//        DEBUG_READ_STATE(state);
-//        self_trace_operator(state, bm_qlink2, theta);
-//        DEBUG_CALL(printf("after self_trace_operator()\n"));
-//        DEBUG_READ_STATE(state);
-//        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-//        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
-//        DEBUG_READ_STATE(state);
 
         fourier_transf_z2(state, bm_qlink0);
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink0)\n"));
@@ -247,7 +247,7 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-std::vector<double> C_weigthsums = {1./4, 2./4, 3./4, 1.};
+std::vector<double> C_weigthsums = {1.5/6, 3./6, 4./6, 5./6, 5.5/6, 1.};
 /*
 std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
 				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
@@ -338,15 +338,31 @@ void apply_C(ComplexVec& state, const uint &Ci){
     DEBUG_READ_STATE(state);
     break;
   case 2U:
-    suqa::apply_y(state, bm_qlink1[0]);
-    DEBUG_CALL(printf("after Y(state, bm_qlink1[0])\n"));
+    suqa::apply_z(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_z(state, bm_qlink0[0])\n"));
+    DEBUG_READ_STATE(state);
+    suqa::apply_z(state, bm_qlink3[0]);
+    DEBUG_CALL(printf("after apply_z(state, bm_qlink3[0])\n"));
     DEBUG_READ_STATE(state);
     break;
   case 3U:
-    suqa::apply_y(state, bm_qlink2[0]);
-    DEBUG_CALL(printf("after Y(state, bm_qlink2[0])\n"));
+    suqa::apply_y(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink0[0])\n"));
     DEBUG_READ_STATE(state);
-    break;    
+    suqa::apply_y(state, bm_qlink3[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink3[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 4U:
+    suqa::apply_y(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink1[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 5U:
+    suqa::apply_y(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
   default:
     throw std::runtime_error("ERROR: wrong move selection");
   }
