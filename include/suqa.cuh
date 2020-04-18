@@ -3,11 +3,13 @@
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
+#include <stdexcept>
 #include "io.hpp"
 #include "complex_defines.cuh"
-#include <stdexcept>
+#include "device_launch_parameters.h"
 
-#ifdef CUDA
+
+//#ifdef CUDA
 
 #if !defined(NDEBUG) 
 extern double *host_state_re, *host_state_im;
@@ -18,9 +20,9 @@ extern double *host_state_re, *host_state_im;
     printf("vnorm = %.12lg\n",suqa::vnorm(state));\
     sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
-#else
-#define DEBUG_READ_STATE(state)
-#endif
+//#else
+//#define DEBUG_READ_STATE(state)
+//#endif
 
 #else
 #define DEBUG_READ_STATE(state)
@@ -47,6 +49,8 @@ extern cudaStream_t stream1, stream2;
 // using it as condition (the user should make sure
 // to use it only for operations not involving it)
 extern uint gc_mask;
+
+void print_banner();
 
 void activate_gc_mask(const bmReg& q_controls);
 void deactivate_gc_mask();
@@ -93,11 +97,11 @@ void apply_y(ComplexVec& state, const bmReg& qs);
 void apply_z(ComplexVec& state, uint q);
 void apply_z(ComplexVec& state, const bmReg& qs);
 
-void apply_sigmap(ComplexVec& state, uint q);
-void apply_sigmap(ComplexVec& state, const bmReg& qs);
+void apply_sigma_plus(ComplexVec& state, uint q);
+void apply_sigma_plus(ComplexVec& state, const bmReg& qs);
 
-void apply_sigmam(ComplexVec& state, uint q);
-void apply_sigmam(ComplexVec& state, const bmReg& qs);
+void apply_sigma_minus(ComplexVec& state, uint q);
+void apply_sigma_minus(ComplexVec& state, const bmReg& qs);
 
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const bmReg& qs);
@@ -108,7 +112,10 @@ void apply_t(ComplexVec& state, const bmReg& qs);
 void apply_tdg(ComplexVec& state, uint q);
 void apply_tdg(ComplexVec& state, const bmReg& qs);
 
+// matrix:   1     0
+//           0     exp(i phase)
 void apply_u1(ComplexVec& state, uint q, double phase);
+void apply_u1(ComplexVec& state, uint q, uint q_mask, double phase);
 
 // multiple qbit gates
 //void apply_cx(ComplexVec& state, uint q_control, uint q_target);

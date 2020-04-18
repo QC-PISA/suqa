@@ -4,8 +4,8 @@
 #include <string>
 #include <cstring>
 #include <stdio.h>
-#include <bits/stdc++.h>
-#include <unistd.h>
+//#include <bits/stdc++.h>
+//#include <unistd.h>
 #include <cmath>
 #include <cassert>
 #include "Rand.hpp"
@@ -21,18 +21,9 @@
 
 using namespace std;
 
-void print_banner(){
-    printf("\n"
-"                                          \n" 
-"    ███████╗██╗   ██╗ ██████╗  █████╗     \n" 
-"    ██╔════╝██║   ██║██╔═══██╗██╔══██╗    \n" 
-"    ███████╗██║   ██║██║   ██║███████║    \n" 
-"    ╚════██║██║   ██║██║▄▄ ██║██╔══██║    \n" 
-"    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
-"    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
-"                                          \n" 
-"\nSimulator for Universal Quantum Algorithms\n\n");
-}
+
+
+
 
 #define NUM_THREADS 128
 #define MAXBLOCKS 65535
@@ -121,7 +112,7 @@ int main(int argc, char** argv){
 
     
     // Banner
-    print_banner();
+    suqa::print_banner();
     cout<<"arguments:\n"<<args<<endl;
 
     auto t_start = std::chrono::high_resolution_clock::now();
@@ -141,10 +132,9 @@ int main(int argc, char** argv){
     //TODO: make it an args option?
     uint perc_mstep = (qms::metro_steps+19)/20; // batched saves
     
-    if( access( outfilename.c_str(), F_OK ) == -1 ){
+    uint count_accepted = 0U;
+    if(!file_exists(outfilename.c_str())){
         FILE * fil = fopen(outfilename.c_str(), "w");
-//        fprintf(fil, "# E%s\n",(qms::Xmatstem!="")?" A":"");
-//        fprintf(fil, "# E\n");
         fprintf(fil, "# E A\n");
         fclose(fil);
     }
@@ -169,6 +159,9 @@ int main(int argc, char** argv){
             //ensure new rethermalization
             s0 = s+1; 
         }
+        if(ret==1 or ret==2){
+            count_accepted++;
+        }
         if(s%perc_mstep==0){
             cout<<"iteration: "<<s<<"/"<<qms::metro_steps<<endl;
             save_measures(outfilename);
@@ -176,6 +169,9 @@ int main(int argc, char** argv){
     }
 
     cout<<endl;
+    printf("\n\tacceptance: %3.2lg%%\n",(count_accepted/static_cast<double>(qms::metro_steps))*100.0);
+
+
     deallocate_state(qms::gState);
     qms::clear();
     suqa::clear();
@@ -187,9 +183,8 @@ int main(int argc, char** argv){
     if(qms::record_reverse){
         FILE * fil_rev = fopen((outfilename+"_revcounts").c_str(), "w");
 
-
         for(uint i = 0; i < qms::reverse_counters.size(); ++i){
-            fprintf(fil_rev, "%d %d\n", i, (int)qms::reverse_counters[i]);
+            fprintf(fil_rev, "%d %d\n", i, static_cast<int>(qms::reverse_counters[i]));
         }
         fclose(fil_rev);
     }

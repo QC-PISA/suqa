@@ -1,4 +1,0 @@
-format of anadata files:
-
-[first row: ]<num betas> <num kappas>         0.0 <kappa_0> <kappa_1> ... <kappa_k>
-[other rows:]<iteration> <exact aver> <data mean> <stdev_0> <stdev_1> ... <stdev_k>

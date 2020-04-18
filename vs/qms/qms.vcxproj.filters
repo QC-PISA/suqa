@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="headers">
+      <UniqueIdentifier>{0a140346-f8f0-4617-8e2b-dec02f296cb4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{0b726d4d-578b-4b68-89a2-fab5279f4d20}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\include\complex_defines.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\io.hpp">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\parser.hpp">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\pcg32.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\qms.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\Rand.hpp">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\suqa.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\include\system.cuh">
+      <Filter>headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\io.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\Rand.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\..\src\suqa.cu">
+      <Filter>sources</Filter>
+    </CudaCompile>
+    <CudaCompile Include="..\..\src\system.cu">
+      <Filter>sources</Filter>
+    </CudaCompile>
+    <CudaCompile Include="..\..\src\qms.cu" />
+  </ItemGroup>
+</Project>

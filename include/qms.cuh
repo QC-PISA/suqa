@@ -356,7 +356,6 @@ int metro_step(bool take_measure){
     if (c_acc == 1U){
         DEBUG_CALL(std::cout<<"accepted"<<std::endl);
         double Enew_meas_d;
-        std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
         DEBUG_CALL(std::cout<<"Measuring energy new"<<std::endl);
         suqa::measure_qbits(gState, bm_enes_new, c_E_news, extract_rands(ene_qbits));
         DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels));

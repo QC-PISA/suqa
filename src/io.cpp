@@ -1,5 +1,24 @@
 #include "io.hpp"
 
+int get_time(struct timeval* tp, struct timezone* tzp){
+	(void)tzp;
+	namespace sc = std::chrono;
+	sc::system_clock::duration d = sc::system_clock::now().time_since_epoch();
+	sc::seconds s = sc::duration_cast<sc::seconds>(d);
+	tp->tv_sec = s.count();
+	tp->tv_usec = sc::duration_cast<sc::microseconds>(d - s).count();
+
+	return 0;
+}
+
+bool file_exists(const char* fname){
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(__MINGW64__)
+    return PathFileExistsA(fname);
+#else
+    return access(fname, F_OK) != -1;
+#endif
+}
+
 template <typename T>
 std::ostream& operator<<(std::ostream& s, const std::complex<T>& c){
     s<<"("<<real(c)<<", "<<imag(c)<<")";

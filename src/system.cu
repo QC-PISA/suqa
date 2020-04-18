@@ -57,8 +57,8 @@ void apply_lamm_operator(ComplexVec& state){
 	
 	suqa::apply_z(state, bm_z2_qlink0);
 	suqa::apply_z(state, bm_z2_qferm0);
-	suqa::apply_sigmam(state, bm_z2_qferm1);
-	suqa::apply_sigmam(state, bm_z2_qferm0);	
+	suqa::apply_sigma_minus(state, bm_z2_qferm1);
+	suqa::apply_sigma_minus(state, bm_z2_qferm0);	
 }
 
 
@@ -373,13 +373,13 @@ void evolution(ComplexVec& state, const double& t, const int& n){
 
 /******* QMS and Measures *******/
 
-const uint op_bits = 3;
+//const uint op_bits = 3;
 const bmReg bm_op = bm_z2_qferm0; // where the measure has to be taken
 
 std::vector<double> C_weigthsums = {1./12, 2./12, 3./12, 4./12, 5./12, 6./12, 
 									7./12, 8./12, 9./12, 10./12, 11./12, 1.};
 
-std::vector<bmReg> link = {bm_z2_qlink0, bm_z2_qlink1, bm_z2_qlink2};
+std::vector<bmReg> links = {bm_z2_qlink0, bm_z2_qlink1, bm_z2_qlink2};
 std::vector<bmReg> ferm = {bm_z2_qferm0, bm_z2_qferm1, bm_z2_qferm2, bm_z2_qferm3};
 
 double measure_X(ComplexVec& state, pcg& rgen){
@@ -408,8 +408,8 @@ void apply_C_inverse(ComplexVec& state, const uint& Ci){
 //	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
 	suqa::apply_x(state, ferm[ferm_index]);
 	suqa::apply_x(state, ferm[ferm_index-1]);		
-//	suqa::apply_x(state, link[link_index]);	
-	suqa::apply_z(state, link[link_index]);	
+//	suqa::apply_x(state, links[link_index]);	
+	suqa::apply_z(state, links[link_index]);	
 	suqa::apply_z(state, ferm[ferm_index-1]);		
 //	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
 //	for(int i=0;i<ferm_index;i++){
@@ -427,13 +427,13 @@ void apply_C(ComplexVec& state, const uint& Ci){
 	suqa::apply_x(state, ferm[ferm_index]);
 	suqa::apply_z(state, ferm[ferm_index-1]);		
 	suqa::apply_x(state, ferm[ferm_index-1]);		
-	suqa::apply_z(state, link[link_index]);	
+	suqa::apply_z(state, links[link_index]);	
 //	suqa::apply_u1(state, ferm[ferm_index][0], -M_PI);
 //	for(int i=0;i<ferm_index;i++){
 //		suqa::apply_z(state, ferm[i]);
 //	}	
 
-//	suqa::apply_x(state, link[link_index]);	
+//	suqa::apply_x(state, links[link_index]);	
 }
 
 std::vector<double> get_C_weigthsums() { return C_weigthsums;} 
