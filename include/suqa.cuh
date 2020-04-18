@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <vector>
 #include <algorithm>
+#include <stdexcept>
 #include "io.hpp"
 #include "complex_defines.cuh"
 #include "device_launch_parameters.h"
@@ -95,6 +96,12 @@ void apply_y(ComplexVec& state, const bmReg& qs);
 
 void apply_z(ComplexVec& state, uint q);
 void apply_z(ComplexVec& state, const bmReg& qs);
+
+void apply_sigma_plus(ComplexVec& state, uint q);
+void apply_sigma_plus(ComplexVec& state, const bmReg& qs);
+
+void apply_sigma_minus(ComplexVec& state, uint q);
+void apply_sigma_minus(ComplexVec& state, const bmReg& qs);
 
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const bmReg& qs);

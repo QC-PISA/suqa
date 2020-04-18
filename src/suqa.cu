@@ -269,7 +269,7 @@ void kernel_suqa_x(double *const state_re, double *const state_im, uint len, uin
 
 void suqa::apply_x(ComplexVec& state, uint q){
     kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
-}  
+}
 
 void suqa::apply_x(ComplexVec& state, const bmReg& qs){
     for(const auto& q : qs)
@@ -319,25 +319,63 @@ void suqa::apply_z(ComplexVec& state, const bmReg& qs){
 	suqa::apply_u1(state, q, M_PI);
 }  
 
-// no way...
-//__global__ 
-//void kernel_suqa_mx(Complex *const state, uint len, uint msq, uint mask){
-//    // msq here stands for most significant qubit
-//    uint i = blockDim.x*blockIdx.x + threadIdx.x;
-//    while(i<len){
-//        if(i & (1U << msq)){
-//            uint j = i & ~(1U << msq); // j has 0 on q-th digit
-//            swap_cmpx(&state[i],&state[j]);
-//        }
-//        i+=gridDim.x*blockDim.x;
-//    }
-//}
+//  SIGMA+ = 1/2(X+iY) GATE
+
+__global__ 
+void kernel_suqa_sigma_plus(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U <<q);
+    while(i<len){
+        if((i & glob_mask) == glob_mask){
+            uint j = i & ~(1U << q); // j has 0 on q-th digit
+        	state_re[j]=state_re[i];
+        	state_im[j]=state_im[i];
+        	state_re[i]=0;
+        	state_im[i]=0;
+		}
+        i+=gridDim.x*blockDim.x;
+    }
+}
 
 
-//void suqa::qi_x(ComplexVec& state, const vector<uint>& qs){
-//    for(const auto& q : qs)
-//        qi_x(state, q);
-//}  
+void suqa::apply_sigma_plus(ComplexVec& state, uint q){
+    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+void suqa::apply_sigma_plus(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+        kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}
+
+
+//  SIGMA- = 1/2(X-iY) GATE
+
+__global__ 
+void kernel_suqa_sigma_minus(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U <<q);
+    while(i<len){
+        if((i & glob_mask) == glob_mask){
+            uint j = i & ~(1U << q); // j has 0 on q-th digit
+        	state_re[i]=state_re[j];
+        	state_im[i]=state_im[j];
+        	state_re[j]=0;
+        	state_im[j]=0;
+		}
+        i+=gridDim.x*blockDim.x;
+    }
+}
+
+
+void suqa::apply_sigma_minus(ComplexVec& state, uint q){
+    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+void suqa::apply_sigma_minus(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+        kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}
+
 
 //  HADAMARD GATE
 
