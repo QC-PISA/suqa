@@ -29,7 +29,7 @@ uint suqa::threads;
 uint suqa::blocks;
 cudaStream_t suqa::stream1, suqa::stream2;
 
-double *host_state_re_lollo, *host_state_im_lollo, *host_partial_ret_lollo, *dev_partial_ret_lollo; 
+double *host_state_re_lollo, *host_state_im_lollo; 
 
 
 void sparse_print(double *v_re, double *v_im, uint size, FILE *file){
@@ -61,44 +61,6 @@ void setup_PE_test(){
 #endif
 }
 
-void setup_suqa_for_PE_test(uint Dim){
-  cudaHostAlloc((void**)&host_partial_ret_lollo,suqa::blocks*sizeof(double),cudaHostAllocDefault);
-  cudaMalloc((void**)&dev_partial_ret_lollo, suqa::blocks*sizeof(double));  
-
-  cudaDeviceProp prop;
-  int whichDevice;
-  HANDLE_CUDACALL( cudaGetDevice( &whichDevice ) );
-  HANDLE_CUDACALL( cudaGetDeviceProperties( &prop, whichDevice ) );
-  
-  HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream1 ) );
-  if (!prop.deviceOverlap) {
-    DEBUG_CALL(printf( "Device will not handle overlaps, so no "
-		       "speed up from streams\n" ));
-    suqa::stream2 = suqa::stream1;
-  }else{
-    HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream2 ) );
-  }
-  HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re_lollo,Dim*sizeof(double),cudaHostAllocDefault));
-  HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im_lollo,Dim*sizeof(double),cudaHostAllocDefault));
-}
-
-
-void clear_suqa_fot_PE_test(){
-    cudaFree(dev_partial_ret_lollo); 
-    cudaFreeHost(host_partial_ret_lollo);
-
-    
-    HANDLE_CUDACALL(cudaFreeHost(host_state_re_lollo));
-    HANDLE_CUDACALL(cudaFreeHost(host_state_im_lollo));
-#ifndef NDEBUG
-    HANDLE_CUDACALL(cudaFreeHost(host_state_re));
-    HANDLE_CUDACALL(cudaFreeHost(host_state_im));
-#endif
-    HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream1 ) );
-    if (suqa::stream1!=suqa::stream2) {
-        HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream2 ) );
-    }
-}
 
 // simulation parameters
 double beta;
@@ -199,16 +161,17 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
     int a=i/qms::state_levels-tempi/qms::state_levels;
     E+=(a*dE);
     if(i==tempi and bincount!=0.1){
-      if(E<E_max-dE){
+      if(E<E_max+dE){
 	E+=dE;
+	a+=1;
       }
-      else if(ret.size()!=0){
-      	ret.back().second+=probE1;
+      else{
+      	ret.push_back(make_pair(E-dE,probE1));
       	probE1=0;
       }
     }
     if(a!=0){
-      ret.push_back(make_pair(E-0.5*dE,probE1));
+      ret.push_back(make_pair(E-dE,probE1));
       probE1=0;
       bincount+=1.0;
     }
@@ -221,7 +184,7 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
     }
     if(tempi==i and bincount!=0.1){
       cout<<fgets(c,6,phile)<<endl;
-      if(ret.size()==0) ret.push_back(make_pair(E_min+0.5*dE,probE1));
+      if(ret.size()==0) ret.push_back(make_pair(E_min,probE1));
       
       if(saved_isto.size()==ret.size())
 	for(uint i=0;i<saved_isto.size();i++)
@@ -256,11 +219,12 @@ void phase_spectrum(FILE* phile, FILE *output){
     E+=(a*dE);
 
     if(i==tempi and bincount!=0.1){
-      if(E<E_max-dE){
+      if(E<E_max+dE){
 	E+=dE;
+	a+=1;
       }
-      else if(ret.size()!=0){
-      	ret.back().second+=probE1;
+      else {
+      	ret.push_back(make_pair(E-dE,probE1));
       	probE1=0;
       }
     }
@@ -282,7 +246,7 @@ void phase_spectrum(FILE* phile, FILE *output){
     
     if(tempi==i and bincount!=0.1){
       cout<<fgets(c,6,phile)<<endl;
-      if(ret.size()==0) ret.push_back(make_pair(E_min+0.5*dE,probE1));
+      if(ret.size()==0) ret.push_back(make_pair(E_min,probE1));
       return print_isto(ret,output);
     }
     tempi=i;
@@ -331,32 +295,36 @@ int main(int argc, char** argv){
     cout<<"arguments:\n"<<args<<endl;
 
     // Initialization of utilities. There are not new energy nor acceptance registers.
-    setup_suqa_for_PE_test(qms::Dim);
+    suqa::setup(qms::Dim);
     setup_PE_test();
-    
+    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re_lollo,qms::Dim*sizeof(double),cudaHostAllocDefault));
+    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im_lollo,qms::Dim*sizeof(double),cudaHostAllocDefault));
     // Initialization:
     // known eigenstate of the system (see src/system.cu)
     
     allocate_state(qms::gState, qms::Dim);
 
+    vector<vector<pair<long double,long double>>> super_duper_isto(24);    
+
+    uint inizio_mossa=9;
+    uint nmosse=1;
+    int nstati=8;
+    
     double EV[8]={5.8557980376081717,5.9073497011647422,6.6746335458672430,6.7261852094238153,9.1073497011647433,9.1589013647213164,9.9261852094238154,9.9777368729803815};
     double dE=(args.ene_max-args.ene_min)/(double)(qms::ene_levels-1);
-      vector <double> grid(qms::ene_levels-1);
-      for(uint i=0;i<grid.size();i++) grid[i]=args.ene_min+dE*(i+1);
-      for(auto &a:EV){
-	int count=0;
-	while(grid[count]<a)
-	  count++;
-	a=grid[count]-dE*0.5;
-      }
+      // vector <double> grid(qms::ene_levels);
+      // for(uint i=0;i<grid.size();i++) grid[i]=args.ene_min+dE*i;
+      // for(auto &a:EV){
+      // 	int count=0;
+      // 	while(grid[count]<a)
+      // 	  count++;
+      // 	a=grid[count]-dE;
+      // }
       
-      for(int j=0;j<8;j+=1){
+      for(int j=0;j<nstati;j+=1){
 	init_state(qms::gState,qms::Dim,j);
-      FILE *debug;
-      debug=fopen("debug","a");
-      print_state(qms::gState, debug);
-      fclose(debug);
-
+	vector<pair<long double,long double>> super_isto;
+	
       FILE *temp;
 
       FILE *output;
@@ -370,10 +338,16 @@ int main(int argc, char** argv){
       plottatore=fopen(plottaname,"a");
 
       /*******************************SOLO GIRI DI PHASE ESTIMATION****************************/
-      
+      /*      
       temp=fopen("temp","a");
       quantum_phase_tour(1,temp);
       fclose(temp);
+
+      FILE *debug;
+      debug=fopen("debug","a");
+      print_state(qms::gState, debug);
+      fclose(debug);
+
       
       temp=fopen("temp","r");	
       phase_spectrum(temp,output);
@@ -395,6 +369,96 @@ int main(int argc, char** argv){
       if(remove( "temp" )!=0) perror( "Error deleting file" );
       else puts( "File successfully deleted" );
     }
-      clear_suqa_fot_PE_test();
+      suqa::clear();
+      qms::clear();
+      HANDLE_CUDACALL(cudaFreeHost(host_state_re_lollo));
+      HANDLE_CUDACALL(cudaFreeHost(host_state_im_lollo));
+      return 0;
+}
+      */
+      /************************************************************************************/
+
+     for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
+	cout<<Ci<<endl;
+	apply_C(qms::gState, Ci);
+	
+	temp=fopen("temp","a");
+	quantum_phase_tour(1,temp);
+	fclose(temp);
+
+	temp=fopen("temp","r");	
+	moves_spectrum(temp, super_isto);
+	fclose(temp);
+
+	temp=fopen("temp","r");
+	moves_spectrum(temp, super_duper_isto[Ci]);
+	fclose(temp);
+
+	apply_C_inverse(qms::gState, Ci);
+	if( remove( "temp" ) != 0 )
+	  perror( "Error deleting file" );
+	else
+	  puts( "File successfully deleted" );
+      }
+      for(auto &a:super_isto)
+	a.second/=(long double)nmosse;
+      
+      print_isto(super_isto,output);
+      fprintf(plottatore,"set title \"QPE on omni-moved eigenvector %d \" font \",22\"\n",j);
+      fprintf(plottatore,"set xlabel \"E\" font \",18\"\n");
+      fprintf(plottatore,"set ylabel \"P(E)\" font \",18\"\n");
+      
+      fprintf(plottatore,"set box %lf absolute\n",dE);
+      fprintf(plottatore,"set style fill solid 0.5\n");
+      fprintf(plottatore,"$expected_ev << EOD\n");
+      for(auto &a : EV) fprintf(plottatore,"%f 1 %lf\n",a,dE);
+      fprintf(plottatore,"EOD\n");
+      fprintf(plottatore,"set parametric\nset trange[0:1]\n");
+      
+      fprintf(plottatore,"plot \"enequbit%i_range%f-%f_ev%i\" using 1:2 w boxes title \"initial state |%d>\" ,\\\n",qms::ene_qbits,args.ene_min,args.ene_max,j,j);
+      
+      fprintf(plottatore,"$expected_ev w boxes fs transparent solid 0.1 title \"expected energies\" ,\\\n");
+      fprintf(plottatore,"%f,t linetype -1 title \"\", %f,t linetype -1 title \"\"\n",args.ene_min,args.ene_max);
+      
+      
+      fcloseall();
+      super_isto.clear();
+    }
+    
+    for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
+      char name[1000];
+      FILE *output2, *plottatore2;
+      sprintf(name,"SUPER_DUPER_enequbit%i_range%f-%f_MOSSA%i",qms::ene_qbits,args.ene_min,args.ene_max,Ci);
+      output2=fopen(name,"a");
+      char plottaname[1011];
+      sprintf(plottaname,"plotta_%s",name);
+      plottatore2=fopen(plottaname,"a");
+      
+      for(auto &a:super_duper_isto[Ci])
+	a.second/=(long double)nstati;
+
+      print_isto(super_duper_isto[Ci],output2);
+      fprintf(plottatore2,"set title \"Application of move  %d on every eigenstate \" font \",22\"\n",Ci);
+      fprintf(plottatore2,"set xlabel \"E\" font \",18\"\n");
+      fprintf(plottatore2,"set ylabel \"P(E)\" font \",18\"\n");
+      
+      fprintf(plottatore2,"set box %lf absolute\n",dE);
+      fprintf(plottatore2,"set style fill solid 0.5\n");
+      fprintf(plottatore2,"$expected_ev << EOD\n");
+      for(auto &a : EV) fprintf(plottatore2,"%f 1 %lf\n",a,dE);
+      fprintf(plottatore2,"EOD\n");
+      fprintf(plottatore2,"set parametric\nset trange[0:1]\n");
+      
+      
+      fprintf(plottatore2,"plot $expected_ev w boxes fs transparent solid 0.1 title \"expected energies\" ,\\\n");      
+      fprintf(plottatore2,"\"SUPER_DUPER_enequbit%i_range%f-%f_MOSSA%i\" using 1:2 w boxes title \"move %d\" ,\\\n",qms::ene_qbits,args.ene_min,args.ene_max,Ci,Ci);
+      fprintf(plottatore2,"%f,t linetype -1 title \"\", %f,t linetype -1 title \"\"\n",args.ene_min,args.ene_max);
+
+      fcloseall();
+      	
+
+
+      }
+      
       return 0;
 }

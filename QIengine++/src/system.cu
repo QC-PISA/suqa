@@ -19,13 +19,13 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len, i
       case 0:
         state_re[0] = 1.0;
         state_im[0] = 0.0;
-	break;
+      	break;
       default:
-	state_re[j] = sqrt(0.5);
-	state_im[j]= 0;
-	state_re[j+9-(2*(j%2))] = sqrt(0.5);
-	state_im[j+9-(2*(j%2))] = 0.0;
-	
+	// state_re[j] = sqrt(0.5);
+	// state_im[j]= 0;
+	// state_re[j+9-(2*(j%2))] = sqrt(0.5);
+	// state_im[j+9-(2*(j%2))] = 0.0;
+	break;
       }
     }
 }
@@ -142,16 +142,6 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE(state);
 
-//        self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-//        DEBUG_CALL(printf("after self_plaquette()\n"));
-//        DEBUG_READ_STATE(state);
-//        self_trace_operator(state, bm_qlink2, theta);
-//        DEBUG_CALL(printf("after self_trace_operator()\n"));
-//        DEBUG_READ_STATE(state);
-//        inverse_self_plaquette(state, bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-//        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
-//        DEBUG_READ_STATE(state);
-
         fourier_transf_z2(state, bm_qlink0);
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink0)\n"));
         DEBUG_READ_STATE(state);
@@ -257,7 +247,7 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-std::vector<double> C_weigthsums = {1./4, 2./4, 3./4, 1.};
+std::vector<double> C_weigthsums = {1.5/6, 3./6, 4./6, 5./6, 5.5/6, 1.};
 /*
 std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
 				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
@@ -348,15 +338,31 @@ void apply_C(ComplexVec& state, const uint &Ci){
     DEBUG_READ_STATE(state);
     break;
   case 2U:
-    suqa::apply_y(state, bm_qlink1[0]);
-    DEBUG_CALL(printf("after Y(state, bm_qlink1[0])\n"));
+    suqa::apply_z(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_z(state, bm_qlink0[0])\n"));
+    DEBUG_READ_STATE(state);
+    suqa::apply_z(state, bm_qlink3[0]);
+    DEBUG_CALL(printf("after apply_z(state, bm_qlink3[0])\n"));
     DEBUG_READ_STATE(state);
     break;
   case 3U:
-    suqa::apply_y(state, bm_qlink2[0]);
-    DEBUG_CALL(printf("after Y(state, bm_qlink2[0])\n"));
+    suqa::apply_y(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink0[0])\n"));
     DEBUG_READ_STATE(state);
-    break;    
+    suqa::apply_y(state, bm_qlink3[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink3[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 4U:
+    suqa::apply_y(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink1[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 5U:
+    suqa::apply_y(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
   default:
     throw std::runtime_error("ERROR: wrong move selection");
   }
