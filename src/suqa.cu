@@ -1,10 +1,13 @@
-﻿#ifndef __CUDACC__  
+﻿#ifdef GPU
+#ifndef __CUDACC__  
 #define __CUDACC__
 #endif
-#include "suqa.cuh"
 #include <cuda_runtime.h>
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
+#endif
+
+#include "suqa.cuh"
 
 void suqa::print_banner(){
     printf("\n"
@@ -26,7 +29,9 @@ void suqa::print_banner(){
 //#include <thrust/functional.h>
 
 #ifndef NDEBUG
+#ifdef GPU
 double *host_state_re, *host_state_im;
+#endif
 #endif
 
 double *host_partial_ret, *dev_partial_ret;
@@ -62,6 +67,7 @@ void suqa::deactivate_gc_mask(){
  */
 
 
+#ifdef GPU
 //TODO: optimize reduce
 __global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len){
     extern __shared__ double local_ret[];
@@ -112,6 +118,7 @@ __global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, dou
 //        printf("dev_partial_ret_ptr[%d] = %.16lg\n",blockIdx.x,dev_partial_ret_ptr[blockIdx.x]);
     }
 }
+#endif
 
 double suqa::vnorm(const ComplexVec& v){
     

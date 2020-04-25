@@ -6,12 +6,15 @@
 #include <stdexcept>
 #include "io.hpp"
 #include "complex_defines.cuh"
+#ifdef GPU
 #include "device_launch_parameters.h"
+#endif
 
 
 //#ifdef CUDA
 
 #if !defined(NDEBUG) 
+#ifdef GPU
 extern double *host_state_re, *host_state_im;
 #define DEBUG_READ_STATE(state) {\
     cudaMemcpyAsync(host_state_re,state.data_re,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
@@ -20,10 +23,11 @@ extern double *host_state_re, *host_state_im;
     printf("vnorm = %.12lg\n",suqa::vnorm(state));\
     sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
-//#else
-//#define DEBUG_READ_STATE(state)
-//#endif
-
+#else
+#define DEBUG_READ_STATE(state) {\
+    sparse_print((double*)state.data_re,(double*)state.data_im, state.size()); \
+}
+#endif
 #else
 #define DEBUG_READ_STATE(state)
 #endif
@@ -40,9 +44,10 @@ typedef std::vector<uint> bmReg;
 
 namespace suqa{
 
-
+#ifdef GPU
 extern uint blocks, threads;
 extern cudaStream_t stream1, stream2;
+#endif
 
 // global control mask:
 // it applies every next operation 

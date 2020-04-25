@@ -1,3 +1,8 @@
+#ifdef GPU
+#include <cuda.h>
+#include <cuda_runtime_api.h>
+#include <cuda_device_runtime_api.h>
+#endif
 #include <iostream>
 #include <vector>
 #include <complex>
@@ -9,9 +14,6 @@
 #include <cmath>
 #include <cassert>
 #include <chrono>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <cuda_device_runtime_api.h>
 #include "io.hpp"
 #include "suqa.cuh"
 #include "system.cuh"
@@ -20,17 +22,23 @@
 
 using namespace std;
 
+#ifdef GPU
 #define NUM_THREADS 128
 #define MAXBLOCKS 65535
 uint suqa::threads;
 uint suqa::blocks;
 cudaStream_t suqa::stream1, suqa::stream2;
+#endif
 
 const int Dim=6;
 
 void deallocate_state(ComplexVec& state){
     if(state.data!=nullptr){
+#ifdef GPU
         HANDLE_CUDACALL(cudaFree(state.data));
+#else
+        delete[] state.data;
+#endif
     }
     state.vecsize=0U;
 }
@@ -41,7 +49,11 @@ void allocate_state(ComplexVec& state, uint Dim){
 
 
     state.vecsize = Dim; 
+#ifdef GPU
     HANDLE_CUDACALL(cudaMalloc((void**)&(state.data), 2*state.vecsize*sizeof(double)));
+#else
+    state.data = new double[2 * state.vecsize];
+#endif
     // allocate both using re as offset, and im as access pointer.
     state.data_re = state.data;
     state.data_im = state.data_re + state.vecsize;
@@ -61,10 +73,12 @@ int main(int argc, char** argv){
 
     //printf("arguments:\n g_beta = %.16lg\n total_steps = %d\n trotter_stepsize = %.16lg\n outfile = %s\n", g_beta, total_steps, trotter_stepsize, outfilename.c_str());
 
+#ifdef GPU
     suqa::threads = NUM_THREADS;
     suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
     printf("blocks: %u, threads: %u\n",suqa::blocks, suqa::threads);
+#endif
 
     ComplexVec state;
   
@@ -105,7 +119,7 @@ int main(int argc, char** argv){
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
         init_state(state, Dim);
-	suqa::apply_h(state,  bm_spin[rangen.randint(0,3)]);
+		suqa::apply_h(state,  bm_spin[rangen.randint(0,3)]);
         evolution(state, t, ii);
         printf("random number= %d\n", rangen.randint(0,3));
 

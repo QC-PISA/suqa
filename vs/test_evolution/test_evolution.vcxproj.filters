@@ -18,9 +18,6 @@
     <ClInclude Include="..\..\include\pcg32.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\qms.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\Rand.hpp">
       <Filter>headers</Filter>
     </ClInclude>

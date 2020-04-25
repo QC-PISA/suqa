@@ -1,9 +1,18 @@
 #pragma once
 #include <stdio.h>
+#ifdef GPU
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cuda_device_runtime_api.h>
 #include <cuComplex.h>
+#else
+struct cuDoubleComplex {
+    double x;
+    double y;
+    cuDoubleComplex() = default;
+    cuDoubleComplex(double xx, double yy) : x(xx), y(yy) {}
+};
+#endif
 
 // single structure
 typedef unsigned int uint;
@@ -35,8 +44,10 @@ struct ComplexVec{
     double& im(size_t i) {return data_re[i];}
 };
 
-
-__host__ __device__ static __inline__ double norm(const double& re, const double& im){
+#ifdef GPU
+__host__ __device__ __inline__ 
+#endif
+static double norm(const double& re, const double& im){
     return re*re+im*im;
 }
 
@@ -92,7 +103,10 @@ __host__ __device__ static __inline__ double norm(const double& re, const double
 
 
 // this is expi(z) == exp(i z)
-__host__ __device__ static __inline__ Complex expi(double z){
+#ifdef GPU
+__host__ __device__ __inline__ 
+#endif
+static Complex expi(double z){
 
     Complex res;
 
