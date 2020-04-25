@@ -79,7 +79,8 @@ struct Move {
             suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
             suqa::activate_gc_mask({bm_win});
 			suqa::apply_h(state, slot[0] * 2+offset);
-			suqa::apply_cx(state, slot[0] * 2+offset, slot[1] * 2+offset);
+			suqa::apply_h(state, slot[1] * 2+offset);
+//			suqa::apply_cx(state, slot[0] * 2+offset, slot[1] * 2+offset);
             suqa::deactivate_gc_mask();
             suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
 		}
