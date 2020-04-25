@@ -99,7 +99,7 @@ void get_player_move(Move& move) {
     bool good_format = false;
     while (!good_format) {
 		cin >> move.type;
-        if (cin.fail() || (move.type.compare("flip")!=0 && move.type.compare("mix")!=0)) {
+        if (cin.fail() || (move.type.compare("flip")!=0 && move.type.compare("mix")!=0 && move.type.compare("bell")!=0)) {
             cin.clear();
 
         } else if(move.type.compare("flip")==0){
