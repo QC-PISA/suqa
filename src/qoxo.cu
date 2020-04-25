@@ -108,7 +108,7 @@ void get_player_move(Move& move) {
 				cin.clear();
             else
 				good_format = true;
-        } else if(move.type.compare("mix")==0 || move.type.compare("beller")){
+        } else if(move.type.compare("mix")==0 || move.type.compare("bell")){
             cin >> move.slot[0] >> move.slot[1];
             if(cin.fail() || move.slot[0]<0 || move.slot[0]>8 || move.slot[1]<0 || move.slot[1]>8 || move.slot[0]==move.slot[1])
 				cin.clear();
