@@ -223,25 +223,24 @@ double get_meas_opvals(const uint& creg_vals){
 // actually perform the measure
 // there is no need to change it
 double measure_X(ComplexVec& state, pcg& rgen){
-  /*    std::vector<uint> classics(op_bits);
-    
-    apply_measure_rotation(state);
-
-    std::vector<double> rdoubs(op_bits);
-    for(auto& el : rdoubs){
-        el = rgen.doub();
-    }
-    suqa::measure_qbits(state, bm_op, classics, rdoubs);
-
-    apply_measure_antirotation(state);
-
-    uint meas = 0U;
-    for(uint i=0; i<op_bits; ++i){
-        meas |= (classics[i] << i);
-    }
-
-    return get_meas_opvals(meas);*/
-  return 0;
+  std::vector<uint> classics(op_bits);
+  
+  apply_measure_rotation(state);
+  
+  std::vector<double> rdoubs(op_bits);
+  for(auto& el : rdoubs){
+    el = rgen.doub();
+  }
+  suqa::measure_qbits(state, bm_op, classics, rdoubs);
+  
+  apply_measure_antirotation(state);
+  
+  uint meas = 0U;
+  for(uint i=0; i<op_bits; ++i){
+    meas |= (classics[i] << i);
+  }
+  
+  return get_meas_opvals(meas);
 
 }
 
