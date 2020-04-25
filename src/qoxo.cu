@@ -74,13 +74,20 @@ struct Move {
 		if (type.compare("flip") == 0) {
 			// applies flip only if not flipped already by the other player
 			suqa::apply_cx(state, slot[0]*2+(1-offset),slot[0] * 2+offset,0U);
-		} else { // mix type
+		} else if(type.compare("mix")==0) { // mix type
 			// applies mix only if not flipped already by the other player
             suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
             suqa::activate_gc_mask({bm_win});
 			suqa::apply_h(state, slot[0] * 2+offset);
 			suqa::apply_h(state, slot[1] * 2+offset);
-//			suqa::apply_cx(state, slot[0] * 2+offset, slot[1] * 2+offset);
+            suqa::deactivate_gc_mask();
+            suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+		} else if(type.compare("bell")==0) { // mix type
+			// applies bell only if not flipped already by the other player
+            suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+            suqa::activate_gc_mask({bm_win});
+			suqa::apply_h(state, slot[0] * 2+offset);
+			suqa::apply_cx(state, slot[0] * 2+offset, slot[1] * 2+offset);
             suqa::deactivate_gc_mask();
             suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
 		}
@@ -95,22 +102,21 @@ void get_player_move(Move& move) {
         if (cin.fail() || (move.type.compare("flip")!=0 && move.type.compare("mix")!=0)) {
             cin.clear();
 
-            cout << "bad move format;\nmake move: "<<flush;
         } else if(move.type.compare("flip")==0){
-            cout << "flip selected" << endl;
             cin >> move.slot[0];
             if(cin.fail() || move.slot[0]<0 || move.slot[0]>8)
 				cin.clear();
             else
 				good_format = true;
-        } else if(move.type.compare("mix")==0){
-            cout << "mix selected" << endl;
+        } else if(move.type.compare("mix")==0 || move.type.compare("beller")){
             cin >> move.slot[0] >> move.slot[1];
             if(cin.fail() || move.slot[0]<0 || move.slot[0]>8 || move.slot[1]<0 || move.slot[1]>8 || move.slot[0]==move.slot[1])
 				cin.clear();
             else
 				good_format = true;
         }
+        if(!good_format)
+            cout << "bad move format;\nmake move: "<<flush;
     }
 }
 

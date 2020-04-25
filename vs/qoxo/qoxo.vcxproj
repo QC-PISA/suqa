@@ -15,8 +15,8 @@
     <ClCompile Include="..\..\src\Rand.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="..\..\src\qoxo.cu" />
     <CudaCompile Include="..\..\src\suqa.cu" />
-    <CudaCompile Include="qoxo.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\complex_defines.cuh" />
