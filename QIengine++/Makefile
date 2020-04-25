@@ -31,12 +31,16 @@ $(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES) $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -o $@ -c $< 
 
 $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR)
-	$(NVCC) $(NVCCFLAGS) -o $@ -c $< 
-	
+	$(NVCC) $(NVCCFLAGS) -o $@ -c $<
+
 main: $(OBJDIR)/system.o $(OBJDIR)/main.o
 	$(CXX) $(CXXFLAGS) $(OBJDIR)/system.o $(OBJDIR)/main.o -o main
 
 main_gpu: $(OBJDIR)/main.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
+	$(NVCC) $^ -o $@
+
+test_phase_estimation: NVCCFLAGS += -DNDEBUG
+test_phase_estimation: $(OBJDIR)/test_phase_estimation.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
 
 #test_evolution: NVCCFLAGS += -DNDEBUG
@@ -44,5 +48,5 @@ test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/su
 	$(NVCC) $^ -o $@
 
 clean:
-	rm -rf main main_gpu $(OBJDIR) test_evolution
+	rm -rf main main_gpu $(OBJDIR) test_evolution test_phase_estimation
 

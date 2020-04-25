@@ -271,6 +271,54 @@ void suqa::apply_x(ComplexVec& state, uint q){
     kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
 }  
 
+void suqa::apply_x(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+        kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+
+//  Y GATE
+
+__global__
+void kernel_suqa_y(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+    glob_mask |= (1U <<q);
+    while(i<len){
+        if((i & glob_mask) == glob_mask){
+            uint j = i & ~(1U << q); // j has 0 on q-th digit
+// j=0, i=1; ap[0] = -i*a[1]; ap[1]=i*a[0]
+            double tmpval = state_re[i];
+            state_re[i]=-state_im[j];
+	    state_im[j]=-tmpval;
+            tmpval = state_im[i];
+            state_im[i]=state_re[j];
+            state_re[j]=tmpval;
+        }
+        i+=gridDim.x*blockDim.x;
+    }
+}
+
+
+void suqa::apply_y(ComplexVec& state, uint q){
+    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+void suqa::apply_y(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+        kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+}  
+
+//  Z GATE
+
+void suqa::apply_z(ComplexVec& state, uint q){
+    suqa::apply_u1(state, q, M_PI);
+}  
+
+void suqa::apply_z(ComplexVec& state, const bmReg& qs){
+    for(const auto& q : qs)
+	suqa::apply_u1(state, q, M_PI);
+}  
+
 // no way...
 //__global__ 
 //void kernel_suqa_mx(Complex *const state, uint len, uint msq, uint mask){
@@ -286,10 +334,6 @@ void suqa::apply_x(ComplexVec& state, uint q){
 //}
 
 
-void suqa::apply_x(ComplexVec& state, const bmReg& qs){
-    for(const auto& q : qs)
-        kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
-}  
 //void suqa::qi_x(ComplexVec& state, const vector<uint>& qs){
 //    for(const auto& q : qs)
 //        qi_x(state, q);
@@ -397,27 +441,32 @@ void suqa::apply_tdg(ComplexVec& state, const bmReg& qs){
 // U1 GATE
 
 __global__ 
-void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Complex phase, uint glob_mask){
+void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Complex phase, uint qmask, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
-    uint i_1 = blockDim.x*blockIdx.x + threadIdx.x;    
+    uint i = blockDim.x*blockIdx.x + threadIdx.x;    
     glob_mask |= (1U << q);
-    while(i_1<len){
-        if((i_1 & glob_mask) == glob_mask){
-            double tmpval = state_re[i_1]; 
-            state_re[i_1] = state_re[i_1]*phase.x-state_im[i_1]*phase.y;
-            state_im[i_1] = tmpval*phase.y+state_im[i_1]*phase.x;
+    while(i<len){
+        if((i & glob_mask) == qmask){  // q_mask 
+            double tmpval = state_re[i]; 
+            state_re[i] = state_re[i]*phase.x-state_im[i]*phase.y;
+            state_im[i] = tmpval*phase.y+state_im[i]*phase.x;
 
         }
-        i_1+=gridDim.x*blockDim.x;
+        i+=gridDim.x*blockDim.x;
     }
 }
 
 
 void suqa::apply_u1(ComplexVec& state, uint q, double phase){
+	suqa::apply_u1(state, q, 1U, phase);
+}
+
+void suqa::apply_u1(ComplexVec& state, uint q, uint q_mask, double phase){
+    uint qmask = gc_mask|(q_mask<<q);
     Complex phasec;
     sincos(phase, &phasec.y, &phasec.x);
-    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, phasec, gc_mask);
+    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, phasec, qmask, gc_mask);
 }
 
 
@@ -1170,7 +1219,7 @@ void suqa::setup(uint Dim){
     }else{
         HANDLE_CUDACALL( cudaStreamCreate( &suqa::stream2 ) );
     }
-
+    
 #if !defined(NDEBUG)
     HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re,Dim*sizeof(double),cudaHostAllocDefault));
     HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im,Dim*sizeof(double),cudaHostAllocDefault));
@@ -1182,7 +1231,6 @@ void suqa::clear(){
 //    cudaFreeHost(ret_re_im);
     cudaFree(dev_partial_ret); 
     cudaFreeHost(host_partial_ret);
-
 #ifndef NDEBUG
     HANDLE_CUDACALL(cudaFreeHost(host_state_re));
     HANDLE_CUDACALL(cudaFreeHost(host_state_im));

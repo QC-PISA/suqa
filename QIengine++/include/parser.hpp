@@ -170,3 +170,78 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <steps of PE evolution> non positive";
     }
 }
+
+void parse_arguments_PE_test(arg_list& args, int argc, char** argv){
+    int fixed_args = 3;
+    map<string,int> argmap;
+    map<int,string> argmap_inv;
+    char *end;
+    int base_strtoull = 10;
+
+    // fixed arguments
+    args.g_beta = stod(argv[1],NULL);
+    args.state_qbits = atoi(argv[2]);
+    args.ene_qbits = atoi(argv[3]);
+
+    // floating arguments
+    for(int i = fixed_args+1; i < argc; ++i){
+        argmap[argv[i]]=i;
+        argmap_inv[i]=argv[i];
+    }
+    int tmp_idx;
+
+
+    // (unsigned long long) seed
+    tmp_idx = argmap["--seed"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--seed' flag"; 
+       
+       args.seed = strtoull(argmap_inv[tmp_idx+1].c_str(), &end, base_strtoull); 
+    }
+
+    // (double) ene_min
+    tmp_idx = argmap["--ene-min"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--ene-min' flag"; 
+       
+       args.ene_min = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+    }
+
+    // (double) ene_max
+    tmp_idx = argmap["--ene-max"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--ene-max' flag"; 
+       
+       args.ene_max = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+    }
+
+    // (int) pe_steps
+    tmp_idx = argmap["--PE-steps"];
+    if(tmp_idx>=fixed_args){
+       if(tmp_idx+1>= argc)
+           throw "ERROR: set value after '--PE-steps' flag"; 
+       
+       args.pe_steps = stod(argmap_inv[tmp_idx+1].c_str(), NULL); 
+    }
+
+
+    // argument checking
+    if(args.g_beta <= 0.0){
+        throw "ERROR: argument <g_beta> invalid";
+    }
+
+    if(args.state_qbits <=0){
+        throw "ERROR: argument <num state qbits> non positive";
+    }
+
+    if(args.ene_qbits <=0){
+        throw "ERROR: argument <num ene qbits> non positive";
+    }
+
+    if(args.pe_steps <=0){
+        throw "ERROR: argument <steps of PE evolution> non positive";
+    }
+}
