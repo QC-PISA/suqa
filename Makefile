@@ -35,6 +35,10 @@ test_evolution: NVCCFLAGS += -DNDEBUG
 test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
 	$(NVCC) $^ -o $@
 
+#qoxo: NVCCFLAGS += -DNDEBUG
+qoxo: $(OBJDIR)/qoxo.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
+	$(NVCC) $^ -o $@
+
 clean:
-	rm -rf qms test_evolution $(OBJDIR) 
+	rm -rf qms test_evolution qoxo $(OBJDIR) 
 
