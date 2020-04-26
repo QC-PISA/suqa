@@ -17,6 +17,7 @@ double func_suqa_vnorm(double* vec_data, size_t size) {
 	double ret = 0.0;
 #ifdef SPARSE
 	for (const auto& idx : suqa::actives){
+		ret += vec_data[idx+size/2] * vec_data[idx+size/2];
 #else
     for (uint idx = 0U; idx < size; ++idx) {
 #endif
@@ -28,6 +29,7 @@ double func_suqa_vnorm(double* vec_data, size_t size) {
 void func_suqa_vnormalize_by(double* v_comp, size_t len, double value) {
 #ifdef SPARSE
 	for (const auto& idx : suqa::actives){
+		v_comp[idx+len/2] *= value;
 #else
     for (uint idx = 0U; idx < size; ++idx) {
 #endif

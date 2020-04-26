@@ -33,6 +33,7 @@ extern double *host_state_re, *host_state_im;
 #else
 #ifdef SPARSE
 #define DEBUG_READ_STATE(state) {\
+    printf("vnorm = %.12lg\n",suqa::vnorm());\
     sparse_print((double*)state.data_re,(double*)state.data_im, state.size(), suqa::actives); \
 }
 #else
