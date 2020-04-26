@@ -13,16 +13,21 @@ void suqa::print_banner(){
 "\nSimulator for Universal Quantum Algorithms\n\n");
 }
 
+
+ComplexVec suqa::state;
+
 #if !defined(NDEBUG) && defined(GPU)
 double *host_state_re, *host_state_im;
 #endif
-
 
 // global control mask:
 // it applies every next operation 
 // using it as condition (the user should make sure
 // to use it only for operations not involving it)
 uint suqa::gc_mask;
+
+uint suqa::nq;
+
 #ifdef GPU
 uint suqa::blocks, suqa::threads;
 cudaStream_t suqa::stream1, suqa::stream2;
@@ -45,17 +50,17 @@ double* host_partial_ret, *dev_partial_ret;
 #include "suqa_cpu.hpp"
 #endif
 
-void suqa::all_zeros(ComplexVec& v) {
+void suqa::init_state() {
 #ifdef GPU
-    kernel_all_zeros<<<suqa::blocks,suqa::threads>>>(v.data_re, v.data_im, v.size());
+    kernel_suqa_init_state<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size());
 #else
-    func_all_zeros(v.data, 2*v.size());
+    func_suqa_init_state(suqa::state.data, 2*suqa::state.size());
 #endif
 }
 
-double suqa::vnorm(const ComplexVec& v){
+double suqa::vnorm(){
 #ifdef GPU
-    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, v.data_re, v.data_im, v.size());
+    kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size());
     cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
     double ret = 0.0;
     for(uint bid=0; bid<suqa::blocks; ++bid){
@@ -65,26 +70,26 @@ double suqa::vnorm(const ComplexVec& v){
     } 
     return sqrt(ret);
 #else
-    return sqrt(func_suqa_vnorm(v.data, 2*v.size()));
+    return sqrt(func_suqa_vnorm(suqa::state.data, 2*suqa::state.size()));
 #endif
 }
 
 
 
 
-void suqa::vnormalize(ComplexVec& v){
-    double vec_norm = suqa::vnorm(v);
+void suqa::vnormalize(){
+    double vec_norm = suqa::vnorm();
 #ifndef NDEBUG
     std::cout<<"vec_norm = "<<vec_norm<<std::endl;
 #endif
 
 #ifdef GPU
     // using the inverse, since division is not built-in in cuda
-    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads>>>(v.data, 2*v.size(),1./vec_norm);
+    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads>>>(suqa::state.data, 2*suqa::state.size(),1./vec_norm);
 //    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(v.data_re, v.size(),1./vec_norm);
 //    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(v.data_im, v.size(),1./vec_norm);
 #else
-    func_suqa_vnormalize_by(v.data, 2*v.size(),1./vec_norm);
+    func_suqa_vnormalize_by(suqa::state.data, 2*suqa::state.size(),1./vec_norm);
 #endif
 }
 
@@ -92,79 +97,79 @@ void suqa::vnormalize(ComplexVec& v){
 
 
 
-void suqa::apply_x(ComplexVec& state, uint q){
+void suqa::apply_x(uint q){
 #ifdef GPU
-    kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+    kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #else
-    func_suqa_x(state.data_re, state.data_im, state.size(), q, gc_mask);
+    func_suqa_x(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #endif
 }
 
-void suqa::apply_x(ComplexVec& state, const bmReg& qs){
+void suqa::apply_x(const bmReg& qs){
     for(const auto& q : qs)
-		suqa::apply_x(state, q);
+		suqa::apply_x(q);
 }  
 
 
 //  Y GATE
 
 
-void suqa::apply_y(ComplexVec& state, uint q){
+void suqa::apply_y(uint q){
 #ifdef GPU
-    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #else
-    func_suqa_y(state.data_re, state.data_im, state.size(), q, gc_mask);
+    func_suqa_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #endif
 }  
 
-void suqa::apply_y(ComplexVec& state, const bmReg& qs){
+void suqa::apply_y(const bmReg& qs){
     for (const auto& q : qs)
-        suqa::apply_y(state, q);
+        suqa::apply_y(q);
 }  
 
 //  Z GATE
 
-void suqa::apply_z(ComplexVec& state, uint q){
-    suqa::apply_u1(state, q, M_PI);
+void suqa::apply_z(uint q){
+    suqa::apply_u1(q, M_PI);
 }  
 
-void suqa::apply_z(ComplexVec& state, const bmReg& qs){
+void suqa::apply_z(const bmReg& qs){
     for(const auto& q : qs)
-		suqa::apply_u1(state, q, M_PI);
+		suqa::apply_u1(q, M_PI);
 }  
 
 
 //  SIGMA+ = 1/2(X+iY) GATE
 
 
-void suqa::apply_sigma_plus(ComplexVec& state, uint q){
+void suqa::apply_sigma_plus(uint q){
 #ifdef GPU
-    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #else 
-    func_suqa_sigma_plus(state.data_re, state.data_im, state.size(), q, gc_mask);
+    func_suqa_sigma_plus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #endif
 }  
 
-void suqa::apply_sigma_plus(ComplexVec& state, const bmReg& qs){
+void suqa::apply_sigma_plus(const bmReg& qs){
     for (const auto& q : qs)
-        suqa::apply_sigma_plus(state, q);
+        suqa::apply_sigma_plus(q);
 }
 
 
 //  SIGMA- = 1/2(X-iY) GATE
 
 
-void suqa::apply_sigma_minus(ComplexVec& state, uint q){
+void suqa::apply_sigma_minus(uint q){
 #ifdef GPU
-    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #else 
-    func_suqa_sigma_minus(state.data_re, state.data_im, state.size(), q, gc_mask);
+    func_suqa_sigma_minus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #endif
 }  
 
-void suqa::apply_sigma_minus(ComplexVec& state, const bmReg& qs){
+void suqa::apply_sigma_minus(const bmReg& qs){
     for(const auto& q : qs)
-        suqa::apply_sigma_minus(state, q);
+        suqa::apply_sigma_minus(q);
 }
 
 
@@ -172,18 +177,18 @@ void suqa::apply_sigma_minus(ComplexVec& state, const bmReg& qs){
 
 
 
-void suqa::apply_h(ComplexVec& state, uint q){
+void suqa::apply_h(uint q){
 #ifdef GPU
-    kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, gc_mask);
+    kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #else
-    func_suqa_h(state.data_re, state.data_im, state.size(), q, gc_mask);
+    func_suqa_h(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
 #endif
 }  
 
 
-void suqa::apply_h(ComplexVec& state, const bmReg& qs){
+void suqa::apply_h(const bmReg& qs){
     for(const auto& q : qs){
-        suqa::apply_h(state, q);
+        suqa::apply_h(q);
     }
 }  
 
@@ -193,52 +198,52 @@ void suqa::apply_h(ComplexVec& state, const bmReg& qs){
 
 
 // T gate (single qubit)
-void suqa::apply_t(ComplexVec& state, uint q){
-    suqa::apply_u1(state, q, M_PI / 4.0);
+void suqa::apply_t(uint q){
+    suqa::apply_u1(q, M_PI / 4.0);
 }  
 // T gate (multiple qubits)
-void suqa::apply_t(ComplexVec& state, const bmReg& qs){
+void suqa::apply_t(const bmReg& qs){
     for (const auto& q : qs) {
-        suqa::apply_u1(state, q, M_PI / 4.0);
+        suqa::apply_u1(q, M_PI / 4.0);
     }
 }  
 
 // T^{\dagger} gate (single qubit)
-void suqa::apply_tdg(ComplexVec& state, uint q){
-    suqa::apply_u1(state, q, -M_PI / 4.0);
+void suqa::apply_tdg(uint q){
+    suqa::apply_u1(q, -M_PI / 4.0);
 }  
 // T^{\dagger} gate (multiple qubits)
-void suqa::apply_tdg(ComplexVec& state, const bmReg& qs){
+void suqa::apply_tdg(const bmReg& qs){
     for(const auto& q : qs){
-		suqa::apply_u1(state, q, -M_PI / 4.0);
+		suqa::apply_u1(q, -M_PI / 4.0);
     }
 }  
 
 // PI/4 GATES
 
 // S gate (single qubit)
-void suqa::apply_s(ComplexVec& state, uint q){
-    suqa::apply_u1(state, q, M_PI / 2.0);
+void suqa::apply_s(uint q){
+    suqa::apply_u1(q, M_PI / 2.0);
 }  
 // S gate (multiple qubits)
-void suqa::apply_s(ComplexVec& state, const bmReg& qs){
+void suqa::apply_s(const bmReg& qs){
     for (const auto& q : qs) {
-        suqa::apply_u1(state, q, M_PI / 2.0);
+        suqa::apply_u1(q, M_PI / 2.0);
     }
 }  
 
 // U1 GATE
 
-void suqa::apply_u1(ComplexVec& state, uint q, double phase){
-	suqa::apply_u1(state, q, 1U, phase);
+void suqa::apply_u1(uint q, double phase){
+	suqa::apply_u1(q, 1U, phase);
 }
 
-void suqa::apply_u1(ComplexVec& state, uint q, uint q_mask, double phase){
+void suqa::apply_u1(uint q, uint q_mask, double phase){
     uint qmask = gc_mask|(q_mask<<q);
     Complex phasec;
     sincos(phase, &phasec.y, &phasec.x);
 #ifdef GPU
-    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), q, phasec, qmask, gc_mask);
+    kernel_suqa_u1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, phasec, qmask, gc_mask);
 #else
     func_suqa_u1(state.data_re, state.data_im, state.size(), q, phasec, qmask, gc_mask);
 #endif
@@ -248,30 +253,30 @@ void suqa::apply_u1(ComplexVec& state, uint q, uint q_mask, double phase){
 //  CONTROLLED-NOT GATE
 
 
-void suqa::apply_cx(ComplexVec& state, const uint& q_control, const uint& q_target, const uint& q_mask){
+void suqa::apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask){
     uint mask_qs = (1U << q_target) | gc_mask;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
 #else
-    func_suqa_mcx(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
+    func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
 #endif
 }  
 
-void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const uint& q_target){
+void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
     uint mask = (1U << q_target) | gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask, q_target);
 #else
-    func_suqa_mcx(state.data_re, state.data_im, state.size(), mask, mask, q_target);
+    func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask, q_target);
 #endif
 }  
 
 
-void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target){
+void suqa::apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target){
     uint mask = (1U << q_target) | gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
@@ -280,30 +285,32 @@ void suqa::apply_mcx(ComplexVec& state, const bmReg& q_controls, const bmReg& q_
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
 #else
-    func_suqa_mcx(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target);
+    func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
 #endif
 }  
 
-#ifdef GPU
 
-void suqa::apply_cu1(ComplexVec& state, uint q_control, uint q_target, double phase, uint q_mask){
-    uint mask_qs = (1U << q_target) | gc_mask;
+void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
+    uint mask_qs = (1U << q_target) | suqa::gc_mask;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
 
     Complex phasec;
     sincos(phase, &phasec.y, &phasec.x);
-
-    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target, phasec);
+#ifdef GPU
+    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#else
+    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#endif
 }
 
-void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
-    uint mask = (1U << q_target) | gc_mask;
+void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
+    uint mask = (1U << q_target) | suqa::gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
-    uint mask_qs = (1U << q_target) | gc_mask;
+    uint mask_qs = (1U << q_target) | suqa::gc_mask;
     for(uint k = 0U; k < q_controls.size(); ++k){
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
@@ -311,30 +318,36 @@ void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q
     Complex phasec;
     sincos(phase, &phasec.y, &phasec.x);
 
-    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask, mask_qs, q_target, phasec);
+#ifdef GPU
+    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#else
+    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#endif
 }
 
-void suqa::apply_mcu1(ComplexVec& state, const bmReg& q_controls, const uint& q_target, double phase) {
-    suqa::apply_mcu1(state, q_controls, std::vector<uint>(q_controls.size(), 1U), q_target, phase);
+void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
+    suqa::apply_mcu1(q_controls, std::vector<uint>(q_controls.size(), 1U), q_target, phase);
 }
 
-void suqa::apply_swap(ComplexVec& state, const uint& q1, const uint& q2){
+
+void suqa::apply_swap(const uint& q1, const uint& q2){
     // swap gate: 00->00, 01->10, 10->01, 11->11
     // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
-    uint mask00 = gc_mask;
+    uint mask00 = suqa::gc_mask;
     uint mask11 = mask00;
     uint mask_q1 = (1U << q1);
     uint mask_q2 = (1U << q2);
     mask11 |= mask_q1 | mask_q2;
-    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask00, mask11, mask_q1, mask_q2);
+#ifdef GPU
+    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
+#else
+    func_suqa_swap(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
+#endif
 }
 
-// RESET = measure + classical cx
 
-
-
-void suqa::apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::vector<double>& phases){
-    if(!(q_size>0U and phases.size()==(1U<<q_size))){
+void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases){
+    if(!(q_size>0U and (uint)phases.size()==(1U<<q_size))){
         throw std::runtime_error("ERROR: in suqa::apply_phase_list(): invalid q_size or phases.size()");
     }
 
@@ -349,17 +362,20 @@ void suqa::apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::
         sincos(phases[i],&c_phases[i].y,&c_phases[i].x);
     }
 
+#ifdef GPU
     HANDLE_CUDACALL(cudaMemcpyToSymbol(const_phase_list, c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
-
-
-    kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(state.data_re,state.data_im,state.size(),mask0s,q0,size_mask);
+    kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),mask0s,q0,size_mask);
+#else
+    func_suqa_phase_list(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),c_phases,mask0s,q0,size_mask);
+#endif
      
 }
+
 
 /* Pauli Tensor Product rotations */
 
 // rotation by phase in the direction of a pauli tensor product
-void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
+void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
     uint mask0s = gc_mask;
     uint mask1s = mask0s;
     uint mask_q1, mask_q2, mask_q3;
@@ -380,13 +396,25 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
         mask_q1 = (1U << q_apply[0]);
         switch(pauli_TPtype[0]){
             case PAULI_X:
-                kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#ifdef GPU
+                kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#else
+                func_suqa_pauli_TP_rotation_x(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#endif
                 break;
             case PAULI_Y:
-                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#ifdef GPU
+                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#else
+                func_suqa_pauli_TP_rotation_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#endif
                 break;
             case PAULI_Z:
-                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#ifdef GPU
+                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#else
+                func_suqa_pauli_TP_rotation_z(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+#endif
                 break;
             default:
                 break;
@@ -398,20 +426,35 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
         }
         mask_q1 = (1U << q_apply_cpy[0]);
         mask_q2 = (1U << q_apply_cpy[1]);
-
+#ifdef GPU
         if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
-            kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+            kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
         }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
-            kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+            kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
         }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
-            kernel_suqa_pauli_TP_rotation_zz<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+            kernel_suqa_pauli_TP_rotation_zz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
         }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
-            kernel_suqa_pauli_TP_rotation_xy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+            kernel_suqa_pauli_TP_rotation_xy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
         }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
-            kernel_suqa_pauli_TP_rotation_zx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+            kernel_suqa_pauli_TP_rotation_zx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
         }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
-            kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+            kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
         }
+#else
+        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
+            func_suqa_pauli_TP_rotation_xx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
+            func_suqa_pauli_TP_rotation_yy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
+            func_suqa_pauli_TP_rotation_zz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
+            func_suqa_pauli_TP_rotation_xy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
+            func_suqa_pauli_TP_rotation_zx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
+            func_suqa_pauli_TP_rotation_zy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+        }
+#endif
 
     }else if(q_apply.size()==3U){
         if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
@@ -438,12 +481,21 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
         mask_q3 = (1U << q_apply_cpy[i_z]);
         mask_q1 = (1U << q_apply_cpy[i1]);
         mask_q2 = (1U << q_apply_cpy[i2]);
+#ifdef GPU
         if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
-                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
         }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
-                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
         }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
-                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im, state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+#else
+        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
+                func_suqa_pauli_TP_rotation_zxx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
+                func_suqa_pauli_TP_rotation_zyy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
+                func_suqa_pauli_TP_rotation_zzz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+#endif
         }else{
             throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
         }
@@ -454,18 +506,21 @@ void suqa::apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, cons
 
 /* End of Pauli Tensor Product rotations */
 
-
-
-void set_ampl_to_zero(ComplexVec& state, const uint& q, const uint& val){
-    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(state.data_re, state.data_im, state.size(), q, val);
+void set_ampl_to_zero(const uint& q, const uint& val){
+#ifdef GPU
+    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, val);
+#else
+    func_suqa_set_ampl_to_zero(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, val);
+#endif
 }
 
 
-void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
+void suqa::measure_qbit(uint q, uint& c, double rdoub){
     double prob1 = 0.0;
     c=0U;
+#ifdef GPU
 //    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
-    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data_re, state.data_im, state.size(), q);
+    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q);
 //    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+blocks, state.data_im, state.size(), q);
 //    cudaDeviceSynchronize();
     cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
@@ -473,34 +528,28 @@ void suqa::measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub){
     for(uint bid=0; bid<suqa::blocks && prob1<rdoub; ++bid){
         prob1 += host_partial_ret[bid]; 
     } 
+#else
+    prob1 = func_suqa_prob1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q);
+#endif
 
     c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
     uint c_conj = c^1U; // 1U-c, since c=0U or 1U
 
-
-#ifndef NDEBUG
-    std::cout<<"prob1="<<prob1<<", c_conj="<<c_conj<<std::endl;
-#endif
-//#if defined(CUDA_HOST)
-//    DEBUG_CALL(std::cout<<"before flipping qbit "<<c_conj<<std::endl);
-//    DEBUG_CALL(sparse_print((double*)state.data, state.size()));
-//#endif
-
     // set to 0 coeffs with bm_acc 1-c
-    set_ampl_to_zero(state, q, c_conj);
-    suqa::vnormalize(state);
+    set_ampl_to_zero(q, c_conj);
+    suqa::vnormalize();
 }
 
 ////TODO: can be optimized for multiple qbits measures?
-void suqa::measure_qbits(ComplexVec& state, const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
+void suqa::measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
     for(uint k = 0U; k < qs.size(); ++k)
-        suqa::measure_qbit(state, qs[k], cs[k], rdoubs[k]);
+        suqa::measure_qbit(qs[k], cs[k], rdoubs[k]);
 }
 
 
 
 
-void suqa::prob_filter(ComplexVec& state, const bmReg& qs, const std::vector<uint>& q_mask, double &prob){
+void suqa::prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob){
     prob = 0.0;
     uint mask_qs = 0U;
     for(const auto& q : qs)
@@ -509,8 +558,9 @@ void suqa::prob_filter(ComplexVec& state, const bmReg& qs, const std::vector<uin
     for(uint k = 0U; k < q_mask.size(); ++k){
         if(q_mask[k]) mask |= q_mask[k] << qs[k];
     }
+#ifdef GPU
 //    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
-    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data_re, state.data_im, state.size(), mask_qs, mask);
+    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask_qs, mask);
 //    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret+suqa::blocks, state.data_im, state.size(), mask_qs, mask);
 //    cudaDeviceSynchronize();
     cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
@@ -518,15 +568,19 @@ void suqa::prob_filter(ComplexVec& state, const bmReg& qs, const std::vector<uin
     for(uint bid=0; bid<suqa::blocks; ++bid){
         prob += host_partial_ret[bid]; 
     } 
+#else
+    prob=func_suqa_prob_filter(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask_qs, mask);
+#endif
 }
 
 
-void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
+// RESET = measure + classical cx
+void suqa::apply_reset(uint q, double rdoub){
 //    DEBUG_CALL(std::cout<<"Calling apply_reset() with q="<<q<<"and rdoub="<<rdoub<<std::endl);
     uint c;
-    suqa::measure_qbit(state, q, c, rdoub);
+    suqa::measure_qbit(q, c, rdoub);
     if(c){ // c==1U
-        suqa::apply_x(state, q);
+        suqa::apply_x(q);
         // suqa::vnormalize(state); // normalization shoud be guaranteed by the measure
     }
 }  
@@ -543,14 +597,13 @@ void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
 //    }
 //}
 
-void suqa::apply_reset(ComplexVec& state, const bmReg& qs, std::vector<double> rdoubs){
+void suqa::apply_reset(const bmReg& qs, std::vector<double> rdoubs){
     // qs.size() == rdoubs.size()
     for(uint i=0; i<qs.size(); ++i){
-        suqa::apply_reset(state, qs[i], rdoubs[i]); 
+        suqa::apply_reset(qs[i], rdoubs[i]); 
     } 
 }
 
-#endif
 
 void deallocate_state(ComplexVec& state){
     if(state.data!=nullptr){
@@ -581,9 +634,16 @@ void allocate_state(ComplexVec& state, uint Dim){
 
 
 
-void suqa::setup(ComplexVec& state, uint Dim){
+void suqa::setup(uint num_qubits){
+    suqa::nq = num_qubits;
+    uint Dim = 1U << suqa::nq;
 
 #ifdef GPU
+    suqa::threads = NUM_THREADS;
+    suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
+    if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
+    printf("blocks: %u, threads: %u\n",suqa::blocks, suqa::threads);
+
     cudaHostAlloc((void**)&host_partial_ret,suqa::blocks*sizeof(double),cudaHostAllocDefault);
     cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
 // the following are allocated only for library versions of reduce
@@ -609,12 +669,14 @@ void suqa::setup(ComplexVec& state, uint Dim){
     HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im,Dim*sizeof(double),cudaHostAllocDefault));
 #endif
 
+
+
 #endif // ifdef GPU
 
-    allocate_state(state,Dim);
+    allocate_state(suqa::state,Dim);
 }
 
-void suqa::clear(ComplexVec& state){
+void suqa::clear(){
 //    cudaFree(d_ret_re_im);
 //    cudaFreeHost(ret_re_im);
 #ifdef GPU
@@ -631,7 +693,7 @@ void suqa::clear(ComplexVec& state){
         HANDLE_CUDACALL( cudaStreamDestroy( suqa::stream2 ) );
     }
 #endif
-    deallocate_state(state);
+    deallocate_state(suqa::state);
 }
 
 //int main(){

@@ -55,9 +55,9 @@ std::ostream& operator<<(std::ostream& s, const std::complex<T>& c);
 template <typename T>
 void sparse_print(std::vector<std::complex<T>> v);
 
-void sparse_print(double *v, uint size);
+void sparse_print(double *v, size_t size);
 
-void sparse_print(double *v, double *w, uint size);
+void sparse_print(double *v, double *w, size_t size);
 
 template<class T>
 void print(std::vector<T> v);

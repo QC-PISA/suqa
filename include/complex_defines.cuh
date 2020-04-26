@@ -102,23 +102,11 @@ static double norm(const double& re, const double& im){
 //}
 
 
-// this is expi(z) == exp(i z)
-#ifdef GPU
-__host__ __device__ __inline__ 
-#endif
-static Complex expi(double z){
-
-    Complex res;
-
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    res.y = sin(z);
-    res.x = cos(z);
-#else
-    sincos(z, &res.y, &res.x);
-#endif
-
-
-    return res;
-
-}
-
+//#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+//#ifndef GPU
+//void sincos(double phase, double* y, double* x) {
+//    *y = sin(phase);
+//    *x = cos(phase);
+//}
+//#endif
+//#endif

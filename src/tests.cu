@@ -21,13 +21,26 @@
 
 int main(int argc, char** argv) {
 
-	ComplexVec state;
-	suqa::setup(state,32);
-	suqa::all_zeros(state);
-	DEBUG_CALL(printf("Initial state:\n"));
-	DEBUG_READ_STATE(state);
+	suqa::setup(5);
+	suqa::init_state();
 
-	suqa::clear(state);
+
+	DEBUG_CALL(printf("Initial state:\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_x(3);
+	DEBUG_CALL(printf("After apply_x(3):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_h(1);
+	DEBUG_CALL(printf("After apply_h(1):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_cx(1,0);
+	DEBUG_CALL(printf("After apply_cx(1,0):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::clear();
 
 	return 0;
 }

@@ -2,7 +2,8 @@
 #include "suqa.cuh"
 
 
-__global__ void kernel_all_zeros(double* state_re, double* state_im, size_t len) {
+__global__
+void kernel_suqa_init_state(double* state_re, double* state_im, size_t len) {
     uint i = blockIdx.x * blockDim.x + threadIdx.x;
     while (i < len) {
         state_re[i] = 0.0;
@@ -10,6 +11,7 @@ __global__ void kernel_all_zeros(double* state_re, double* state_im, size_t len)
         i += gridDim.x * blockDim.x;
     }
     if (blockIdx.x * blockDim.x + threadIdx.x == 0) {
+        printf("This\n");
         state_re[0] = 1.0;
         state_im[0] = 0.0;
     }
@@ -18,7 +20,8 @@ __global__ void kernel_all_zeros(double* state_re, double* state_im, size_t len)
 
 
 //TODO: optimize reduce
-__global__ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, size_t len){
+__global__
+void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, size_t len){
     extern __shared__ double local_ret[];
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -234,19 +237,6 @@ void kernel_suqa_swap(double *const state_re, double *const state_im, size_t len
             state_im[i_2]=tmpval;
         }
         i+=gridDim.x*blockDim.x;
-    }
-}
-
-// sets amplitudes with value <val> in qubit <q> to zero
-// !! it leaves the state unnormalized !!
-__global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im, size_t len, uint q, uint val){
-    uint i =  blockIdx.x*blockDim.x + threadIdx.x;
-    while(i<len){
-        if(((i >> q) & 1U) == val){
-            state_re[i] = 0.0;
-            state_im[i] = 0.0;
-        }
-        i += gridDim.x*blockDim.x;
     }
 }
 
@@ -535,6 +525,20 @@ void kernel_suqa_pauli_TP_rotation_zzz(double *const state_re, double *const sta
         i_0+=gridDim.x*blockDim.x;
     }
 }
+
+// sets amplitudes with value <val> in qubit <q> to zero
+// !! it leaves the state unnormalized !!
+__global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im, size_t len, uint q, uint val){
+    uint i =  blockIdx.x*blockDim.x + threadIdx.x;
+    while(i<len){
+        if(((i >> q) & 1U) == val){
+            state_re[i] = 0.0;
+            state_im[i] = 0.0;
+        }
+        i += gridDim.x*blockDim.x;
+    }
+}
+
 
 __global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_re, double *v_im, size_t len, uint q){
     extern __shared__ double local_ret[];

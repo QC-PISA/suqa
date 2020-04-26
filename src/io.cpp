@@ -35,7 +35,7 @@ void sparse_print(std::vector<std::complex<T>> v){
     std::cout<<std::endl;
 }
 
-void sparse_print(double *v, uint size){
+void sparse_print(double *v, size_t size){
     // for contiguous even-odd entries corresponding to real and imag parts
     for(uint i=0; i<size; ++i){
         std::complex<double> var(v[i*2],v[i*2+1]);
@@ -45,7 +45,7 @@ void sparse_print(double *v, uint size){
     std::cout<<std::endl;
 }
 
-void sparse_print(double *v_re, double *v_im, uint size){
+void sparse_print(double *v_re, double *v_im, size_t size){
     // for non-contiguous even-odd entries corresponding to real and imag parts
     size_t index_size = (int)std::round(std::log2(size));
     for(uint i=0; i<size; ++i){
