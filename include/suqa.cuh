@@ -6,8 +6,14 @@
 #include <stdexcept>
 #include "io.hpp"
 #include "complex_defines.cuh"
+
 #ifdef GPU
-#include "device_launch_parameters.h"
+#ifndef __CUDACC__  
+#define __CUDACC__
+#endif
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+#include <device_launch_parameters.h>
 #endif
 
 
@@ -64,30 +70,7 @@ void deactivate_gc_mask();
 double vnorm(const ComplexVec& v);
 void vnormalize(ComplexVec& v);
 
-
-//__host__ __device__ static __inline__
-//void apply_2x2mat(Complex& x1, Complex& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
-//            Complex x1_next = m11 * x1 + m12 * x2;
-//            Complex x2_next = m21 * x1 + m22 * x2;
-//            x1 = x1_next;
-//            x2 = x2_next;
-//}
-//
-//__host__ __device__ static __inline__
-//void apply_2x2mat_doub(Complex& x1, Complex& x2, const double& m11, const double& m12, const double& m21, const double& m22){
-//            Complex x1_next = m11 * x1 + m12 * x2;
-//            Complex x2_next = m21 * x1 + m22 * x2;
-//            x1 = x1_next;
-//            x2 = x2_next;
-//}
-
-//__host__ __device__ static __inline__
-//void swap_cmpx(Complex *const a, Complex *const b){
-//    Complex tmp_c = *a;
-//    *a = *b;
-//    *b = tmp_c;
-//}
-
+void all_zeros(ComplexVec& v);
 
 /* SUQA gates */
 //
@@ -110,6 +93,9 @@ void apply_sigma_minus(ComplexVec& state, const bmReg& qs);
 
 void apply_h(ComplexVec& state, uint q);
 void apply_h(ComplexVec& state, const bmReg& qs);
+
+void apply_s(ComplexVec& state, uint q);
+void apply_s(ComplexVec& state, const bmReg& qs);
 
 void apply_t(ComplexVec& state, uint q);
 void apply_t(ComplexVec& state, const bmReg& qs);
@@ -150,8 +136,8 @@ void measure_qbits(ComplexVec& state, const bmReg& qs, std::vector<uint>& cs,con
 void apply_reset(ComplexVec& state, uint q, double rdoub);
 void apply_reset(ComplexVec& state, const bmReg& qs, std::vector<double> rdoubs);
 
-void setup(uint Dim);
-void clear();
+void setup(ComplexVec& state, uint Dim);
+void clear(ComplexVec& state);
 
 void prob_filter(ComplexVec& state, const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
 

@@ -24,9 +24,6 @@
     <ClInclude Include="..\..\include\suqa.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\system.cuh">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\include\suqa_kernels.cuh">
       <Filter>headers</Filter>
     </ClInclude>
@@ -46,9 +43,8 @@
     <CudaCompile Include="..\..\src\suqa.cu">
       <Filter>sources</Filter>
     </CudaCompile>
-    <CudaCompile Include="..\..\src\system.cu">
+    <CudaCompile Include="..\..\src\tests.cu">
       <Filter>sources</Filter>
     </CudaCompile>
-    <CudaCompile Include="..\..\src\test_evolution.cu" />
   </ItemGroup>
 </Project>

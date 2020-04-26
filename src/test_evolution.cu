@@ -32,33 +32,6 @@ cudaStream_t suqa::stream1, suqa::stream2;
 
 const int Dim=6;
 
-void deallocate_state(ComplexVec& state){
-    if(state.data!=nullptr){
-#ifdef GPU
-        HANDLE_CUDACALL(cudaFree(state.data));
-#else
-        delete[] state.data;
-#endif
-    }
-    state.vecsize=0U;
-}
-
-void allocate_state(ComplexVec& state, uint Dim){
-    if(state.data!=nullptr or Dim!=state.vecsize)
-        deallocate_state(state);
-
-
-    state.vecsize = Dim; 
-#ifdef GPU
-    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data), 2*state.vecsize*sizeof(double)));
-#else
-    state.data = new double[2 * state.vecsize];
-#endif
-    // allocate both using re as offset, and im as access pointer.
-    state.data_re = state.data;
-    state.data_im = state.data_re + state.vecsize;
-}
-
 void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3);
 
 int main(int argc, char** argv){
