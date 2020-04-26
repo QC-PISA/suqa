@@ -130,10 +130,15 @@ void double_turn() {
     cout << "\nPlayer 1, make move: " << flush;
     get_player_move(move);
     move.apply_move(0);
+	DEBUG_CALL(printf("game state:\n"));
+	DEBUG_READ_STATE(state);
 
     cout << "\nPlayer 2, make move: " << flush;
     get_player_move(move);
+    
     move.apply_move(1);
+	DEBUG_CALL(printf("game state:\n"));
+	DEBUG_READ_STATE(state);
 }
 
 const vector<vector<uint>> winsets = { {0U, 2U, 4U}, //rows
@@ -157,15 +162,18 @@ void print_classical_state(const vector<uint>& creg) {
 
 // measure on the win states
 bool check_win() {
-    // rows
+    uint win_meas=0U;
     for (uint offset = 0U; offset < 2U; ++offset) {
         for (const auto& triple : winsets) {
             suqa::apply_mcx(state, { triple[0] + offset, triple[1] + offset,triple[2] + offset }, bm_win);
+			suqa::measure_qbit(state, bm_win, win_meas, rangen.doub());
+            if (win_meas == 1U) {
+                offset = 2U;
+                break;
+            }
         }
     }
 
-    uint win_meas;
-    suqa::measure_qbit(state, bm_win, win_meas, rangen.doub());
     if (win_meas == 1U) {
         suqa::apply_x(state, bm_win);
         vector<uint> c_reg(18);
@@ -186,8 +194,6 @@ void game() {
     while (!win) {
         double_turn();
         win=check_win();
-		DEBUG_CALL(printf("game state:\n"));
-		DEBUG_READ_STATE(state);
     }
 
 }
