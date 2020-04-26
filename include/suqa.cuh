@@ -31,9 +31,15 @@ extern double *host_state_re, *host_state_im;
     sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
 #else
+#ifdef SPARSE
+#define DEBUG_READ_STATE(state) {\
+    sparse_print((double*)state.data_re,(double*)state.data_im, state.size(), suqa::actives); \
+}
+#else
 #define DEBUG_READ_STATE(state) {\
     sparse_print((double*)state.data_re,(double*)state.data_im, state.size()); \
 }
+#endif
 #endif
 #else
 #define DEBUG_READ_STATE(state)
@@ -52,6 +58,9 @@ typedef std::vector<uint> bmReg;
 namespace suqa{
 
 extern ComplexVec state;
+#ifdef SPARSE
+extern std::vector<uint> actives; // dynamic list of active states
+#endif
 
 #ifdef GPU
 #define NUM_THREADS 128
@@ -86,29 +95,29 @@ void init_state();
 void apply_x(uint q);
 void apply_x(const bmReg& qs);
 
-void apply_y(uint q);
-void apply_y(const bmReg& qs);
-
-void apply_z(uint q);
-void apply_z(const bmReg& qs);
-
-void apply_sigma_plus(uint q);
-void apply_sigma_plus(const bmReg& qs);
-
-void apply_sigma_minus(uint q);
-void apply_sigma_minus(const bmReg& qs);
+//void apply_y(uint q);
+//void apply_y(const bmReg& qs);
+//
+//void apply_z(uint q);
+//void apply_z(const bmReg& qs);
+//
+//void apply_sigma_plus(uint q);
+//void apply_sigma_plus(const bmReg& qs);
+//
+//void apply_sigma_minus(uint q);
+//void apply_sigma_minus(const bmReg& qs);
 
 void apply_h(uint q);
 void apply_h(const bmReg& qs);
-
-void apply_s(uint q);
-void apply_s(const bmReg& qs);
 
 void apply_t(uint q);
 void apply_t(const bmReg& qs);
 
 void apply_tdg(uint q);
 void apply_tdg(const bmReg& qs);
+
+void apply_s(uint q);
+void apply_s(const bmReg& qs);
 
 // matrix:   1     0
 //           0     exp(i phase)
@@ -122,31 +131,31 @@ void apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask=1U
 void apply_mcx(const bmReg& q_controls, const uint& q_target);
 void apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target);
 
-void apply_cu1(uint q_control, uint q_target, double phase, uint q_mask=1U);
-
-void apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase);
-void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
-
-void apply_swap(const uint& q1, const uint& q2);
-
-// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
-void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
-
-// rotation by phase in the direction of a pauli tensor product
-void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
-
-/* SUQA utils */
-void measure_qbit(uint q, uint& c, double rdoub);
-void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
-
-
-void apply_reset(uint q, double rdoub);
-void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
+//void apply_cu1(uint q_control, uint q_target, double phase, uint q_mask=1U);
+//
+//void apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase);
+//void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
+//
+//void apply_swap(const uint& q1, const uint& q2);
+//
+//// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
+//void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
+//
+//// rotation by phase in the direction of a pauli tensor product
+//void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
+//
+///* SUQA utils */
+//void measure_qbit(uint q, uint& c, double rdoub);
+//void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
+//
+//
+//void apply_reset(uint q, double rdoub);
+//void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
 
 void setup(uint nq);
 void clear();
 
-void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
+//void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
 
 };
 

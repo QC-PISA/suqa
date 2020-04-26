@@ -59,6 +59,19 @@ void sparse_print(double *v_re, double *v_im, size_t size){
     std::cout<<std::endl;
 }
 
+void sparse_print(double *v_re, double *v_im, size_t size, std::vector<uint>& indexes){
+    std::sort(indexes.begin(), indexes.end());
+    // for non-contiguous even-odd entries corresponding to real and imag parts
+    size_t index_size = (int)std::round(std::log2(size));
+    for(const auto& idx : indexes){
+       std::complex<double> var(v_re[idx],v_im[idx]);
+		std::string index= std::bitset<32>(idx).to_string();
+		index.erase(0,32-index_size);
+		printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e, phase= %.3e pi\n",index.c_str(),idx, v_re[idx], v_im[idx], norm(var),atan2(v_im[idx],v_re[idx])/M_PI);
+    }
+    std::cout<<std::endl;
+}
+
 template<class T>
 void print(std::vector<T> v){
     for(const auto& el : v)

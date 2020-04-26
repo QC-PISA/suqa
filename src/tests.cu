@@ -24,8 +24,11 @@ int main(int argc, char** argv) {
 	suqa::setup(5);
 	suqa::init_state();
 
-
 	DEBUG_CALL(printf("Initial state:\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_x(3);
+	DEBUG_CALL(printf("After apply_x(3):\n"));
 	DEBUG_READ_STATE(suqa::state);
 
 	suqa::apply_x(3);
@@ -36,8 +39,36 @@ int main(int argc, char** argv) {
 	DEBUG_CALL(printf("After apply_h(1):\n"));
 	DEBUG_READ_STATE(suqa::state);
 
-	suqa::apply_cx(1,0);
-	DEBUG_CALL(printf("After apply_cx(1,0):\n"));
+	suqa::apply_x(3);
+	DEBUG_CALL(printf("After apply_x(3):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_h(1);
+	DEBUG_CALL(printf("After apply_h(1):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_cx(3,0);
+	DEBUG_CALL(printf("After apply_cx(3,0):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_cx(3,0);
+	DEBUG_CALL(printf("After apply_cx(3,0):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_h(0);
+	DEBUG_CALL(printf("After apply_h(0):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_h(1);
+	DEBUG_CALL(printf("After apply_h(1):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_h({ 2, 4 });
+	DEBUG_CALL(printf("After apply_h({2,4}):\n"));
+	DEBUG_READ_STATE(suqa::state);
+
+	suqa::apply_cx(0,4);
+	DEBUG_CALL(printf("After apply_cx(0,4):\n"));
 	DEBUG_READ_STATE(suqa::state);
 
 	suqa::clear();

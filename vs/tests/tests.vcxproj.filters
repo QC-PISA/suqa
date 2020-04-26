@@ -21,10 +21,10 @@
     <ClInclude Include="..\..\include\Rand.hpp">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\suqa.cuh">
+    <ClInclude Include="..\..\include\suqa_kernels.cuh">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\suqa_kernels.cuh">
+    <ClInclude Include="..\..\include\suqa.cuh">
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="..\..\include\suqa_cpu.hpp">
@@ -40,10 +40,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="..\..\src\tests.cu" />
     <CudaCompile Include="..\..\src\suqa.cu">
-      <Filter>sources</Filter>
-    </CudaCompile>
-    <CudaCompile Include="..\..\src\tests.cu">
       <Filter>sources</Filter>
     </CudaCompile>
   </ItemGroup>

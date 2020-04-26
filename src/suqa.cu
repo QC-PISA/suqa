@@ -2,19 +2,22 @@
 
 void suqa::print_banner(){
     printf("\n"
+"                                                 \n" 
+"   ███████╗██╗   ██╗ ██████╗  █████╗     \n" 
+"   ██╔════╝██║   ██║██╔═══██╗██╔══██╗    \n" 
+"   ███████╗██║   ██║██║   ██║███████║    \n" 
+"   ╚════██║██║   ██║██║▄▄ ██║██╔══██║    \n" 
+"   ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
+"   ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
 "                                          \n" 
-"    ███████╗██╗   ██╗ ██████╗  █████╗     \n" 
-"    ██╔════╝██║   ██║██╔═══██╗██╔══██╗    \n" 
-"    ███████╗██║   ██║██║   ██║███████║    \n" 
-"    ╚════██║██║   ██║██║▄▄ ██║██╔══██║    \n" 
-"    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n" 
-"    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n" 
-"                                          \n" 
-"\nSimulator for Universal Quantum Algorithms\n\n");
+"\n Simulator for Universal Quantum Algorithms\n\n");
 }
 
 
 ComplexVec suqa::state;
+#ifdef SPARSE
+std::vector<uint> suqa::actives;
+#endif
 
 #if !defined(NDEBUG) && defined(GPU)
 double *host_state_re, *host_state_im;
@@ -114,63 +117,63 @@ void suqa::apply_x(const bmReg& qs){
 //  Y GATE
 
 
-void suqa::apply_y(uint q){
-#ifdef GPU
-    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-#else
-    func_suqa_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-#endif
-}  
-
-void suqa::apply_y(const bmReg& qs){
-    for (const auto& q : qs)
-        suqa::apply_y(q);
-}  
-
-//  Z GATE
-
-void suqa::apply_z(uint q){
-    suqa::apply_u1(q, M_PI);
-}  
-
-void suqa::apply_z(const bmReg& qs){
-    for(const auto& q : qs)
-		suqa::apply_u1(q, M_PI);
-}  
-
-
-//  SIGMA+ = 1/2(X+iY) GATE
-
-
-void suqa::apply_sigma_plus(uint q){
-#ifdef GPU
-    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-#else 
-    func_suqa_sigma_plus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-#endif
-}  
-
-void suqa::apply_sigma_plus(const bmReg& qs){
-    for (const auto& q : qs)
-        suqa::apply_sigma_plus(q);
-}
-
-
-//  SIGMA- = 1/2(X-iY) GATE
-
-
-void suqa::apply_sigma_minus(uint q){
-#ifdef GPU
-    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-#else 
-    func_suqa_sigma_minus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-#endif
-}  
-
-void suqa::apply_sigma_minus(const bmReg& qs){
-    for(const auto& q : qs)
-        suqa::apply_sigma_minus(q);
-}
+//void suqa::apply_y(uint q){
+//#ifdef GPU
+//    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+//#else
+//    func_suqa_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+//#endif
+//}  
+//
+//void suqa::apply_y(const bmReg& qs){
+//    for (const auto& q : qs)
+//        suqa::apply_y(q);
+//}  
+//
+////  Z GATE
+//
+//void suqa::apply_z(uint q){
+//    suqa::apply_u1(q, M_PI);
+//}  
+//
+//void suqa::apply_z(const bmReg& qs){
+//    for(const auto& q : qs)
+//		suqa::apply_u1(q, M_PI);
+//}  
+//
+//
+////  SIGMA+ = 1/2(X+iY) GATE
+//
+//
+//void suqa::apply_sigma_plus(uint q){
+//#ifdef GPU
+//    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+//#else 
+//    func_suqa_sigma_plus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+//#endif
+//}  
+//
+//void suqa::apply_sigma_plus(const bmReg& qs){
+//    for (const auto& q : qs)
+//        suqa::apply_sigma_plus(q);
+//}
+//
+//
+////  SIGMA- = 1/2(X-iY) GATE
+//
+//
+//void suqa::apply_sigma_minus(uint q){
+//#ifdef GPU
+//    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+//#else 
+//    func_suqa_sigma_minus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+//#endif
+//}  
+//
+//void suqa::apply_sigma_minus(const bmReg& qs){
+//    for(const auto& q : qs)
+//        suqa::apply_sigma_minus(q);
+//}
 
 
 //  HADAMARD GATE
@@ -194,8 +197,6 @@ void suqa::apply_h(const bmReg& qs){
 
 
 //  PI/8 GATES
-
-
 
 // T gate (single qubit)
 void suqa::apply_t(uint q){
@@ -254,22 +255,22 @@ void suqa::apply_u1(uint q, uint q_mask, double phase){
 
 
 void suqa::apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask){
-    uint mask_qs = (1U << q_target) | gc_mask;
+    uint mask_qs = gc_mask;
     uint mask = mask_qs | (1U << q_control);
     if(q_mask) mask_qs |= (1U << q_control);
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask|(1U<<q_target), mask_qs|(1U<<q_target), q_target);
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
 #endif
 }  
 
 void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
-    uint mask = (1U << q_target) | gc_mask;
+    uint mask = gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask|(1U<<q_target), mask|(1U<<q_target), q_target);
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask, q_target);
 #endif
@@ -277,332 +278,332 @@ void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
 
 
 void suqa::apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target){
-    uint mask = (1U << q_target) | gc_mask;
+    uint mask = gc_mask;
     for(const auto& q : q_controls)
         mask |= 1U << q;
-    uint mask_qs = (1U << q_target) | gc_mask;
+    uint mask_qs = gc_mask;
     for(uint k = 0U; k < q_controls.size(); ++k){
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask|(1U<<q_target), mask|(1U<<q_target)_qs, q_target);
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target);
 #endif
 }  
 
 
-void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
-    uint mask_qs = (1U << q_target) | suqa::gc_mask;
-    uint mask = mask_qs | (1U << q_control);
-    if(q_mask) mask_qs |= (1U << q_control);
-
-    Complex phasec;
-    sincos(phase, &phasec.y, &phasec.x);
-#ifdef GPU
-    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-#else
-    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-#endif
-}
-
-void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
-    uint mask = (1U << q_target) | suqa::gc_mask;
-    for(const auto& q : q_controls)
-        mask |= 1U << q;
-    uint mask_qs = (1U << q_target) | suqa::gc_mask;
-    for(uint k = 0U; k < q_controls.size(); ++k){
-        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
-    }
-
-    Complex phasec;
-    sincos(phase, &phasec.y, &phasec.x);
-
-#ifdef GPU
-    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-#else
-    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-#endif
-}
-
-void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
-    suqa::apply_mcu1(q_controls, std::vector<uint>(q_controls.size(), 1U), q_target, phase);
-}
-
-
-void suqa::apply_swap(const uint& q1, const uint& q2){
-    // swap gate: 00->00, 01->10, 10->01, 11->11
-    // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
-    uint mask00 = suqa::gc_mask;
-    uint mask11 = mask00;
-    uint mask_q1 = (1U << q1);
-    uint mask_q2 = (1U << q2);
-    mask11 |= mask_q1 | mask_q2;
-#ifdef GPU
-    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
-#else
-    func_suqa_swap(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
-#endif
-}
-
-
-void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases){
-    if(!(q_size>0U and (uint)phases.size()==(1U<<q_size))){
-        throw std::runtime_error("ERROR: in suqa::apply_phase_list(): invalid q_size or phases.size()");
-    }
-
-    uint mask0s = gc_mask;
-    uint size_mask = 1U; // 2^0
-    for(uint i=1U; i<q_size; ++i){
-        size_mask |= (1U << i); // 2^i
-    }
-
-    std::vector<Complex> c_phases(phases.size());
-    for(uint i=0U; i<phases.size(); ++i){
-        sincos(phases[i],&c_phases[i].y,&c_phases[i].x);
-    }
-
-#ifdef GPU
-    HANDLE_CUDACALL(cudaMemcpyToSymbol(const_phase_list, c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
-    kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),mask0s,q0,size_mask);
-#else
-    func_suqa_phase_list(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),c_phases,mask0s,q0,size_mask);
-#endif
-     
-}
-
-
-/* Pauli Tensor Product rotations */
-
-// rotation by phase in the direction of a pauli tensor product
-void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
-    uint mask0s = gc_mask;
-    uint mask1s = mask0s;
-    uint mask_q1, mask_q2, mask_q3;
-    for(const auto& q : q_apply){
-        mask1s |= (1U << q);
-    }
-    double sph, cph;
-    sincos(phase, &sph, &cph);
-
-    if(q_apply.size()!=pauli_TPtype.size()){
-        throw std::runtime_error("ERROR: in suqa::apply_pauli_TP_rotation(): mismatch between qubits number and pauli types specified");
-    }
-
-    std::vector<uint> pauli_TPtype_cpy(pauli_TPtype);
-    std::vector<uint> q_apply_cpy(q_apply);
-
-    if(q_apply.size()==1U){
-        mask_q1 = (1U << q_apply[0]);
-        switch(pauli_TPtype[0]){
-            case PAULI_X:
-#ifdef GPU
-                kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#else
-                func_suqa_pauli_TP_rotation_x(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#endif
-                break;
-            case PAULI_Y:
-#ifdef GPU
-                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#else
-                func_suqa_pauli_TP_rotation_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#endif
-                break;
-            case PAULI_Z:
-#ifdef GPU
-                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#else
-                func_suqa_pauli_TP_rotation_z(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#endif
-                break;
-            default:
-                break;
-        }
-    }else if(q_apply.size()==2U){
-        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
-            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
-            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
-        }
-        mask_q1 = (1U << q_apply_cpy[0]);
-        mask_q2 = (1U << q_apply_cpy[1]);
-#ifdef GPU
-        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
-            kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
-            kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
-            kernel_suqa_pauli_TP_rotation_zz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
-            kernel_suqa_pauli_TP_rotation_xy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
-            kernel_suqa_pauli_TP_rotation_zx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
-            kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-        }
-#else
-        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
-            func_suqa_pauli_TP_rotation_xx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
-            func_suqa_pauli_TP_rotation_yy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
-            func_suqa_pauli_TP_rotation_zz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
-            func_suqa_pauli_TP_rotation_xy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
-            func_suqa_pauli_TP_rotation_zx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
-            func_suqa_pauli_TP_rotation_zy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-        }
-#endif
-
-    }else if(q_apply.size()==3U){
-        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
-            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
-            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
-        }
-        if(pauli_TPtype_cpy[1]>pauli_TPtype_cpy[2]){ //sort cases
-            std::swap(pauli_TPtype_cpy[1],pauli_TPtype_cpy[2]);
-            std::swap(q_apply_cpy[1],q_apply_cpy[2]);
-        }
-        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
-            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
-            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
-        }
-
-        int i_z = -1, i1, i2;
-        if(pauli_TPtype_cpy[2]==PAULI_Z){
-            i_z=2;
-            i1=0;
-            i2=1;
-        }else{
-            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
-        }
-        mask_q3 = (1U << q_apply_cpy[i_z]);
-        mask_q1 = (1U << q_apply_cpy[i1]);
-        mask_q2 = (1U << q_apply_cpy[i2]);
-#ifdef GPU
-        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
-                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
-                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
-                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-#else
-        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
-                func_suqa_pauli_TP_rotation_zxx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
-                func_suqa_pauli_TP_rotation_zyy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
-                func_suqa_pauli_TP_rotation_zzz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-#endif
-        }else{
-            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
-        }
-    }else{
-        throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
-    }
-}
-
-/* End of Pauli Tensor Product rotations */
-
-void set_ampl_to_zero(const uint& q, const uint& val){
-#ifdef GPU
-    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, val);
-#else
-    func_suqa_set_ampl_to_zero(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, val);
-#endif
-}
-
-
-void suqa::measure_qbit(uint q, uint& c, double rdoub){
-    double prob1 = 0.0;
-    c=0U;
-#ifdef GPU
-//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
-    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q);
-//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+blocks, state.data_im, state.size(), q);
-//    cudaDeviceSynchronize();
-    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
-    
-    for(uint bid=0; bid<suqa::blocks && prob1<rdoub; ++bid){
-        prob1 += host_partial_ret[bid]; 
-    } 
-#else
-    prob1 = func_suqa_prob1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q);
-#endif
-
-    c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
-    uint c_conj = c^1U; // 1U-c, since c=0U or 1U
-
-    // set to 0 coeffs with bm_acc 1-c
-    set_ampl_to_zero(q, c_conj);
-    suqa::vnormalize();
-}
-
-////TODO: can be optimized for multiple qbits measures?
-void suqa::measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
-    for(uint k = 0U; k < qs.size(); ++k)
-        suqa::measure_qbit(qs[k], cs[k], rdoubs[k]);
-}
-
-
-
-
-void suqa::prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob){
-    prob = 0.0;
-    uint mask_qs = 0U;
-    for(const auto& q : qs)
-        mask_qs |= 1U << q;
-    uint mask = 0U;
-    for(uint k = 0U; k < q_mask.size(); ++k){
-        if(q_mask[k]) mask |= q_mask[k] << qs[k];
-    }
-#ifdef GPU
-//    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
-    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask_qs, mask);
-//    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret+suqa::blocks, state.data_im, state.size(), mask_qs, mask);
-//    cudaDeviceSynchronize();
-    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
-    
-    for(uint bid=0; bid<suqa::blocks; ++bid){
-        prob += host_partial_ret[bid]; 
-    } 
-#else
-    prob=func_suqa_prob_filter(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask_qs, mask);
-#endif
-}
-
-
-// RESET = measure + classical cx
-void suqa::apply_reset(uint q, double rdoub){
-//    DEBUG_CALL(std::cout<<"Calling apply_reset() with q="<<q<<"and rdoub="<<rdoub<<std::endl);
-    uint c;
-    suqa::measure_qbit(q, c, rdoub);
-    if(c){ // c==1U
-        suqa::apply_x(q);
-        // suqa::vnormalize(state); // normalization shoud be guaranteed by the measure
-    }
-}  
-
-// fake reset
-//void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
-//    for(uint i = 0U; i < state.size(); ++i){
-//        if((i >> q) & 1U){ // checks q-th digit in i
-//            uint j = i & ~(1U << q); // j has 0 on q-th digit
-//            state[j]+=state[i];
-//            state[i].x = 0.0;
-//            state[i].y = 0.0;
+//void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
+//    uint mask_qs = (1U << q_target) | suqa::gc_mask;
+//    uint mask = mask_qs | (1U << q_control);
+//    if(q_mask) mask_qs |= (1U << q_control);
+//
+//    Complex phasec;
+//    sincos(phase, &phasec.y, &phasec.x);
+//#ifdef GPU
+//    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+//#else
+//    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+//#endif
+//}
+//
+//void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
+//    uint mask = (1U << q_target) | suqa::gc_mask;
+//    for(const auto& q : q_controls)
+//        mask |= 1U << q;
+//    uint mask_qs = (1U << q_target) | suqa::gc_mask;
+//    for(uint k = 0U; k < q_controls.size(); ++k){
+//        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
+//    }
+//
+//    Complex phasec;
+//    sincos(phase, &phasec.y, &phasec.x);
+//
+//#ifdef GPU
+//    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+//#else
+//    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+//#endif
+//}
+//
+//void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
+//    suqa::apply_mcu1(q_controls, std::vector<uint>(q_controls.size(), 1U), q_target, phase);
+//}
+//
+//
+//void suqa::apply_swap(const uint& q1, const uint& q2){
+//    // swap gate: 00->00, 01->10, 10->01, 11->11
+//    // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
+//    uint mask00 = suqa::gc_mask;
+//    uint mask11 = mask00;
+//    uint mask_q1 = (1U << q1);
+//    uint mask_q2 = (1U << q2);
+//    mask11 |= mask_q1 | mask_q2;
+//#ifdef GPU
+//    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
+//#else
+//    func_suqa_swap(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
+//#endif
+//}
+//
+//
+//void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases){
+//    if(!(q_size>0U and (uint)phases.size()==(1U<<q_size))){
+//        throw std::runtime_error("ERROR: in suqa::apply_phase_list(): invalid q_size or phases.size()");
+//    }
+//
+//    uint mask0s = gc_mask;
+//    uint size_mask = 1U; // 2^0
+//    for(uint i=1U; i<q_size; ++i){
+//        size_mask |= (1U << i); // 2^i
+//    }
+//
+//    std::vector<Complex> c_phases(phases.size());
+//    for(uint i=0U; i<phases.size(); ++i){
+//        sincos(phases[i],&c_phases[i].y,&c_phases[i].x);
+//    }
+//
+//#ifdef GPU
+//    HANDLE_CUDACALL(cudaMemcpyToSymbol(const_phase_list, c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
+//    kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),mask0s,q0,size_mask);
+//#else
+//    func_suqa_phase_list(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),c_phases,mask0s,q0,size_mask);
+//#endif
+//     
+//}
+//
+//
+///* Pauli Tensor Product rotations */
+//
+//// rotation by phase in the direction of a pauli tensor product
+//void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
+//    uint mask0s = gc_mask;
+//    uint mask1s = mask0s;
+//    uint mask_q1, mask_q2, mask_q3;
+//    for(const auto& q : q_apply){
+//        mask1s |= (1U << q);
+//    }
+//    double sph, cph;
+//    sincos(phase, &sph, &cph);
+//
+//    if(q_apply.size()!=pauli_TPtype.size()){
+//        throw std::runtime_error("ERROR: in suqa::apply_pauli_TP_rotation(): mismatch between qubits number and pauli types specified");
+//    }
+//
+//    std::vector<uint> pauli_TPtype_cpy(pauli_TPtype);
+//    std::vector<uint> q_apply_cpy(q_apply);
+//
+//    if(q_apply.size()==1U){
+//        mask_q1 = (1U << q_apply[0]);
+//        switch(pauli_TPtype[0]){
+//            case PAULI_X:
+//#ifdef GPU
+//                kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+//#else
+//                func_suqa_pauli_TP_rotation_x(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+//#endif
+//                break;
+//            case PAULI_Y:
+//#ifdef GPU
+//                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+//#else
+//                func_suqa_pauli_TP_rotation_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+//#endif
+//                break;
+//            case PAULI_Z:
+//#ifdef GPU
+//                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+//#else
+//                func_suqa_pauli_TP_rotation_z(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+//#endif
+//                break;
+//            default:
+//                break;
 //        }
+//    }else if(q_apply.size()==2U){
+//        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+//            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+//            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+//        }
+//        mask_q1 = (1U << q_apply_cpy[0]);
+//        mask_q2 = (1U << q_apply_cpy[1]);
+//#ifdef GPU
+//        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
+//            kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
+//            kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
+//            kernel_suqa_pauli_TP_rotation_zz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
+//            kernel_suqa_pauli_TP_rotation_xy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
+//            kernel_suqa_pauli_TP_rotation_zx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
+//            kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+//        }
+//#else
+//        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
+//            func_suqa_pauli_TP_rotation_xx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
+//            func_suqa_pauli_TP_rotation_yy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
+//            func_suqa_pauli_TP_rotation_zz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
+//            func_suqa_pauli_TP_rotation_xy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
+//            func_suqa_pauli_TP_rotation_zx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+//        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
+//            func_suqa_pauli_TP_rotation_zy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
+//        }
+//#endif
+//
+//    }else if(q_apply.size()==3U){
+//        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+//            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+//            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+//        }
+//        if(pauli_TPtype_cpy[1]>pauli_TPtype_cpy[2]){ //sort cases
+//            std::swap(pauli_TPtype_cpy[1],pauli_TPtype_cpy[2]);
+//            std::swap(q_apply_cpy[1],q_apply_cpy[2]);
+//        }
+//        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+//            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+//            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+//        }
+//
+//        int i_z = -1, i1, i2;
+//        if(pauli_TPtype_cpy[2]==PAULI_Z){
+//            i_z=2;
+//            i1=0;
+//            i2=1;
+//        }else{
+//            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+//        }
+//        mask_q3 = (1U << q_apply_cpy[i_z]);
+//        mask_q1 = (1U << q_apply_cpy[i1]);
+//        mask_q2 = (1U << q_apply_cpy[i2]);
+//#ifdef GPU
+//        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
+//                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+//        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
+//                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+//        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
+//                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+//#else
+//        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
+//                func_suqa_pauli_TP_rotation_zxx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+//        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
+//                func_suqa_pauli_TP_rotation_zyy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+//        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
+//                func_suqa_pauli_TP_rotation_zzz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+//#endif
+//        }else{
+//            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+//        }
+//    }else{
+//        throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
 //    }
 //}
-
-void suqa::apply_reset(const bmReg& qs, std::vector<double> rdoubs){
-    // qs.size() == rdoubs.size()
-    for(uint i=0; i<qs.size(); ++i){
-        suqa::apply_reset(qs[i], rdoubs[i]); 
-    } 
-}
+//
+///* End of Pauli Tensor Product rotations */
+//
+//void set_ampl_to_zero(const uint& q, const uint& val){
+//#ifdef GPU
+//    kernel_suqa_set_ampl_to_zero<<<suqa::blocks, suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, val);
+//#else
+//    func_suqa_set_ampl_to_zero(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, val);
+//#endif
+//}
+//
+//
+//void suqa::measure_qbit(uint q, uint& c, double rdoub){
+//    double prob1 = 0.0;
+//    c=0U;
+//#ifdef GPU
+////    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
+//    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q);
+////    kernel_suqa_prob1<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double),stream2>>>(dev_partial_ret+blocks, state.data_im, state.size(), q);
+////    cudaDeviceSynchronize();
+//    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+//    
+//    for(uint bid=0; bid<suqa::blocks && prob1<rdoub; ++bid){
+//        prob1 += host_partial_ret[bid]; 
+//    } 
+//#else
+//    prob1 = func_suqa_prob1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q);
+//#endif
+//
+//    c = (uint)(rdoub < prob1); // prob1=1 -> c = 1 surely
+//    uint c_conj = c^1U; // 1U-c, since c=0U or 1U
+//
+//    // set to 0 coeffs with bm_acc 1-c
+//    set_ampl_to_zero(q, c_conj);
+//    suqa::vnormalize();
+//}
+//
+//////TODO: can be optimized for multiple qbits measures?
+//void suqa::measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
+//    for(uint k = 0U; k < qs.size(); ++k)
+//        suqa::measure_qbit(qs[k], cs[k], rdoubs[k]);
+//}
+//
+//
+//
+//
+//void suqa::prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob){
+//    prob = 0.0;
+//    uint mask_qs = 0U;
+//    for(const auto& q : qs)
+//        mask_qs |= 1U << q;
+//    uint mask = 0U;
+//    for(uint k = 0U; k < q_mask.size(); ++k){
+//        if(q_mask[k]) mask |= q_mask[k] << qs[k];
+//    }
+//#ifdef GPU
+////    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, state.data, 2*state.size(), q);
+//    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask_qs, mask);
+////    kernel_suqa_prob_filter<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret+suqa::blocks, state.data_im, state.size(), mask_qs, mask);
+////    cudaDeviceSynchronize();
+//    cudaMemcpy(host_partial_ret,dev_partial_ret,suqa::blocks*sizeof(double), cudaMemcpyDeviceToHost);
+//    
+//    for(uint bid=0; bid<suqa::blocks; ++bid){
+//        prob += host_partial_ret[bid]; 
+//    } 
+//#else
+//    prob=func_suqa_prob_filter(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask_qs, mask);
+//#endif
+//}
+//
+//
+//// RESET = measure + classical cx
+//void suqa::apply_reset(uint q, double rdoub){
+////    DEBUG_CALL(std::cout<<"Calling apply_reset() with q="<<q<<"and rdoub="<<rdoub<<std::endl);
+//    uint c;
+//    suqa::measure_qbit(q, c, rdoub);
+//    if(c){ // c==1U
+//        suqa::apply_x(q);
+//        // suqa::vnormalize(state); // normalization shoud be guaranteed by the measure
+//    }
+//}  
+//
+//// fake reset
+////void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
+////    for(uint i = 0U; i < state.size(); ++i){
+////        if((i >> q) & 1U){ // checks q-th digit in i
+////            uint j = i & ~(1U << q); // j has 0 on q-th digit
+////            state[j]+=state[i];
+////            state[i].x = 0.0;
+////            state[i].y = 0.0;
+////        }
+////    }
+////}
+//
+//void suqa::apply_reset(const bmReg& qs, std::vector<double> rdoubs){
+//    // qs.size() == rdoubs.size()
+//    for(uint i=0; i<qs.size(); ++i){
+//        suqa::apply_reset(qs[i], rdoubs[i]); 
+//    } 
+//}
 
 
 void deallocate_state(ComplexVec& state){
