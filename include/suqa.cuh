@@ -137,8 +137,8 @@ void apply_cu1(uint q_control, uint q_target, double phase, uint q_mask=1U);
 void apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase);
 void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
 
-//void apply_swap(const uint& q1, const uint& q2);
-//
+void apply_swap(const uint& q1, const uint& q2);
+
 //// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
 //void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
 //

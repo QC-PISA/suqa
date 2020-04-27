@@ -3,7 +3,7 @@
 #include <omp.h>
 
 void func_suqa_init_state(double* vec_data, size_t size) {
-	for (uint i = 0; i < size; ++i)
+	for (uint i = 1; i < size; ++i)
 		vec_data[i] = 0.0;
 
 	vec_data[0] = 1.0;
@@ -261,26 +261,27 @@ void func_suqa_swap(double* const state_re, double* const state_im, size_t len, 
     for (auto& i : suqa::actives) { // number of actives is conserved
         uint i_0 = i & ~mask_q1 & ~mask_q2;
         if (i & mask00){
-            if(std::find(visited.begin(),visited.end(),i_0)==visited.end()) {
-				// i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
-				uint i_1 = i_0 | mask_q1;
-				uint i_2 = i_0 | mask_q2;
-				uint i_3 = i_1 | i_2;
-				util_signed_swap(&state_re[i_1], &state_re[i_2]);
-				util_signed_swap(&state_im[i_1], &state_im[i_2]);
-				if (norm(state_re[i_0], state_im[i_0]) > 1e-8) {
-					new_actives.push_back(i_0);
-				}
-				if (norm(state_re[i_1], state_im[i_1]) > 1e-8) {
-					new_actives.push_back(i_1);
-				}
-				if (norm(state_re[i_2], state_im[i_2]) > 1e-8) {
-					new_actives.push_back(i_2);
-				}
-				if (norm(state_re[i_3], state_im[i_3]) > 1e-8) {
-					new_actives.push_back(i_3);
-				}
-				visited.push_back(i_0);
+            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) {
+                // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
+                uint i_1 = i_0 | mask_q1;
+                uint i_2 = i_0 | mask_q2;
+                uint i_3 = i_1 | i_2;
+                util_signed_swap(&state_re[i_1], &state_re[i_2]);
+                util_signed_swap(&state_im[i_1], &state_im[i_2]);
+                if (norm(state_re[i_0], state_im[i_0]) > 1e-8) {
+                    new_actives.push_back(i_0);
+                }
+                if (norm(state_re[i_1], state_im[i_1]) > 1e-8) {
+                    new_actives.push_back(i_1);
+                }
+                if (norm(state_re[i_2], state_im[i_2]) > 1e-8) {
+                    new_actives.push_back(i_2);
+                }
+                if (norm(state_re[i_3], state_im[i_3]) > 1e-8) {
+                    new_actives.push_back(i_3);
+                }
+                visited.push_back(i_0);
+            }
         } else {
             new_actives.push_back(i);
         }
