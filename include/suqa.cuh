@@ -81,7 +81,7 @@ extern uint nq;
 void print_banner();
 
 void activate_gc_mask(const bmReg& q_controls);
-void deactivate_gc_mask();
+void deactivate_gc_mask(const bmReg& q_controls);
 
 /* Utility procedures */
 double vnorm();
@@ -96,12 +96,12 @@ void init_state();
 void apply_x(uint q);
 void apply_x(const bmReg& qs);
 
-//void apply_y(uint q);
-//void apply_y(const bmReg& qs);
-//
-//void apply_z(uint q);
-//void apply_z(const bmReg& qs);
-//
+void apply_y(uint q);
+void apply_y(const bmReg& qs);
+
+void apply_z(uint q);
+void apply_z(const bmReg& qs);
+
 //void apply_sigma_plus(uint q);
 //void apply_sigma_plus(const bmReg& qs);
 //
@@ -132,11 +132,11 @@ void apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask=1U
 void apply_mcx(const bmReg& q_controls, const uint& q_target);
 void apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target);
 
-//void apply_cu1(uint q_control, uint q_target, double phase, uint q_mask=1U);
-//
-//void apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase);
-//void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
-//
+void apply_cu1(uint q_control, uint q_target, double phase, uint q_mask=1U);
+
+void apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase);
+void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
+
 //void apply_swap(const uint& q1, const uint& q2);
 //
 //// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering

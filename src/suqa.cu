@@ -37,13 +37,13 @@ cudaStream_t suqa::stream1, suqa::stream2;
 #endif
 
 void suqa::activate_gc_mask(const bmReg& q_controls){
-    suqa::gc_mask=0U;
     for(const auto& q : q_controls)
         suqa::gc_mask |= 1U << q;
 }
 
-void suqa::deactivate_gc_mask(){
-    suqa::gc_mask=0U;
+void suqa::deactivate_gc_mask(const bmReg& q_controls){
+    for(const auto& q : q_controls)
+        suqa::gc_mask &= ~(1U << q);
 }
 
 #ifdef GPU
@@ -117,31 +117,31 @@ void suqa::apply_x(const bmReg& qs){
 //  Y GATE
 
 
-//void suqa::apply_y(uint q){
-//#ifdef GPU
-//    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-//#else
-//    func_suqa_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
-//#endif
-//}  
-//
-//void suqa::apply_y(const bmReg& qs){
-//    for (const auto& q : qs)
-//        suqa::apply_y(q);
-//}  
-//
-////  Z GATE
-//
-//void suqa::apply_z(uint q){
-//    suqa::apply_u1(q, M_PI);
-//}  
-//
-//void suqa::apply_z(const bmReg& qs){
-//    for(const auto& q : qs)
-//		suqa::apply_u1(q, M_PI);
-//}  
-//
-//
+void suqa::apply_y(uint q){
+#ifdef GPU
+    kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+#else
+    func_suqa_y(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, gc_mask);
+#endif
+}  
+
+void suqa::apply_y(const bmReg& qs){
+    for (const auto& q : qs)
+        suqa::apply_y(q);
+}  
+
+//  Z GATE
+
+void suqa::apply_z(uint q){
+    suqa::apply_u1(q, M_PI);
+}  
+
+void suqa::apply_z(const bmReg& qs){
+    for(const auto& q : qs)
+		suqa::apply_u1(q, M_PI);
+}  
+
+
 ////  SIGMA+ = 1/2(X+iY) GATE
 //
 //
@@ -292,61 +292,60 @@ void suqa::apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q
 #endif
 }  
 
+void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
+    uint mask_qs = (1U << q_target) | suqa::gc_mask;
+    uint mask = mask_qs | (1U << q_control);
+    if(q_mask) mask_qs |= (1U << q_control);
 
-//void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
-//    uint mask_qs = (1U << q_target) | suqa::gc_mask;
-//    uint mask = mask_qs | (1U << q_control);
-//    if(q_mask) mask_qs |= (1U << q_control);
-//
-//    Complex phasec;
-//    sincos(phase, &phasec.y, &phasec.x);
-//#ifdef GPU
-//    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-//#else
-//    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-//#endif
-//}
-//
-//void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
-//    uint mask = (1U << q_target) | suqa::gc_mask;
-//    for(const auto& q : q_controls)
-//        mask |= 1U << q;
-//    uint mask_qs = (1U << q_target) | suqa::gc_mask;
-//    for(uint k = 0U; k < q_controls.size(); ++k){
-//        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
-//    }
-//
-//    Complex phasec;
-//    sincos(phase, &phasec.y, &phasec.x);
-//
-//#ifdef GPU
-//    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-//#else
-//    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
-//#endif
-//}
-//
-//void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
-//    suqa::apply_mcu1(q_controls, std::vector<uint>(q_controls.size(), 1U), q_target, phase);
-//}
-//
-//
-//void suqa::apply_swap(const uint& q1, const uint& q2){
-//    // swap gate: 00->00, 01->10, 10->01, 11->11
-//    // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
-//    uint mask00 = suqa::gc_mask;
-//    uint mask11 = mask00;
-//    uint mask_q1 = (1U << q1);
-//    uint mask_q2 = (1U << q2);
-//    mask11 |= mask_q1 | mask_q2;
-//#ifdef GPU
-//    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
-//#else
-//    func_suqa_swap(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
-//#endif
-//}
-//
-//
+    Complex phasec;
+    sincos(phase, &phasec.y, &phasec.x);
+#ifdef GPU
+    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#else
+    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#endif
+}
+
+void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
+    uint mask = (1U << q_target) | suqa::gc_mask;
+    for(const auto& q : q_controls)
+        mask |= 1U << q;
+    uint mask_qs = (1U << q_target) | suqa::gc_mask;
+    for(uint k = 0U; k < q_controls.size(); ++k){
+        if(q_mask[k]) mask_qs |= 1U << q_controls[k];
+    }
+
+    Complex phasec;
+    sincos(phase, &phasec.y, &phasec.x);
+
+#ifdef GPU
+    kernel_suqa_mcu1<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#else
+    func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask, mask_qs, q_target, phasec);
+#endif
+}
+
+void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
+    suqa::apply_mcu1(q_controls, std::vector<uint>(q_controls.size(), 1U), q_target, phase);
+}
+
+
+void suqa::apply_swap(const uint& q1, const uint& q2){
+    // swap gate: 00->00, 01->10, 10->01, 11->11
+    // equivalent to cx(q1,q2)->cx(q2,q1)->cx(q1,q2)
+    uint mask00 = suqa::gc_mask;
+    uint mask11 = mask00;
+    uint mask_q1 = (1U << q1);
+    uint mask_q2 = (1U << q2);
+    mask11 |= mask_q1 | mask_q2;
+#ifdef GPU
+    kernel_suqa_swap<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
+#else
+    func_suqa_swap(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask00, mask11, mask_q1, mask_q2);
+#endif
+}
+
+
 //void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases){
 //    if(!(q_size>0U and (uint)phases.size()==(1U<<q_size))){
 //        throw std::runtime_error("ERROR: in suqa::apply_phase_list(): invalid q_size or phases.size()");
