@@ -176,9 +176,10 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
       bincount+=1.0;
     }
     if (i!=tempi)
-      probE1+=square_mod;    
-    if(E>E_max+dE){
-      cout<<i<<endl;
+      probE1+=square_mod;
+    
+    if(E>E_max+(1.5*dE)){
+      cout<<i<<" "<<tempi<<" "<<E<<endl;
       cout<<"Problem in energy binning: E > "<<E_max<<endl;
       exit(1);
     }
@@ -192,7 +193,7 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
 
       else if(saved_isto.size()==0)saved_isto=ret;
       else if(saved_isto.size()!=saved_isto.size()){cout<<"I don't know how, but it happened"<<endl;exit(1);}
-      void ciao();
+      ciao();
       return niente();
     }
     tempi=i;
@@ -238,8 +239,8 @@ void phase_spectrum(FILE* phile, FILE *output){
     if (i!=tempi)
       probE1+=square_mod;    
 
-    if(E>E_max+dE){
-      cout<<i<<endl;
+    if(E>E_max+(1.5*dE)){
+      cout<<i<<" "<<E<<endl;
       cout<<"Problem in energy binning: E > "<<E_max<<endl;
       exit(1);
     }
@@ -306,9 +307,9 @@ int main(int argc, char** argv){
 
     vector<vector<pair<long double,long double>>> super_duper_isto(24);    
 
-    uint inizio_mossa=9;
-    uint nmosse=1;
-    int nstati=8;
+    uint inizio_mossa=0;
+    uint nmosse=9;
+    int nstati=1;
     
     double EV[8]={5.8557980376081717,5.9073497011647422,6.6746335458672430,6.7261852094238153,9.1073497011647433,9.1589013647213164,9.9261852094238154,9.9777368729803815};
     double dE=(args.ene_max-args.ene_min)/(double)(qms::ene_levels-1);
@@ -389,7 +390,7 @@ int main(int argc, char** argv){
 	temp=fopen("temp","r");	
 	moves_spectrum(temp, super_isto);
 	fclose(temp);
-
+	
 	temp=fopen("temp","r");
 	moves_spectrum(temp, super_duper_isto[Ci]);
 	fclose(temp);
