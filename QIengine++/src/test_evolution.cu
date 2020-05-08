@@ -76,7 +76,7 @@ int main(int argc, char** argv){
     // rangen.set_seed(time(NULL));
 
     suqa::setup(Dim);
-    init_state(state, Dim); //remember to correctly initialize the state
+    init_state(state, Dim, 0); //remember to correctly initialize the state
 
     FILE * outfile;
 
@@ -106,7 +106,7 @@ int main(int argc, char** argv){
 //        plaq_val_std = sqrt((plaq_val_std/(double)num_hits - plaq_val*plaq_val)/(double)(num_hits-1));
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
-        init_state(state, Dim);
+      init_state(state, Dim, 0);
         evolution(state, t, ii);
         self_plaquette(state, bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 

@@ -172,8 +172,8 @@ void parse_arguments(arg_list& args, int argc, char** argv){
 }
 
 void parse_arguments_PE_test(arg_list& args, int argc, char** argv){
-    int fixed_args = 4;
-    map<string,int> argmap;
+   int fixed_args = 3;
+   map<string,int> argmap;
     map<int,string> argmap_inv;
     char *end;
     int base_strtoull = 10;
@@ -182,8 +182,6 @@ void parse_arguments_PE_test(arg_list& args, int argc, char** argv){
     args.g_beta = stod(argv[1],NULL);
     args.state_qbits = atoi(argv[2]);
     args.ene_qbits = atoi(argv[3]);
-    args.outfile = argv[4];
-
     // floating arguments
     for(int i = fixed_args+1; i < argc; ++i){
         argmap[argv[i]]=i;
@@ -242,11 +240,7 @@ void parse_arguments_PE_test(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <num ene qbits> non positive";
     }
 
-    if(args.outfile == ""){
-        throw "ERROR: argument <output file path> empty";
-    }
-
-    if(args.pe_steps <=0){
+   if(args.pe_steps <=0){
         throw "ERROR: argument <steps of PE evolution> non positive";
     }
 }

@@ -120,6 +120,7 @@ void quantum_phase_tour(int nsteps, FILE* file){
       suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
     qms::apply_Phi_old();
   }
+<<<<<<< HEAD
   print_state(qms::gState, file);
   suqa::measure_qbits(qms::gState, qms::bm_enes_old, c_E_olds, qms::extract_rands(qms::ene_qbits));
   double tmp_E=qms::t_PE_shift+qms::creg_to_uint(c_E_olds)/(double)(qms::t_PE_factor*qms::ene_levels);
@@ -128,6 +129,18 @@ void quantum_phase_tour(int nsteps, FILE* file){
   for(uint ei=0; ei<qms::ene_qbits; ei++)
     suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
 
+=======
+
+  suqa::measure_qbits(qms::gState, qms::bm_enes_old, c_E_olds, qms::extract_rands(qms::ene_qbits));
+  double tmp_E=qms::t_PE_shift+qms::creg_to_uint(c_E_olds)/(double)(qms::t_PE_factor*qms::ene_levels);
+  cout<<tmp_E<<endl;
+  
+  print_state(qms::gState, file);
+  
+  for(uint ei=0; ei<qms::ene_qbits; ei++)
+    suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
+  
+>>>>>>> b69c00e149eaa53ed0216705fd625522e34ded62
   
   std::cout<<"fatto!"<<std::endl;
 }
@@ -157,10 +170,11 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
   long double square_mod,phase;
   char c[6]="";
   uint tempi=1;
-  while(fscanf(phile,"%i -> (%Le, %Le)\n",&i,&square_mod,&phase)!=EOF){
+ while(fscanf(phile,"%i -> (%Le, %Le)\n",&i,&square_mod,&phase)!=EOF){
     int a=i/qms::state_levels-tempi/qms::state_levels;
     E+=(a*dE);
-    if(i==tempi and bincount!=0.1){
+    if(i==tempi // and bincount!=0.1
+       ){
       if(E<E_max+dE){
 	E+=dE;
 	a+=1;
@@ -176,10 +190,11 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
       bincount+=1.0;
     }
     if (i!=tempi)
-      probE1+=square_mod;    
-    if(E>E_max+dE){
-      cout<<i<<endl;
-      cout<<"Problem in energy binning: E > "<<E_max<<endl;
+     probE1+=square_mod;
+    
+    if(E>E_max+(1.5*dE)){
+      cout<<i<<" "<<tempi<<" "<<E<<endl;
+     cout<<"Problem in energy binning: E > "<<E_max<<endl;
       exit(1);
     }
     if(tempi==i and bincount!=0.1){
@@ -192,8 +207,8 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
 
       else if(saved_isto.size()==0)saved_isto=ret;
       else if(saved_isto.size()!=saved_isto.size()){cout<<"I don't know how, but it happened"<<endl;exit(1);}
-      void ciao();
-      return niente();
+     ciao();
+     return niente();
     }
     tempi=i;
   }
@@ -238,9 +253,9 @@ void phase_spectrum(FILE* phile, FILE *output){
     if (i!=tempi)
       probE1+=square_mod;    
 
-    if(E>E_max+dE){
-      cout<<i<<endl;
-      cout<<"Problem in energy binning: E > "<<E_max<<endl;
+   if(E>E_max+(1.5*dE)){
+      cout<<i<<" "<<E<<endl;
+     cout<<"Problem in energy binning: E > "<<E_max<<endl;
       exit(1);
     }
     
@@ -257,9 +272,9 @@ void phase_spectrum(FILE* phile, FILE *output){
 
 
 int main(int argc, char** argv){
-    if(argc < 5){
-        printf("usage: %s <g_beta>  <num state qbits> <num ene qbits> <output file path> [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] \n", argv[0]);
-        exit(1);
+   if(argc < 4){
+        printf("usage: %s <g_beta> <num state qbits> <num ene qbits> [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] \n", argv[0]);
+       exit(1);
     }
 
     parse_arguments_PE_test(args, argc, argv);
@@ -304,12 +319,12 @@ int main(int argc, char** argv){
     
     allocate_state(qms::gState, qms::Dim);
 
-    vector<vector<pair<long double,long double>>> super_duper_isto(24);    
+   vector<vector<pair<long double,long double>>> super_duper_isto(200);    
 
-    uint inizio_mossa=9;
-    uint nmosse=1;
-    int nstati=8;
-    
+    uint inizio_mossa=0;
+    uint nmosse=13;
+    int nstati=1;
+   
     double EV[8]={5.8557980376081717,5.9073497011647422,6.6746335458672430,6.7261852094238153,9.1073497011647433,9.1589013647213164,9.9261852094238154,9.9777368729803815};
     double dE=(args.ene_max-args.ene_min)/(double)(qms::ene_levels-1);
       // vector <double> grid(qms::ene_levels);
@@ -325,7 +340,12 @@ int main(int argc, char** argv){
 	init_state(qms::gState,qms::Dim,j);
 	vector<pair<long double,long double>> super_isto;
 	
-      FILE *temp;
+      FILE *debug;
+      debug=fopen("debug","a");
+      print_state(qms::gState, debug);
+      fclose(debug);
+
+     FILE *temp;
 
       FILE *output;
       FILE *plottatore;
@@ -338,8 +358,8 @@ int main(int argc, char** argv){
       plottatore=fopen(plottaname,"a");
 
       /*******************************SOLO GIRI DI PHASE ESTIMATION****************************/
-      /*      
-      temp=fopen("temp","a");
+     /*
+     temp=fopen("temp","a");
       quantum_phase_tour(1,temp);
       fclose(temp);
 
@@ -377,25 +397,33 @@ int main(int argc, char** argv){
 }
       */
       /************************************************************************************/
-
-     for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
-	cout<<Ci<<endl;
-	apply_C(qms::gState, Ci);
+     temp=fopen("temp","a");
+      quantum_phase_tour(1,temp);
+      fclose(temp);
+      if( remove( "temp" ) != 0 )
+	perror( "Error deleting file" );
+      else
+	puts( "File successfully deleted" );
+      
+      
+      for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
+        cout<<Ci<<endl;
+    	apply_C(qms::gState, Ci);
 	
-	temp=fopen("temp","a");
-	quantum_phase_tour(1,temp);
-	fclose(temp);
+	    temp=fopen("temp","a");
+    	quantum_phase_tour(1,temp);
+    	fclose(temp);
 
 	temp=fopen("temp","r");	
 	moves_spectrum(temp, super_isto);
 	fclose(temp);
-
+	
 	temp=fopen("temp","r");
 	moves_spectrum(temp, super_duper_isto[Ci]);
 	fclose(temp);
-
-	apply_C_inverse(qms::gState, Ci);
-	if( remove( "temp" ) != 0 )
+	
+       apply_C_inverse(qms::gState, Ci);
+if( remove( "temp" ) != 0 )
 	  perror( "Error deleting file" );
 	else
 	  puts( "File successfully deleted" );
@@ -423,9 +451,9 @@ int main(int argc, char** argv){
       
       fcloseall();
       super_isto.clear();
-    }
-    
-    for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
+     }
+      
+   for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
       char name[1000];
       FILE *output2, *plottatore2;
       sprintf(name,"SUPER_DUPER_enequbit%i_range%f-%f_MOSSA%i",qms::ene_qbits,args.ene_min,args.ene_max,Ci);
