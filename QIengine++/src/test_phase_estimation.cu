@@ -120,16 +120,6 @@ void quantum_phase_tour(int nsteps, FILE* file){
       suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
     qms::apply_Phi_old();
   }
-<<<<<<< HEAD
-  print_state(qms::gState, file);
-  suqa::measure_qbits(qms::gState, qms::bm_enes_old, c_E_olds, qms::extract_rands(qms::ene_qbits));
-  double tmp_E=qms::t_PE_shift+qms::creg_to_uint(c_E_olds)/(double)(qms::t_PE_factor*qms::ene_levels);
-  cout<<tmp_E<<endl;
-
-  for(uint ei=0; ei<qms::ene_qbits; ei++)
-    suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
-
-=======
 
   suqa::measure_qbits(qms::gState, qms::bm_enes_old, c_E_olds, qms::extract_rands(qms::ene_qbits));
   double tmp_E=qms::t_PE_shift+qms::creg_to_uint(c_E_olds)/(double)(qms::t_PE_factor*qms::ene_levels);
@@ -139,8 +129,6 @@ void quantum_phase_tour(int nsteps, FILE* file){
   
   for(uint ei=0; ei<qms::ene_qbits; ei++)
     suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
-  
->>>>>>> b69c00e149eaa53ed0216705fd625522e34ded62
   
   std::cout<<"fatto!"<<std::endl;
 }
@@ -397,7 +385,7 @@ int main(int argc, char** argv){
 }
       */
       /************************************************************************************/
-     temp=fopen("temp","a");
+      temp=fopen("temp","a");
       quantum_phase_tour(1,temp);
       fclose(temp);
       if( remove( "temp" ) != 0 )
@@ -410,7 +398,7 @@ int main(int argc, char** argv){
         cout<<Ci<<endl;
     	apply_C(qms::gState, Ci);
 	
-	    temp=fopen("temp","a");
+	temp=fopen("temp","a");
     	quantum_phase_tour(1,temp);
     	fclose(temp);
 
@@ -422,8 +410,8 @@ int main(int argc, char** argv){
 	moves_spectrum(temp, super_duper_isto[Ci]);
 	fclose(temp);
 	
-       apply_C_inverse(qms::gState, Ci);
-if( remove( "temp" ) != 0 )
+	apply_C_inverse(qms::gState, Ci);
+	if( remove( "temp" ) != 0 )
 	  perror( "Error deleting file" );
 	else
 	  puts( "File successfully deleted" );
@@ -451,7 +439,7 @@ if( remove( "temp" ) != 0 )
       
       fcloseall();
       super_isto.clear();
-     }
+      }
       
    for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
       char name[1000];
