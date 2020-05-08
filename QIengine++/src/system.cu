@@ -250,7 +250,7 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-td::vector<double> C_weigthsums = {1./9, 2./9, 3./9, 4./9, 5./9, 6./9, 7./9, 8./9, 1.};
+std::vector<double> C_weigthsums = {1./11, 2./11, 3./11, 4./11, 5./11, 6./11, 7./11, 8./11, 9./11, 10./11, 1.};
 /*
 std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
 				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
