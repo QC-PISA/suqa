@@ -21,7 +21,7 @@ __global__ void initialize_state(double *state_re, double *state_im, uint len, i
         state_im[0] = 0.0;
       	break;
       default:
-	// state_re[j] = sqrt(0.5);
+	// state_re[j] = 1.0;
 	// state_im[j]= 0;
 	// state_re[j+9-(2*(j%2))] = sqrt(0.5);
 	// state_im[j+9-(2*(j%2))] = 0.0;
@@ -54,7 +54,11 @@ void init_state(ComplexVec& state, uint Dim, uint j=0){
 
     if(j==0){
       suqa::apply_h(state, bm_qlink0[0]);
-      suqa::apply_cx(state, bm_qlink0[0], bm_qlink3[0]);
+      suqa::apply_h(state, bm_qlink1[0]);
+      suqa::apply_h(state, bm_qlink2[0]);
+      // suqa::apply_cx(state,bm_qlink0[0],bm_qlink1[0]);
+      // suqa::apply_cx(state,bm_qlink0[0],bm_qlink2[0]);
+      // suqa::apply_z(state, bm_qlink0[0]);
     }
     
     DEBUG_CALL(printf("after init_state()\n"));
@@ -151,11 +155,11 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         fourier_transf_z2(state, bm_qlink2);
         DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink2)\n"));
         DEBUG_READ_STATE(state);
-        fourier_transf_z2(state, bm_qlink3);
-        DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink3)\n"));
-        DEBUG_READ_STATE(state);
+        // fourier_transf_z2(state, bm_qlink3);
+        // DEBUG_CALL(printf("after fourier_transf_z2(state, bm_qlink3)\n"));
+        // DEBUG_READ_STATE(state);
 
-        momentum_phase(state, bm_qlink0, theta1, theta2);
+        momentum_phase(state, bm_qlink0, 2*theta1, 2*theta2);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink0, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
         momentum_phase(state, bm_qlink1, theta1, theta2);
@@ -164,14 +168,14 @@ void evolution(ComplexVec& state, const double& t, const int& n){
         momentum_phase(state, bm_qlink2, theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(state, bm_qlink2, theta1, theta2)\n"));
         DEBUG_READ_STATE(state);
-        momentum_phase(state, bm_qlink3, theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, theta1, theta2)\n"));
-        DEBUG_READ_STATE(state);
+        // momentum_phase(state, bm_qlink3, theta1, theta2);
+        // DEBUG_CALL(printf("after momentum_phase(state, bm_qlink3, theta1, theta2)\n"));
+        // DEBUG_READ_STATE(state);
 	
 
-        inverse_fourier_transf_z2(state, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink3)\n"));
-        DEBUG_READ_STATE(state);
+        // inverse_fourier_transf_z2(state, bm_qlink3);
+        // DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink3)\n"));
+        // DEBUG_READ_STATE(state);
         inverse_fourier_transf_z2(state, bm_qlink2);
         DEBUG_CALL(printf("after inverse_fourier_transf_z2(state, bm_qlink2)\n"));
         DEBUG_READ_STATE(state);
@@ -246,7 +250,7 @@ double measure_X(ComplexVec& state, pcg& rgen){
 
 /* Moves facilities */
 
-std::vector<double> C_weigthsums = {1.5/6, 3./6, 4./6, 5./6, 5.5/6, 1.};
+std::vector<double> C_weigthsums = {1./9, 2./9, 3./9, 4./9, 5./9, 6./9, 7./9, 8./9, 1.};
 /*
 std::vector<double> C_weigthsums = {1./24, 2./24, 3./24, 4./24, //0<=Ci<=3
 				    5./24, 6./24, 7./24, 8./24, //4<=Ci<=7
@@ -340,17 +344,17 @@ void apply_C(ComplexVec& state, const uint &Ci){
     suqa::apply_z(state, bm_qlink0[0]);
     DEBUG_CALL(printf("after apply_z(state, bm_qlink0[0])\n"));
     DEBUG_READ_STATE(state);
-    suqa::apply_z(state, bm_qlink3[0]);
-    DEBUG_CALL(printf("after apply_z(state, bm_qlink3[0])\n"));
-    DEBUG_READ_STATE(state);
+    // suqa::apply_z(state, bm_qlink3[0]);
+    // DEBUG_CALL(printf("after apply_z(state, bm_qlink3[0])\n"));
+    // DEBUG_READ_STATE(state);
     break;
   case 3U:
     suqa::apply_y(state, bm_qlink0[0]);
     DEBUG_CALL(printf("after apply_y(state, bm_qlink0[0])\n"));
     DEBUG_READ_STATE(state);
-    suqa::apply_y(state, bm_qlink3[0]);
-    DEBUG_CALL(printf("after apply_y(state, bm_qlink3[0])\n"));
-    DEBUG_READ_STATE(state);
+    // suqa::apply_y(state, bm_qlink3[0]);
+    // DEBUG_CALL(printf("after apply_y(state, bm_qlink3[0])\n"));
+    // DEBUG_READ_STATE(state);
     break;
   case 4U:
     suqa::apply_y(state, bm_qlink1[0]);
@@ -362,6 +366,40 @@ void apply_C(ComplexVec& state, const uint &Ci){
     DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
     DEBUG_READ_STATE(state);
     break;
+  case 6U:
+    suqa::apply_x(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink0[0])\n"));
+    DEBUG_READ_STATE(state);
+    // suqa::apply_y(state, bm_qlink3[0]);
+    // DEBUG_CALL(printf("after apply_y(state, bm_qlink3[0])\n"));
+    // DEBUG_READ_STATE(state);
+    break;
+  case 7U:
+    suqa::apply_x(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink1[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 8U:
+    suqa::apply_x(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 9U:
+    suqa::apply_h(state, bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 10U:
+    suqa::apply_h(state, bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+  case 11U:
+    suqa::apply_h(state, bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(state, bm_qlink2[0])\n"));
+    DEBUG_READ_STATE(state);
+    break;
+    
   default:
     throw std::runtime_error("ERROR: wrong move selection");
   }

@@ -120,14 +120,16 @@ void quantum_phase_tour(int nsteps, FILE* file){
       suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
     qms::apply_Phi_old();
   }
-  print_state(qms::gState, file);
+
   suqa::measure_qbits(qms::gState, qms::bm_enes_old, c_E_olds, qms::extract_rands(qms::ene_qbits));
   double tmp_E=qms::t_PE_shift+qms::creg_to_uint(c_E_olds)/(double)(qms::t_PE_factor*qms::ene_levels);
   cout<<tmp_E<<endl;
-
+  
+  print_state(qms::gState, file);
+  
   for(uint ei=0; ei<qms::ene_qbits; ei++)
     suqa::apply_reset(qms::gState,qms::bm_enes_old[ei],qms::rangen.doub());
-
+  
   
   std::cout<<"fatto!"<<std::endl;
 }
@@ -157,10 +159,12 @@ void moves_spectrum(FILE* phile,vector<pair<long double,long double>> & saved_is
   long double square_mod,phase;
   char c[6]="";
   uint tempi=1;
+
   while(fscanf(phile,"%i -> (%Le, %Le)\n",&i,&square_mod,&phase)!=EOF){
     int a=i/qms::state_levels-tempi/qms::state_levels;
     E+=(a*dE);
-    if(i==tempi and bincount!=0.1){
+    if(i==tempi // and bincount!=0.1
+       ){
       if(E<E_max+dE){
 	E+=dE;
 	a+=1;
@@ -305,10 +309,10 @@ int main(int argc, char** argv){
     
     allocate_state(qms::gState, qms::Dim);
 
-    vector<vector<pair<long double,long double>>> super_duper_isto(24);    
+    vector<vector<pair<long double,long double>>> super_duper_isto(200);    
 
     uint inizio_mossa=0;
-    uint nmosse=9;
+    uint nmosse=13;
     int nstati=1;
     
     double EV[8]={5.8557980376081717,5.9073497011647422,6.6746335458672430,6.7261852094238153,9.1073497011647433,9.1589013647213164,9.9261852094238154,9.9777368729803815};
@@ -325,7 +329,13 @@ int main(int argc, char** argv){
       for(int j=0;j<nstati;j+=1){
 	init_state(qms::gState,qms::Dim,j);
 	vector<pair<long double,long double>> super_isto;
+
 	
+      FILE *debug;
+      debug=fopen("debug","a");
+      print_state(qms::gState, debug);
+      fclose(debug);
+
       FILE *temp;
 
       FILE *output;
@@ -339,7 +349,7 @@ int main(int argc, char** argv){
       plottatore=fopen(plottaname,"a");
 
       /*******************************SOLO GIRI DI PHASE ESTIMATION****************************/
-      /*      
+      /*
       temp=fopen("temp","a");
       quantum_phase_tour(1,temp);
       fclose(temp);
@@ -378,15 +388,23 @@ int main(int argc, char** argv){
 }
       */
       /************************************************************************************/
-
-     for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
+      temp=fopen("temp","a");
+      quantum_phase_tour(1,temp);
+      fclose(temp);
+      if( remove( "temp" ) != 0 )
+	perror( "Error deleting file" );
+      else
+	puts( "File successfully deleted" );
+      
+      
+      for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
 	cout<<Ci<<endl;
 	apply_C(qms::gState, Ci);
 	
 	temp=fopen("temp","a");
 	quantum_phase_tour(1,temp);
 	fclose(temp);
-
+	
 	temp=fopen("temp","r");	
 	moves_spectrum(temp, super_isto);
 	fclose(temp);
@@ -394,8 +412,8 @@ int main(int argc, char** argv){
 	temp=fopen("temp","r");
 	moves_spectrum(temp, super_duper_isto[Ci]);
 	fclose(temp);
-
-	apply_C_inverse(qms::gState, Ci);
+	
+       apply_C_inverse(qms::gState, Ci);
 	if( remove( "temp" ) != 0 )
 	  perror( "Error deleting file" );
 	else
@@ -424,8 +442,8 @@ int main(int argc, char** argv){
       
       fcloseall();
       super_isto.clear();
-    }
-    
+      }
+      
     for(uint Ci=inizio_mossa;Ci<inizio_mossa+nmosse;Ci++){
       char name[1000];
       FILE *output2, *plottatore2;
