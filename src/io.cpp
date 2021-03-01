@@ -1,4 +1,7 @@
 #include "io.hpp"
+#include <utility>
+#include <vector>
+#include <algorithm>
 
 int get_time(struct timeval* tp, struct timezone* tzp){
 	(void)tzp;
@@ -46,15 +49,43 @@ void sparse_print(double *v, uint size){
 }
 
 void sparse_print(double *v_re, double *v_im, uint size){
-    // for non-contiguous even-odd entries corresponding to real and imag parts
     size_t index_size = (int)std::round(std::log2(size));
     for(uint i=0; i<size; ++i){
        std::complex<double> var(v_re[i],v_im[i]);
        if(norm(var)>1e-10){
             std::string index= std::bitset<32>(i).to_string();
             index.erase(0,32-index_size);
-            printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e, phase= %.3e pi\n",index.c_str(),i, v_re[i], v_im[i], norm(var),atan2(v_im[i],v_re[i])/M_PI);
+//            printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e, phase= %.3e pi\n",index.c_str(),i, v_re[i], v_im[i], norm(var),atan2(v_im[i],v_re[i])/M_PI);
+            printf("|%s> (%5d) -> sqr ampl: %.3e\n",index.c_str(),i, norm(var));
        }
+    }
+    std::cout<<std::endl;
+}
+
+void qoxo_print(double *v_re, double *v_im, uint size){
+    // for non-contiguous even-odd entries corresponding to real and imag parts
+    using  uintdoub = std::pair<uint,double>;
+    std::vector<uintdoub> state_norm;
+    for(uint i=0; i<size; ++i){
+       std::complex<double> var(v_re[i],v_im[i]);
+       if(norm(var)>1e-8){
+           state_norm.push_back(std::make_pair(i,norm(var)));
+       }
+    }
+    std::sort(state_norm.begin(),state_norm.end(),[](const uintdoub &a, const uintdoub &b){return a.second > b.second;});
+
+//    size_t index_size = (int)std::round(std::log2(size));
+    printf("games\t\tprobabilities");
+    for(const auto& uid : state_norm){
+        uint game_stidx = uid.first;
+//        std::string index= std::bitset<32>(uid.first).to_string();
+//        index.erase(0,32-index_size);
+        std::vector<int> gms(9,0);    
+        for(uint i=0U; i<9U; ++i){
+            gms[i] = (game_stidx & 3U); // 0 -> empty, 1-> first pl, 2-> second pl, 3-> inactive
+            game_stidx>>=2U;
+        }
+        printf("\n%d|%d|%d\n______\n%d|%d|%d\t\t%.3e\n______\n%d|%d|%d\n",gms[0],gms[1],gms[2],gms[3],gms[4],gms[5],uid.second,gms[6],gms[7],gms[8]);
     }
     std::cout<<std::endl;
 }

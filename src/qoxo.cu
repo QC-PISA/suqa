@@ -121,25 +121,6 @@ void get_player_move(Move& move) {
 }
 
 
-// quantum turns for both players
-void double_turn() {
-    static int turn_counter = 1;
-    cout << "turn " << (turn_counter++) << endl;
-    
-    Move move;
-    cout << "\nPlayer 1, make move: " << flush;
-    get_player_move(move);
-    move.apply_move(0);
-	DEBUG_CALL(printf("game state:\n"));
-	DEBUG_READ_STATE(state);
-
-    cout << "\nPlayer 2, make move: " << flush;
-    get_player_move(move);
-    
-    move.apply_move(1);
-	DEBUG_CALL(printf("game state:\n"));
-	DEBUG_READ_STATE(state);
-}
 
 const vector<vector<uint>> winsets = { {0U, 2U, 4U}, //rows
                                         {6U, 8U, 10U},
@@ -180,20 +161,45 @@ bool check_win() {
         vector<double> rgens(18);
         for (auto& el : rgens) el = rangen.doub();
 		suqa::measure_qbits(state, bm_slots, c_reg, rgens);
-        printf("Win state:\n");
-        print_classical_state(c_reg);
+//        printf("Win state:\n");
+//        print_classical_state(c_reg);
+        DEBUG_CALL(printf("COLLAPSE\n\n"));
+        DEBUG_READ_STATE(state);
     }
 
     return win_meas==1U;
+}
+
+// quantum turns for both players
+bool double_turn(int pl) {
+    static int turn_counter = 1;
+    cout << "turn " << (turn_counter++) << endl;
+    
+    Move move;
+    cout << "\nPlayer "<<pl+1<<", make move: " << flush;
+    get_player_move(move);
+    move.apply_move(pl);
+	DEBUG_CALL(printf("game state:\n"));
+	DEBUG_READ_STATE(state);
+
+    return check_win();
+
+//    cout << "\nPlayer 2, make move: " << flush;
+//    get_player_move(move);
+//    
+//    move.apply_move(1);
+//	DEBUG_CALL(printf("game state:\n"));
+//	DEBUG_READ_STATE(state);
 }
 
 void game() {
     initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im,Dim);
 
     bool win = false;
+    int pl = 0;
     while (!win) {
-        double_turn();
-        win=check_win();
+        win  = double_turn(pl);
+        pl=1-pl;
     }
 
 }
@@ -202,6 +208,20 @@ void game() {
 int main(int argc, char** argv) {
     
     printf("Welcome to QOXO\n");
+    printf("a quantum generalization of the game OXO (aka tic-tac-toe)\n");
+    printf("\n0|1|2\n");
+    printf("_____\n");
+    printf("3|4|5\n");
+    printf("______\n");
+    printf("6|7|8\n\n");
+    printf("Notation:\np: generic player, a: antagonist player;\n");
+//    printf("| |_{i} :empty slot at site i; |p|_i : i site occupied by p's symbol\n");
+//    printf("p) <movename> <i> [<j>] : move named <movename> made by player p and at the site <i> and possibly also <j> (depending on the move).\n");
+    printf("\n\nRules: each player can perform certain types of moves, called 'flip', 'mix' or 'bell'.\n");
+    printf("p) flip <i> : \\bar{C}^{(a)}_i X^{(p)}_i [like the usual classical move in OXO]\n");
+//    printf("p) mix <i> <j> : | , >, |a| -> |a| [like the usual classical move in OXO]\n");
+    printf("p) mix <i> <j> : \\bar{C}^{(a)}_{i,j}-(H^{(p)}_i H^{(p)}_j)\n");
+    printf("p) bell <i> <j> : \\bar{C}^{(a)}_{i,j}-(H^{(p)}_i C^{(p)}_i-X^{(p)}_j)\n\n");
 
 //    if (argc < 1) {
 //        printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile>\n", argv[0]);
@@ -225,8 +245,6 @@ int main(int argc, char** argv) {
     
 //    FILE* outfile;
 
-    DEBUG_CALL(printf("initial state:\n"));
-    DEBUG_READ_STATE(state);
 
 //        suqa::prob_filter(state, bm_spin, { 1U,1U,1U }, p111);
 

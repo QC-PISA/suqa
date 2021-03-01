@@ -59,6 +59,8 @@ void sparse_print(double *v, uint size);
 
 void sparse_print(double *v, double *w, uint size);
 
+void qoxo_print(double *v, double *w, uint size);
+
 template<class T>
 void print(std::vector<T> v);
 

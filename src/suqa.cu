@@ -233,9 +233,9 @@ __global__ void kernel_suqa_vnormalize_by(double *v_comp, uint len, double value
 
 void suqa::vnormalize(ComplexVec& v){
     double vec_norm = suqa::vnorm(v);
-#ifndef NDEBUG
-    std::cout<<"vec_norm = "<<vec_norm<<std::endl;
-#endif
+//#ifndef NDEBUG
+//    std::cout<<"vec_norm = "<<vec_norm<<std::endl;
+//#endif
     // using the inverse, since division is not built-in in cuda
     kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads>>>(v.data, 2*v.size(),1./vec_norm);
 //    kernel_suqa_vnormalize_by<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(v.data_re, v.size(),1./vec_norm);
