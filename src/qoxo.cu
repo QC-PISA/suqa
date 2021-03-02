@@ -142,18 +142,19 @@ void print_classical_state(const vector<uint>& creg) {
 }
 
 // measure on the win states
-bool check_win() {
+bool check_win(uint pl) {
     uint win_meas=0U;
-    for (uint offset = 0U; offset < 2U; ++offset) {
+//    for (uint offset = 0U; offset < 2U; ++offset) {
+    uint offset=pl;
         for (const auto& triple : winsets) {
             suqa::apply_mcx(state, { triple[0] + offset, triple[1] + offset,triple[2] + offset }, bm_win);
 			suqa::measure_qbit(state, bm_win, win_meas, rangen.doub());
             if (win_meas == 1U) {
-                offset = 2U;
+//                offset = 2U;
                 break;
             }
         }
-    }
+//    }
 
     if (win_meas == 1U) {
         suqa::apply_x(state, bm_win);
@@ -182,7 +183,7 @@ bool double_turn(int pl) {
 	DEBUG_CALL(printf("game state:\n"));
 	DEBUG_READ_STATE(state);
 
-    return check_win();
+    return check_win(pl);
 
 //    cout << "\nPlayer 2, make move: " << flush;
 //    get_player_move(move);
