@@ -2,8 +2,8 @@
 #include "suqa.cuh"
 #include <omp.h>
 
-void func_suqa_init_state(double* vec_data, size_t size) {
-	for (uint i = 1; i < size; ++i)
+void func_suqa_init_state(double* vec_data) {
+	for (uint i = 1; i < 2*suqa::state.size(); ++i)
 		vec_data[i] = 0.0;
 
 	vec_data[0] = 1.0;
@@ -12,28 +12,30 @@ void func_suqa_init_state(double* vec_data, size_t size) {
 #endif
 }
 
-double func_suqa_vnorm(double* vec_data, size_t size) {
+double func_suqa_vnorm(double* vec_data) {
 // unthreaded
+    const uint size=suqa::state.size();
 	double ret = 0.0;
 #ifdef SPARSE
 	for (const auto& idx : suqa::actives){
-		ret += vec_data[idx+size/2] * vec_data[idx+size/2];
+		ret += vec_data[idx+size] * vec_data[idx+size]; // imaginary part
 #else
-    for (uint idx = 0U; idx < size; ++idx) {
+    for (uint idx = 0U; idx < 2*size; ++idx) {
 #endif
 		ret += vec_data[idx] * vec_data[idx];
 	}
 	return ret;
 }
 
-void func_suqa_vnormalize_by(double* v_comp, size_t len, double value) {
+void func_suqa_vnormalize_by(double* vec_data, double value) {
+    const uint size=suqa::state.size();
 #ifdef SPARSE
 	for (const auto& idx : suqa::actives){
-		v_comp[idx+len/2] *= value;
+		vec_data[idx+size] *= value;
 #else
-    for (uint idx = 0U; idx < size; ++idx) {
+    for (uint idx = 0U; idx < 2*size; ++idx) {
 #endif
-		v_comp[idx] *= value;
+		vec_data[idx] *= value;
 	}
 }
 
@@ -55,7 +57,7 @@ inline void util_rotate4(double* a, double* b, double* c, double* d, double cthe
 }
 
 
-void func_suqa_x(double* const state_re, double* const state_im, size_t len, uint q, uint glob_mask) {
+void func_suqa_x(double* const state_re, double* const state_im, uint q, uint glob_mask) {
 #ifdef SPARSE
     std::vector<uint> visited;
     for (auto& i: suqa::actives) { // number of actives is conserved
@@ -73,7 +75,7 @@ void func_suqa_x(double* const state_re, double* const state_im, size_t len, uin
     }
 #else
     glob_mask |= (1U << q);
-    for(uint i=0U; i<len;++i){
+    for(uint i=0U; i<suqa::state.size();++i){
         if ((i & glob_mask) == glob_mask) {
             uint j = i & ~(1U << q); // j has 0 on q-th digit
             util_signed_swap(&state_re[i], &state_re[j]);
@@ -83,7 +85,7 @@ void func_suqa_x(double* const state_re, double* const state_im, size_t len, uin
 #endif
 }
 
-void func_suqa_y(double* const state_re, double* const state_im, size_t len, uint q, uint glob_mask) {
+void func_suqa_y(double* const state_re, double* const state_im, uint q, uint glob_mask) {
 #ifdef SPARSE
     std::vector<uint> visited;
     for (auto& i: suqa::actives) { // number of actives is conserved
@@ -101,7 +103,7 @@ void func_suqa_y(double* const state_re, double* const state_im, size_t len, uin
     }
 #else
     glob_mask |= (1U << q);
-    for(uint i=0U; i<len;++i){
+    for(uint i=0U; i<suqa::state.size();++i){
         if ((i & glob_mask) == glob_mask) {
             uint j = i & ~(1U << q); // j has 0 on q-th digit
 			util_signed_swap(&state_re[i], &state_im[j], -1.0, -1.0);
@@ -137,7 +139,7 @@ void func_suqa_y(double* const state_re, double* const state_im, size_t len, uin
 //    }
 //}
 
-void func_suqa_h(double* state_re, double* state_im, size_t len, uint q, uint glob_mask) {
+void func_suqa_h(double* state_re, double* state_im, uint q, uint glob_mask) {
 #ifdef SPARSE
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
     std::vector<uint> visited;
@@ -173,7 +175,7 @@ void func_suqa_h(double* state_re, double* state_im, size_t len, uint q, uint gl
     suqa::actives.swap(new_actives);
 #else
     uint loc_mask = glob_mask | (1U << q);
-    for(uint i_0=0U;i_0<len; ++i_0){
+    for(uint i_0=0U;i_0<suqa::state.size(); ++i_0){
         if ((i_0 & loc_mask) == glob_mask) {
             const uint i_1 = i_0 | (1U << q);
             double a_0_re = state_re[i_0];
@@ -190,14 +192,14 @@ void func_suqa_h(double* state_re, double* state_im, size_t len, uint q, uint gl
 #endif
 }
 
-void func_suqa_u1(double* state_re, double* state_im, size_t len, uint q, Complex phase, uint qmask, uint glob_mask) {
+void func_suqa_u1(double* state_re, double* state_im, uint q, Complex phase, uint qmask, uint glob_mask) {
     //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
 
     glob_mask |= (1U << q);
 #ifdef SPARSE
     for (const auto& i : suqa::actives) { // actives is conserved
 #else
-    for(uint i=0U;i<len; ++i){
+    for(uint i=0U;i<suqa::state.size(); ++i){
 #endif
         if ((i & glob_mask) == qmask) {  // q_mask 
             double tmpval = state_re[i];
@@ -207,7 +209,7 @@ void func_suqa_u1(double* state_re, double* state_im, size_t len, uint q, Comple
     }
 }
 
-void func_suqa_mcx(double* const state_re, double* const state_im, size_t len, uint control_mask, uint mask_qs, uint q_target) {
+void func_suqa_mcx(double* const state_re, double* const state_im, uint control_mask, uint mask_qs, uint q_target) {
 #ifdef SPARSE
     std::vector<uint> visited;
     for (auto& i : suqa::actives) { // number of actives is conserved
@@ -225,7 +227,7 @@ void func_suqa_mcx(double* const state_re, double* const state_im, size_t len, u
 #else
     control_mask |= (1U << q_target);
     mask_qs |= (1U << q_target);
-    for(uint i=0U;i<len; ++i){
+    for(uint i=0U;i<suqa::state.size(); ++i){
         if ((i & control_mask) == mask_qs) {
             uint j = i & ~(1U << q_target);
             double tmpval = state_re[i];
@@ -239,11 +241,11 @@ void func_suqa_mcx(double* const state_re, double* const state_im, size_t len, u
 #endif
 }
 
-void func_suqa_mcu1(double* const state_re, double* const state_im, size_t len, uint control_mask, uint mask_qs, uint q_target, Complex rphase) {
+void func_suqa_mcu1(double* const state_re, double* const state_im, uint control_mask, uint mask_qs, Complex rphase) {
 #ifdef SPARSE
     for (auto& i : suqa::actives) { // number of actives is conserved
 #else
-    for(uint i=0U;i<len; ++i){
+    for(uint i=0U;i<suqa::state.size(); ++i){
 #endif
         if ((i & control_mask) == mask_qs) {
             //            uint j = i & ~(1U << q_target);
@@ -254,8 +256,9 @@ void func_suqa_mcu1(double* const state_re, double* const state_im, size_t len, 
     }
 }
 
-void func_suqa_swap(double* const state_re, double* const state_im, size_t len, uint mask00, uint mask11, uint mask_q1, uint mask_q2) {
+void func_suqa_swap(double* const state_re, double* const state_im, uint mask00, uint mask11, uint mask_q1, uint mask_q2) {
 #ifdef SPARSE
+    (void)mask11; // to ignore unused warning
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
     std::vector<uint> visited;
     for (auto& i : suqa::actives) { // number of actives is conserved
@@ -288,7 +291,7 @@ void func_suqa_swap(double* const state_re, double* const state_im, size_t len, 
     }
     suqa::actives.swap(new_actives);
 #else
-    for(uint i=0U;i<len; ++i){
+    for(uint i=0U;i<suqa::state.size(); ++i){
         if ((i & mask11) == mask00) {
             // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
             uint i_1 = i | mask_q1;
@@ -537,42 +540,65 @@ void func_suqa_swap(double* const state_re, double* const state_im, size_t len, 
 //    }
 //}
 //
-//// sets amplitudes with value <val> in qubit <q> to zero
-//// !! it leaves the state unnormalized !!
-//void func_suqa_set_ampl_to_zero(double* state_re, double* state_im, size_t len, uint q, uint val) {
-//    for (uint i = 0U; i < len; ++i) {
-//        if (((i >> q) & 1U) == val) {
-//            state_re[i] = 0.0;
-//            state_im[i] = 0.0;
-//        }
-//    }
-//}
-//
-////TODO: optimize with parallel reduce
-//double func_suqa_prob1(double *v_re, double *v_im, size_t len, uint q){
-//    double ret = 0.0;
-//    double tmpval;
-//    for (uint i = 0U; i < len; ++i) {
-//        if(i & (1U << q)){
-//            tmpval = v_re[i];
-//            ret +=  tmpval*tmpval;
-//            tmpval = v_im[i];
-//            ret +=  tmpval*tmpval;
-//        }
-//    }
-//    return ret;
-//}
-//
-//double func_suqa_prob_filter(double *v_re, double *v_im, size_t len, uint mask_qs, uint mask){
-//    double ret = 0.0;
-//    double tmpval;
-//    for (uint i = 0U; i < len; ++i) {
-//        if((i & mask_qs) == mask){
-//            tmpval = v_re[i];
-//            ret +=  tmpval*tmpval;
-//            tmpval = v_im[i];
-//            ret +=  tmpval*tmpval;
-//        }
-//    }
-//    return ret;
-//}
+// sets amplitudes with value <val> in qubit <q> to zero
+// !! it leaves the state unnormalized !!
+void func_suqa_set_ampl_to_zero(double* state_re, double* state_im, uint q, uint val) {
+#ifdef SPARSE
+    auto it = suqa::actives.begin();
+    while(it != suqa::actives.end()) {
+        if(((*it >> q) & 1U) == val) {
+            state_re[*it] = 0.0;
+            state_im[*it] = 0.0;
+            it = suqa::actives.erase(it);
+        }else
+            ++it;
+    }
+#else
+    for (uint idx = 0U; idx < suqa::state.size(); ++idx) {
+        if (((idx >> q) & 1U) == val) {
+            state_re[idx] = 0.0;
+            state_im[idx] = 0.0;
+        }
+    }
+#endif
+}
+
+//TODO: optimize with parallel reduce
+double func_suqa_prob1(double* const state_re, double* const state_im, uint q){
+// unthreaded
+    double ret = 0.0;
+    double tmpval;
+
+#ifdef SPARSE
+	for (const auto& idx : suqa::actives){
+#else
+    for (uint idx = 0U; idx < suqa::state.size(); ++idx) {
+#endif
+//		ret += vec_data[idx+size/2] * vec_data[idx+size/2];
+        if(idx & (1U << q)){
+            tmpval = state_re[idx];
+            ret +=  tmpval*tmpval;
+            tmpval = state_im[idx];
+            ret +=  tmpval*tmpval;
+        }
+	}
+    return ret;
+}
+
+double func_suqa_prob_filter(double *state_re, double *state_im, uint mask_qs, uint mask){
+    double ret = 0.0;
+    double tmpval;
+#ifdef SPARSE
+	for (const auto& idx : suqa::actives){
+#else
+    for (uint idx = 0U; idx < suqa::state.size(); ++idx) {
+#endif
+        if((idx & mask_qs) == mask){
+            tmpval = state_re[idx];
+            ret +=  tmpval*tmpval;
+            tmpval = state_im[idx];
+            ret +=  tmpval*tmpval;
+        }
+    }
+    return ret;
+}

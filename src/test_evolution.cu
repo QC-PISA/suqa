@@ -32,7 +32,7 @@ cudaStream_t suqa::stream1, suqa::stream2;
 
 const int Dim=6;
 
-void self_plaquette(ComplexVec& state, const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3);
+void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3);
 
 int main(int argc, char** argv){
     if(argc<5){
@@ -53,21 +53,21 @@ int main(int argc, char** argv){
     printf("blocks: %u, threads: %u\n",suqa::blocks, suqa::threads);
 #endif
 
-    ComplexVec state;
+//    ComplexVec state;
   
-    allocate_state(state, Dim);
+    suqa::allocate_state(Dim);
 
     pcg rangen;
     rangen.set_seed(time(NULL));
     rangen.randint(0,3);
 
     suqa::setup(Dim);
-    init_state(state, Dim);
+    init_state();
 
     FILE * outfile;
 
     DEBUG_CALL(printf("initial state:\n"));
-    DEBUG_READ_STATE(state);
+    DEBUG_READ_STATE(suqa::state);
 
     for(uint ii=0; ii<=(uint)total_steps; ++ii){
         double t = ii*trotter_stepsize;
@@ -91,22 +91,22 @@ int main(int argc, char** argv){
 //        plaq_val_std = sqrt((plaq_val_std/(double)num_hits - plaq_val*plaq_val)/(double)(num_hits-1));
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
-        init_state(state, Dim);
-		suqa::apply_h(state,  bm_spin[rangen.randint(0,3)]);
-        evolution(state, t, ii);
+        init_state();
+		suqa::apply_h(bm_spin[rangen.randint(0,3)]);
+        evolution(t, ii);
         printf("random number= %d\n", rangen.randint(0,3));
 
 	//suqa::apply_h(state,  bm_spin[rangen.randint(0,3)]);
 	
         double p000=0, p100=0, p010=0, p110=0, p001=0, p101=0, p011=0, p111=0;
-        suqa::prob_filter(state, bm_spin, {0U,0U,0U}, p000);
-        suqa::prob_filter(state, bm_spin, {1U,0U,0U}, p100);
-        suqa::prob_filter(state, bm_spin, {0U,1U,0U}, p010);
-        suqa::prob_filter(state, bm_spin, {1U,1U,0U}, p110);
-        suqa::prob_filter(state, bm_spin, {0U,0U,1U}, p001);
-        suqa::prob_filter(state, bm_spin, {1U,0U,1U}, p101);
-        suqa::prob_filter(state, bm_spin, {0U,1U,1U}, p011);
-        suqa::prob_filter(state, bm_spin, {1U,1U,1U}, p111);
+        suqa::prob_filter(bm_spin, {0U,0U,0U}, p000);
+        suqa::prob_filter(bm_spin, {1U,0U,0U}, p100);
+        suqa::prob_filter(bm_spin, {0U,1U,0U}, p010);
+        suqa::prob_filter(bm_spin, {1U,1U,0U}, p110);
+        suqa::prob_filter(bm_spin, {0U,0U,1U}, p001);
+        suqa::prob_filter(bm_spin, {1U,0U,1U}, p101);
+        suqa::prob_filter(bm_spin, {0U,1U,1U}, p011);
+        suqa::prob_filter(bm_spin, {1U,1U,1U}, p111);
         printf("p000 = %.12lg; p100 = %.12lg\n", p000, p100);
         outfile = fopen(outfilename.c_str(), "a");
         fprintf(outfile, "%.12lg %.12lg %.12lg %.12lg %.12lg %.12lg %.12lg %.12lg %.12lg\n", t, p000,p100, p010,p110, p001,p101, p011,p111);
@@ -117,7 +117,7 @@ int main(int argc, char** argv){
 
     suqa::clear();
     
-    deallocate_state(state);
+    suqa::deallocate_state();
 
 
     return 0;

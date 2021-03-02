@@ -89,6 +89,9 @@ void vnormalize();
 
 void init_state();
 
+void deallocate_state();
+void allocate_state(uint Dim);
+
 /* SUQA gates */
 //
 
@@ -145,18 +148,18 @@ void apply_swap(const uint& q1, const uint& q2);
 //// rotation by phase in the direction of a pauli tensor product
 //void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
 //
-///* SUQA utils */
-//void measure_qbit(uint q, uint& c, double rdoub);
-//void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
-//
-//
+/* SUQA utils */
+void measure_qbit(uint q, uint& c, double rdoub);
+void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
+
+
 //void apply_reset(uint q, double rdoub);
 //void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
 
 void setup(uint nq);
 void clear();
 
-//void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
+void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
 
 };
 
