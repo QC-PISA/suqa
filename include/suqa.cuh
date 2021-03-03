@@ -17,9 +17,9 @@ extern double *host_state_re, *host_state_im;
     cudaMemcpyAsync(host_state_re,state.data_re,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
     cudaMemcpyAsync(host_state_im,state.data_im,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2); \
     cudaDeviceSynchronize(); \
-    printf("vnorm = %.12lg\n",suqa::vnorm(state));\
     qoxo_print((double*)host_state_re,(double*)host_state_im, state.size()); \
 } 
+//    printf("vnorm = %.12lg\n",suqa::vnorm(state));
 //#else
 //#define DEBUG_READ_STATE(state)
 //#endif

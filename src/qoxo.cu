@@ -155,18 +155,22 @@ bool check_win(uint pl) {
             }
         }
 //    }
-
+//    DEBUG_CALL(printf("COLLAPSE\n\n"));
     if (win_meas == 1U) {
-        suqa::apply_x(state, bm_win);
-        vector<uint> c_reg(18);
-        vector<double> rgens(18);
-        for (auto& el : rgens) el = rangen.doub();
-		suqa::measure_qbits(state, bm_slots, c_reg, rgens);
-//        printf("Win state:\n");
-//        print_classical_state(c_reg);
-        DEBUG_CALL(printf("COLLAPSE\n\n"));
+        DEBUG_CALL(printf(AYELLOW "COLLAPSE -> PLAYER %d WINS\n\n" ARESET,pl+1));
         DEBUG_READ_STATE(state);
     }
+
+//    if (win_meas == 1U) {
+//        suqa::apply_x(state, bm_win);
+//        vector<uint> c_reg(18);
+//        vector<double> rgens(18);
+//        for (auto& el : rgens) el = rangen.doub();
+//		suqa::measure_qbits(state, bm_slots, c_reg, rgens);
+////        printf("Win state:\n");
+////        print_classical_state(c_reg);
+//        DEBUG_READ_STATE(state);
+//    }
 
     return win_meas==1U;
 }
@@ -180,10 +184,14 @@ bool double_turn(int pl) {
     cout << "\nPlayer "<<pl+1<<", make move: " << flush;
     get_player_move(move);
     move.apply_move(pl);
-	DEBUG_CALL(printf("game state:\n"));
-	DEBUG_READ_STATE(state);
+    printf("\n");
+//	DEBUG_CALL(printf("game state:\n"));
+    bool win = check_win(pl);
 
-    return check_win(pl);
+    if(!win)
+        DEBUG_READ_STATE(state);
+
+    return win;
 
 //    cout << "\nPlayer 2, make move: " << flush;
 //    get_player_move(move);

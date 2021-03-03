@@ -2,6 +2,9 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <sys/ioctl.h> //ioctl() and TIOCGWINSZ
+#include <unistd.h> // for STDOUT_FILENO
+
 
 int get_time(struct timeval* tp, struct timezone* tzp){
 	(void)tzp;
@@ -62,11 +65,20 @@ void sparse_print(double *v_re, double *v_im, uint size){
     std::cout<<std::endl;
 }
 
-void qoxo_print(double *v_re, double *v_im, uint size){
+const char qoxocharmap[3] = {' ','O','X'};
+
+void qoxo_print(double *v_re, double *v_im, uint vecsize){
+
+    struct winsize wsize;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &wsize);
+
+    /* size.ws_row is the number of rows, size.ws_col is the number of columns. */
+
+
     // for non-contiguous even-odd entries corresponding to real and imag parts
     using  uintdoub = std::pair<uint,double>;
     std::vector<uintdoub> state_norm;
-    for(uint i=0; i<size; ++i){
+    for(uint i=0; i<vecsize; ++i){
        std::complex<double> var(v_re[i],v_im[i]);
        if(norm(var)>1e-8){
            state_norm.push_back(std::make_pair(i,norm(var)));
@@ -74,18 +86,54 @@ void qoxo_print(double *v_re, double *v_im, uint size){
     }
     std::sort(state_norm.begin(),state_norm.end(),[](const uintdoub &a, const uintdoub &b){return a.second > b.second;});
 
-//    size_t index_size = (int)std::round(std::log2(size));
-    printf("games\t\tprobabilities");
-    for(const auto& uid : state_norm){
+    std::vector<std::vector<char>> gms(state_norm.size(),std::vector<char>(9));    
+    for(size_t idx = 0; idx< state_norm.size(); ++idx){
+        auto uid = state_norm[idx];
         uint game_stidx = uid.first;
-//        std::string index= std::bitset<32>(uid.first).to_string();
-//        index.erase(0,32-index_size);
-        std::vector<int> gms(9,0);    
         for(uint i=0U; i<9U; ++i){
-            gms[i] = (game_stidx & 3U); // 0 -> empty, 1-> first pl, 2-> second pl, 3-> inactive
+            gms[idx][i] = qoxocharmap[(game_stidx & 3U)]; // 0 -> empty, 1-> first pl, 2-> second pl, 3-> inactive
             game_stidx>>=2U;
         }
-        printf("\n%d|%d|%d\n______\n%d|%d|%d\t\t%.3e\n______\n%d|%d|%d\n",gms[0],gms[1],gms[2],gms[3],gms[4],gms[5],uid.second,gms[6],gms[7],gms[8]);
+    }
+
+    printf("\n");
+    size_t max_ngxrow = wsize.ws_col/12;
+    size_t max_ngxcol = (state_norm.size()+max_ngxrow-1)/max_ngxrow;
+    for(size_t Row = 0; Row<max_ngxcol;++Row){
+        size_t ngxrow = (Row==max_ngxcol-1)?(state_norm.size()%max_ngxrow):max_ngxrow;
+
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("------------");
+        printf("\n");
+
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|   %c|%c|%c  |",gms[idx][0],gms[idx][1],gms[idx][2]);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("|   _____  |");
+        printf("\n");
+
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|   %c|%c|%c  |",gms[idx][3],gms[idx][4],gms[idx][5]);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("|   _____  |");
+        printf("\n");
+
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|   %c|%c|%c  |",gms[idx][6],gms[idx][7],gms[idx][8]);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("| " ACYAN "%.2e" ARESET " |",state_norm[idx].second);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("------------");
+        printf("\n");
+        
     }
     std::cout<<std::endl;
 }

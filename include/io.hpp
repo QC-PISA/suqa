@@ -6,6 +6,14 @@
 #include <bitset>
 #include <chrono>
 
+#define ARED     "\x1b[31m"
+#define AGREEN   "\x1b[32m"
+#define AYELLOW  "\x1b[33m"
+#define ABLUE    "\x1b[34m"
+#define AMAGENTA "\x1b[35m"
+#define ACYAN    "\x1b[36m"
+#define ARESET   "\x1b[0m"
+
 typedef unsigned int uint;
 #ifndef M_PI
 #define M_PI 3.141592653589793
