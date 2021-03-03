@@ -6,11 +6,20 @@
 #include <stdexcept>
 #include "io.hpp"
 #include "complex_defines.cuh"
-#include "device_launch_parameters.h"
+
+#ifdef GPU
+#ifndef __CUDACC__  
+#define __CUDACC__
+#endif
+#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
+#include <device_launch_parameters.h>
+#endif
 
 
 //#ifdef CUDA
 
+#ifdef GPU
 #if !defined(NDEBUG) 
 extern double *host_state_re, *host_state_im;
 #define DEBUG_READ_STATE(state) {\
@@ -23,10 +32,22 @@ extern double *host_state_re, *host_state_im;
 //#else
 //#define DEBUG_READ_STATE(state)
 //#endif
-
-#else
+#else  // NDEBUG
 #define DEBUG_READ_STATE(state)
 #endif
+
+#else // CPU
+#ifdef SPARSE
+#define DEBUG_READ_STATE(state) {\
+    qoxo_print((double*)state.data_re,(double*)state.data_im,suqa::actives); \
+}
+//    printf("vnorm = %.12lg\n",suqa::vnorm());
+#else // NON SPARSE
+#define DEBUG_READ_STATE(state) {\
+    qoxo_print((double*)state.data_re,(double*)state.data_im, state.size()); \
+}
+#endif // end SPARSE
+#endif // end GPU
 
 //const double TWOSQINV = 1./sqrt(2.);
 #define TWOSQINV 0.7071067811865475 
@@ -40,9 +61,17 @@ typedef std::vector<uint> bmReg;
 
 namespace suqa{
 
+extern ComplexVec state;
+#ifdef SPARSE
+extern std::vector<uint> actives; // dynamic list of active states
+#endif
 
+#ifdef GPU
+#define NUM_THREADS 128
+#define MAXBLOCKS 65535
 extern uint blocks, threads;
 extern cudaStream_t stream1, stream2;
+#endif
 
 // global control mask:
 // it applies every next operation 
@@ -50,105 +79,90 @@ extern cudaStream_t stream1, stream2;
 // to use it only for operations not involving it)
 extern uint gc_mask;
 
+extern uint nq;
+
 void print_banner();
 
 void activate_gc_mask(const bmReg& q_controls);
-void deactivate_gc_mask();
+void deactivate_gc_mask(const bmReg& q_controls);
 
 /* Utility procedures */
-double vnorm(const ComplexVec& v);
-void vnormalize(ComplexVec& v);
+double vnorm();
+void vnormalize();
 
+void init_state();
 
-//__host__ __device__ static __inline__
-//void apply_2x2mat(Complex& x1, Complex& x2, const Complex& m11, const Complex& m12, const Complex& m21, const Complex& m22){
-//            Complex x1_next = m11 * x1 + m12 * x2;
-//            Complex x2_next = m21 * x1 + m22 * x2;
-//            x1 = x1_next;
-//            x2 = x2_next;
-//}
-//
-//__host__ __device__ static __inline__
-//void apply_2x2mat_doub(Complex& x1, Complex& x2, const double& m11, const double& m12, const double& m21, const double& m22){
-//            Complex x1_next = m11 * x1 + m12 * x2;
-//            Complex x2_next = m21 * x1 + m22 * x2;
-//            x1 = x1_next;
-//            x2 = x2_next;
-//}
-
-//__host__ __device__ static __inline__
-//void swap_cmpx(Complex *const a, Complex *const b){
-//    Complex tmp_c = *a;
-//    *a = *b;
-//    *b = tmp_c;
-//}
-
+void deallocate_state();
+void allocate_state(uint Dim);
 
 /* SUQA gates */
 //
 
 // single qbit gates
-void apply_x(ComplexVec& state, uint q);
-void apply_x(ComplexVec& state, const bmReg& qs);
+void apply_x(uint q);
+void apply_x(const bmReg& qs);
 
-void apply_y(ComplexVec& state, uint q);
-void apply_y(ComplexVec& state, const bmReg& qs);
+void apply_y(uint q);
+void apply_y(const bmReg& qs);
 
-void apply_z(ComplexVec& state, uint q);
-void apply_z(ComplexVec& state, const bmReg& qs);
+void apply_z(uint q);
+void apply_z(const bmReg& qs);
 
-void apply_sigma_plus(ComplexVec& state, uint q);
-void apply_sigma_plus(ComplexVec& state, const bmReg& qs);
+//void apply_sigma_plus(uint q);
+//void apply_sigma_plus(const bmReg& qs);
+//
+//void apply_sigma_minus(uint q);
+//void apply_sigma_minus(const bmReg& qs);
 
-void apply_sigma_minus(ComplexVec& state, uint q);
-void apply_sigma_minus(ComplexVec& state, const bmReg& qs);
+void apply_h(uint q);
+void apply_h(const bmReg& qs);
 
-void apply_h(ComplexVec& state, uint q);
-void apply_h(ComplexVec& state, const bmReg& qs);
+void apply_t(uint q);
+void apply_t(const bmReg& qs);
 
-void apply_t(ComplexVec& state, uint q);
-void apply_t(ComplexVec& state, const bmReg& qs);
+void apply_tdg(uint q);
+void apply_tdg(const bmReg& qs);
 
-void apply_tdg(ComplexVec& state, uint q);
-void apply_tdg(ComplexVec& state, const bmReg& qs);
+void apply_s(uint q);
+void apply_s(const bmReg& qs);
 
 // matrix:   1     0
 //           0     exp(i phase)
-void apply_u1(ComplexVec& state, uint q, double phase);
-void apply_u1(ComplexVec& state, uint q, uint q_mask, double phase);
+void apply_u1(uint q, double phase);
+void apply_u1(uint q, uint q_mask, double phase);
 
 // multiple qbit gates
 //void apply_cx(ComplexVec& state, uint q_control, uint q_target);
-void apply_cx(ComplexVec& state, const uint& q_control, const uint& q_target, const uint& q_mask=1U);
+void apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask=1U);
 
-void apply_mcx(ComplexVec& state, const bmReg& q_controls, const uint& q_target);
-void apply_mcx(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target);
+void apply_mcx(const bmReg& q_controls, const uint& q_target);
+void apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target);
 
-void apply_cu1(ComplexVec& state, uint q_control, uint q_target, double phase, uint q_mask=1U);
+void apply_cu1(uint q_control, uint q_target, double phase, uint q_mask=1U);
 
-void apply_mcu1(ComplexVec& state, const bmReg& q_controls, const uint& q_target, double phase);
-void apply_mcu1(ComplexVec& state, const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
+void apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase);
+void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase);
 
-void apply_swap(ComplexVec& state, const uint& q1, const uint& q2);
+void apply_swap(const uint& q1, const uint& q2);
 
-// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
-void apply_phase_list(ComplexVec& state, uint q0, uint q_size, const std::vector<double>& phases);
-
-// rotation by phase in the direction of a pauli tensor product
-void apply_pauli_TP_rotation(ComplexVec& state, const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
-
+//// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
+//void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
+//
+//// rotation by phase in the direction of a pauli tensor product
+//void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
+//
 /* SUQA utils */
-void measure_qbit(ComplexVec& state, uint q, uint& c, double rdoub);
-void measure_qbits(ComplexVec& state, const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
+void measure_qbit(uint q, uint& c, double rdoub);
+void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
 
 
-void apply_reset(ComplexVec& state, uint q, double rdoub);
-void apply_reset(ComplexVec& state, const bmReg& qs, std::vector<double> rdoubs);
+//void apply_reset(uint q, double rdoub);
+//void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
 
-void setup(uint Dim);
+void setup(uint nq);
 void clear();
 
-void prob_filter(ComplexVec& state, const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
+void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
 
 };
 

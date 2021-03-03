@@ -20,51 +20,20 @@
 
 using namespace std;
 
+#ifdef GPU
 #define NUM_THREADS 128
 #define MAXBLOCKS 65535
 uint suqa::threads;
 uint suqa::blocks;
 cudaStream_t suqa::stream1, suqa::stream2;
+#endif
 
 const int NQ = 19;
 const int Dim = 1U << NQ;
-ComplexVec state;
 const uint bm_win = 18;
 const bmReg bm_slots = { 0U,1U,2U,3U,4U,5U,6U,7U,8U,9U,10U,11U,12U,13U,14U,15U,16U,17U };
 
 pcg rangen;
-
-void deallocate_state(ComplexVec& state) {
-    if (state.data != nullptr) {
-        HANDLE_CUDACALL(cudaFree(state.data));
-    }
-    state.vecsize = 0U;
-}
-
-void allocate_state(ComplexVec& state, uint Dim) {
-    if (state.data != nullptr or Dim != state.vecsize)
-        deallocate_state(state);
-
-
-    state.vecsize = Dim;
-    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data), 2 * state.vecsize * sizeof(double)));
-    // allocate both using re as offset, and im as access pointer.
-    state.data_re = state.data;
-    state.data_im = state.data_re + state.vecsize;
-}
-
-__global__ void initialize_state(double *state_re, double *state_im, uint len){
-    uint i = blockIdx.x*blockDim.x+threadIdx.x;
-    while(i<len){
-        state_re[i] = 0.0;
-        state_im[i] = 0.0;
-        i += gridDim.x*blockDim.x;
-    }
-    if(blockIdx.x*blockDim.x+threadIdx.x==1){
-        state_re[0] = 1.0;
-        state_im[0] = 0.0;
-    }
-}
 
 struct Move {
     string type;
@@ -73,23 +42,23 @@ struct Move {
 	void apply_move(int offset) {
 		if (type.compare("flip") == 0) {
 			// applies flip only if not flipped already by the other player
-			suqa::apply_cx(state, slot[0]*2+(1-offset),slot[0] * 2+offset,0U);
+			suqa::apply_cx(slot[0]*2+(1-offset),slot[0] * 2+offset,0U);
 		} else if(type.compare("mix")==0) { // mix type
 			// applies mix only if not flipped already by the other player
-            suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
             suqa::activate_gc_mask({bm_win});
-			suqa::apply_h(state, slot[0] * 2+offset);
-			suqa::apply_h(state, slot[1] * 2+offset);
-            suqa::deactivate_gc_mask();
-            suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+			suqa::apply_h(slot[0] * 2+offset);
+			suqa::apply_h(slot[1] * 2+offset);
+            suqa::deactivate_gc_mask({bm_win});
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
 		} else if(type.compare("bell")==0) { // mix type
 			// applies bell only if not flipped already by the other player
-            suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
             suqa::activate_gc_mask({bm_win});
-			suqa::apply_h(state, slot[0] * 2+offset);
-			suqa::apply_cx(state, slot[0] * 2+offset, slot[1] * 2+offset);
-            suqa::deactivate_gc_mask();
-            suqa::apply_mcx(state, { static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+			suqa::apply_h(slot[0] * 2+offset);
+			suqa::apply_cx(slot[0] * 2+offset, slot[1] * 2+offset);
+            suqa::deactivate_gc_mask({bm_win});
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
 		}
 		
 	}
@@ -131,15 +100,15 @@ const vector<vector<uint>> winsets = { {0U, 2U, 4U}, //rows
                                         {0U, 8U, 16U}, //diagonals
                                         {4U, 8U, 12U} };
 
-void print_classical_state(const vector<uint>& creg) {
-    for (uint r = 0U; r < 3U; ++r) {
-		for (uint c = 0U; c < 3U; ++c) {
-            printf("(%u, %u) ", creg[(c + r * 3U) * 2U], creg[(c + r * 3U) * 2U + 1U]);
-		}
-        printf("\n");
-    }
-	printf("\n");
-}
+//void print_classical_state(const vector<uint>& creg) {
+//    for (uint r = 0U; r < 3U; ++r) {
+//		for (uint c = 0U; c < 3U; ++c) {
+//            printf("(%u, %u) ", creg[(c + r * 3U) * 2U], creg[(c + r * 3U) * 2U + 1U]);
+//		}
+//        printf("\n");
+//    }
+//	printf("\n");
+//}
 
 // measure on the win states
 bool check_win(uint pl) {
@@ -147,8 +116,8 @@ bool check_win(uint pl) {
 //    for (uint offset = 0U; offset < 2U; ++offset) {
     uint offset=pl;
         for (const auto& triple : winsets) {
-            suqa::apply_mcx(state, { triple[0] + offset, triple[1] + offset,triple[2] + offset }, bm_win);
-			suqa::measure_qbit(state, bm_win, win_meas, rangen.doub());
+            suqa::apply_mcx({ triple[0] + offset, triple[1] + offset,triple[2] + offset }, bm_win);
+			suqa::measure_qbit(bm_win, win_meas, rangen.doub());
             if (win_meas == 1U) {
 //                offset = 2U;
                 break;
@@ -157,8 +126,8 @@ bool check_win(uint pl) {
 //    }
 //    DEBUG_CALL(printf("COLLAPSE\n\n"));
     if (win_meas == 1U) {
-        DEBUG_CALL(printf(AYELLOW "COLLAPSE -> PLAYER %d WINS\n\n" ARESET,pl+1));
-        DEBUG_READ_STATE(state);
+        printf(AYELLOW "COLLAPSE -> PLAYER %d WINS\n\n" ARESET,pl+1);
+        DEBUG_READ_STATE(suqa::state);
     }
 
 //    if (win_meas == 1U) {
@@ -188,8 +157,9 @@ bool double_turn(int pl) {
 //	DEBUG_CALL(printf("game state:\n"));
     bool win = check_win(pl);
 
-    if(!win)
-        DEBUG_READ_STATE(state);
+    if(!win){
+        DEBUG_READ_STATE(suqa::state);
+    }
 
     return win;
 
@@ -202,7 +172,9 @@ bool double_turn(int pl) {
 }
 
 void game() {
-    initialize_state<<<suqa::blocks,suqa::threads>>>(state.data_re, state.data_im,Dim);
+//    suqa::init_state();
+	DEBUG_READ_STATE(suqa::state);
+
 
     bool win = false;
     int pl = 0;
@@ -215,6 +187,7 @@ void game() {
 
 
 int main(int argc, char** argv) {
+    (void)argc,(void)argv;
     
     printf("Welcome to QOXO\n");
     printf("a quantum generalization of the game OXO (aka tic-tac-toe)\n");
@@ -237,18 +210,18 @@ int main(int argc, char** argv) {
 //        exit(1);
 //    }
 
+
+#ifdef GPU
     suqa::threads = NUM_THREADS;
     suqa::blocks = (Dim + suqa::threads - 1) / suqa::threads;
     if (suqa::blocks > MAXBLOCKS) suqa::blocks = MAXBLOCKS;
     printf("blocks: %u, threads: %u\n", suqa::blocks, suqa::threads);
+#endif
 
-
-    allocate_state(state, Dim);
+    suqa::setup(NQ);
 
     rangen.set_seed(time(NULL));
     rangen.randint(0, 3);
-
-    suqa::setup(Dim);
 
     game();
     
@@ -258,9 +231,6 @@ int main(int argc, char** argv) {
 //        suqa::prob_filter(state, bm_spin, { 1U,1U,1U }, p111);
 
     suqa::clear();
-
-    deallocate_state(state);
-
 
     return 0;
 }

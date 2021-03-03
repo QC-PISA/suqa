@@ -7,7 +7,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_evolution", "test_evol
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qms", "qms\qms.vcxproj", "{43667236-E564-4D0D-B151-2047EC5E2C43}"
 EndProject
+<<<<<<< HEAD
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "qoxo", "qoxo\qoxo.vcxproj", "{0E9679CF-6A7F-4F7A-B191-500FA07329FF}"
+=======
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests\tests.vcxproj", "{7BD765A1-2B4C-4988-A231-F5477CD257CD}"
+>>>>>>> sparse_cpu
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +27,17 @@ Global
 		{43667236-E564-4D0D-B151-2047EC5E2C43}.Debug|x64.Build.0 = Debug|x64
 		{43667236-E564-4D0D-B151-2047EC5E2C43}.Release|x64.ActiveCfg = Release|x64
 		{43667236-E564-4D0D-B151-2047EC5E2C43}.Release|x64.Build.0 = Release|x64
+<<<<<<< HEAD
 		{0E9679CF-6A7F-4F7A-B191-500FA07329FF}.Debug|x64.ActiveCfg = Debug|x64
 		{0E9679CF-6A7F-4F7A-B191-500FA07329FF}.Debug|x64.Build.0 = Debug|x64
 		{0E9679CF-6A7F-4F7A-B191-500FA07329FF}.Release|x64.ActiveCfg = Release|x64
 		{0E9679CF-6A7F-4F7A-B191-500FA07329FF}.Release|x64.Build.0 = Release|x64
+=======
+		{7BD765A1-2B4C-4988-A231-F5477CD257CD}.Debug|x64.ActiveCfg = Debug|x64
+		{7BD765A1-2B4C-4988-A231-F5477CD257CD}.Debug|x64.Build.0 = Debug|x64
+		{7BD765A1-2B4C-4988-A231-F5477CD257CD}.Release|x64.ActiveCfg = Release|x64
+		{7BD765A1-2B4C-4988-A231-F5477CD257CD}.Release|x64.Build.0 = Release|x64
+>>>>>>> sparse_cpu
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

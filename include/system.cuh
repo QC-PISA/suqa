@@ -18,12 +18,12 @@ const bmReg bm_spin={0,1,2};
 extern double g_beta;
 
 
-void init_state(ComplexVec& state, uint Dim);
+void init_state();
 
-void evolution(ComplexVec& state, const double& t, const int& n);
+void evolution(const double& t, const int& n);
 
-void apply_C(ComplexVec& state, const uint &Ci);
+void apply_C(const uint &Ci);
 
-void apply_C_inverse(ComplexVec& state, const uint &Ci);
+void apply_C_inverse(const uint &Ci);
 
 std::vector<double> get_C_weigthsums();
