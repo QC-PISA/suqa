@@ -1,90 +1,33 @@
-# Simulator for Universal Quantum Algorithms (SUQA)
-version 1.5 (04/2020)
+# QOXO
+A quantum generalization of the game OXO (aka tic-tac-toe).
 
-General purpose runtime library for implementing runtime quantum algorithms and hybrids quantum-classical algorithms.
+### compile and run
 
-
-## Main project: thermal methods for Quantum Information
-
-Estimation of thermal averages using quantum information algorithms.
-
-### Quantum Metropolis Sampling (QMS)
-Implementation of the algorithm from paper: https://www.nature.com/articles/nature09770  
-The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
-
-## Structure of the project:
 ```bash
-.  
-├ Makefile (for linux compilation)  
-├ README.md (this file)  
-├ include  
-│   ├ Rand.hpp  
-│   ├ complex\_defines.cuh  
-│   ├ io.hpp  
-│   ├ parser.hpp  
-│   ├ pcg32.h  
-│   ├ qms.cuh (implementation of the qms algorithm; header only)  
-│   ├ suqa.cuh  
-│   └ system.cuh  
-├ src  
-│   ├ Rand.cpp  
-│   ├ io.cpp  
-│   ├ qms.cu (runs the qms algorithm)  
-│   ├ suqa.cu (core engine with the implementation of quantum gates)  
-│   ├ system.cu (definitions system-specifics)  
-│   └ test\_evolution.cu (test evolution of the system)  
-└ vs (visual studio solution and project folders)  
-    ├ qms  
-    ├ suqa.sln  
-    └ test_evolution  
+make
+./qoxo
 ```
 
-Each git branch represents a different system:
-- master : frustrated triangle
-- z2\_matter\_gauge : model with hamiltonian evolution of a gauge theory as decribed in https://arxiv.org/abs/1903.08807 
-- d4-gauge : another model from the previous paper
-- z2-gauge : toy model for d4-gauge with gauge group Z2
+### Rules
 
-## Compiling
+#### Notation: 
+p: generic player, a: antagonist player;<br>
+<img src="https://render.githubusercontent.com/render/math?math=X^{(p)}_i,H^{(p)}_i"> : flip and Hadamard operators applied to the p's symbols on the i site.<br>
+<img src="https://render.githubusercontent.com/render/math?math=C^{(p)}_i\_X^{(p[a])}_j"> : CNOT operator with control on site i with p's symbol and target on site j with p's [or a's] symbol;<br> 
+if C has many pedices it is understood as a Toffoli gate;<br>
+<img src="https://render.githubusercontent.com/render/math?math=\widebar{C}\_X"> denotes an anti-CNOT, that is one acts non-trivially when the controlled qubit is in the state 0.
 
-Linux and Windows are supported to this date.  
-This code runs only on machines with NVIDIA gpus.  
-(Previous versions ran also on cpu only, but it has been dismissed since it wasn't mantained anymore; maybe in the future...)
+#### Moves:
+Each player can perform certain types of moves, called 'flip', 'bell' and 'mix'. <br>
 
-### Linux
+p) flip \<i\>     &emsp;&emsp;: <img src="https://render.githubusercontent.com/render/math?math=\widebar{C}^{(a)}_i X^{(p)}_i"> <t>[like the usual classical move in OXO];<br>
+p) split \<i\> \<j\> : <img src="https://render.githubusercontent.com/render/math?math=\widebar{C}^{(a)}_{ij}\_(X^{(p)}_j H^{(p)}_i C^{(p)}_i\_X^{(p)}_j)">;<br>
+p) bell \<i\> \<j\> : <img src="https://render.githubusercontent.com/render/math?math=\widebar{C}^{(a)}_{ij}\_(H^{(p)}_i C^{(p)}_i\_X^{(p)}_j)">;<br>
+p) mix \<i\> \<j\>  : <img src="https://render.githubusercontent.com/render/math?math=\widebar{C}^{(a)}_{ij}\_(H^{(p)}_i H^{(p)}_j)">.
 
-#### dependencies
-* g++ with std>=c++11  
-* CUDA toolkit  
-* Make  
-
-#### compilation
-In order to compile, run:
-```bash
-make <target>
-```
-where \<target\> can be 'release' for the qms algorithm in production, 
-'debug' for qms in debug mode, 'profile' for qms in profile mode, 
-or 'test\_evolution' for compiling test code for the system evolutor.
-
-### Windows
-
-#### dependencies
-* Visual Studio 2019
-* CUDA toolkit
-
-#### compilation
-The Visual Studio solution is in 'vs/suqa.sln'.  
-It contains two projects, 'qms' and 'test\_evolution';
-to build one of them, right-click on the project name on 'Solution Explorer', and select 'Set as Startup Project',
-then select the mode of compilation 'Release' or 'Debug' on the upper bar, and right-click again on the project name selecting 'Build'.  
-The executable will be created in the folder 'vs/x64/Release' or 'vs/x64/Debug' depending on the compilation mode.  
-To run it, e.g., you can click on 'Tools/Command Line/Developer PowerShell' on the upper bar to open a shell.  
+#### Winning condition:
+After the move of any player p, the 8 winning site triplets with p's symbol (rows, columns and diagonals) are used as control to perform a Toffoli with target on an ancillary qubit (initially set to 0), which is measured for each triple in order to determine whether player p won or not. Notice that after any of these measures the state would collapse on one of the two possible subspaces, the one on which p wins, and the one on which it doesn't (and the antagonist proceeds with the next turn). Therefore, in the latter case, the collapse would cause the winning combinations to disappear!
 
 
-## Collaborators (in chronological order)
-Giuseppe Clemente (giuseppe.clemente93@gmail.com)  
-Marco Cardinali  
-Lorenzo Maio  
-Claudio Bonanno  
-Riccardo Aiudi  
+### Notes
+To be honest, there is nothing quantum in this version of the rules, since they can be encoded just in a probabilistic setting. In order to include quantum effects one could introduce, for example, a third parameter encoding a phase, so that interference phenomena between the superposition of the classical games (i.e., in the computational basis) could happen.

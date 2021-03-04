@@ -66,7 +66,6 @@ void sparse_print(double *v_re, double *v_im, size_t size){
     std::cout<<std::endl;
 }
 
-const char qoxocharmap[3] = {' ','O','X'};
 
 #ifdef SPARSE
 void qoxo_print(double *v_re, double *v_im, std::vector<uint> actives){
@@ -138,7 +137,7 @@ void qoxo_print(double *v_re, double *v_im, uint vecsize){
         printf("\n");
         for(size_t Col=0; Col<ngxrow; ++Col){
             size_t idx = Row*max_ngxrow+Col;
-            printf("| " ACYAN "%.2e" ARESET " |",state_norm[idx].second);
+            printf("|  " ACYAN "%5.1f%%" ARESET "  |",state_norm[idx].second*100);
         }
         printf("\n");
         for(size_t Col=0; Col<ngxrow; ++Col) printf("------------");

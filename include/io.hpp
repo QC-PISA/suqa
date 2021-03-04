@@ -20,6 +20,7 @@ typedef unsigned int uint;
 #define M_PI 3.141592653589793
 #endif
 
+
 int get_time(struct timeval* tp, struct timezone* tzp);
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(__MINGW64__)
@@ -69,6 +70,8 @@ void sparse_print(double *v, size_t size);
 void sparse_print(double *v, double *w, size_t size);
 
 void sparse_print(double *v, double *w, size_t size, std::vector<uint>& indexes);
+
+const char qoxocharmap[3] = {' ','O','X'};
 
 #ifdef SPARSE
 void qoxo_print(double *v, double *w, std::vector<uint> actives);

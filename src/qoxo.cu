@@ -43,20 +43,29 @@ struct Move {
 		if (type.compare("flip") == 0) {
 			// applies flip only if not flipped already by the other player
 			suqa::apply_cx(slot[0]*2+(1-offset),slot[0] * 2+offset,0U);
+		} else if(type.compare("split")==0) { // split type
+			// applies bell only if not flipped already by the other player
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+            suqa::activate_gc_mask({bm_win});
+			suqa::apply_h(slot[0] * 2+offset);
+			suqa::apply_cx(slot[0] * 2+offset, slot[1] * 2+offset);
+			suqa::apply_x(slot[1] * 2+offset);
+            suqa::deactivate_gc_mask({bm_win});
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+		} else if(type.compare("bell")==0) { // bell type
+			// applies bell only if not flipped already by the other player
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
+            suqa::activate_gc_mask({bm_win});
+			suqa::apply_h(slot[0] * 2+offset);
+			suqa::apply_cx(slot[0] * 2+offset, slot[1] * 2+offset);
+            suqa::deactivate_gc_mask({bm_win});
+            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
 		} else if(type.compare("mix")==0) { // mix type
 			// applies mix only if not flipped already by the other player
             suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
             suqa::activate_gc_mask({bm_win});
 			suqa::apply_h(slot[0] * 2+offset);
 			suqa::apply_h(slot[1] * 2+offset);
-            suqa::deactivate_gc_mask({bm_win});
-            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
-		} else if(type.compare("bell")==0) { // mix type
-			// applies bell only if not flipped already by the other player
-            suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
-            suqa::activate_gc_mask({bm_win});
-			suqa::apply_h(slot[0] * 2+offset);
-			suqa::apply_cx(slot[0] * 2+offset, slot[1] * 2+offset);
             suqa::deactivate_gc_mask({bm_win});
             suqa::apply_mcx({static_cast<uint>(slot[0] * 2 + (1 - offset)),static_cast<uint>(slot[1] * 2 + (1 - offset)) }, { 0U,0U }, bm_win);
 		}
@@ -68,17 +77,19 @@ void get_player_move(Move& move) {
     bool good_format = false;
     while (!good_format) {
 		cin >> move.type;
-        if (cin.fail() || (move.type.compare("flip")!=0 && move.type.compare("mix")!=0 && move.type.compare("bell")!=0)) {
+        if (cin.fail() || (move.type.compare("flip")!=0 && move.type.compare("split")!=0 && move.type.compare("mix")!=0 && move.type.compare("bell")!=0)) {
             cin.clear();
 
         } else if(move.type.compare("flip")==0){
             cin >> move.slot[0];
+            move.slot[0]--;
             if(cin.fail() || move.slot[0]<0 || move.slot[0]>8)
 				cin.clear();
             else
 				good_format = true;
-        } else if(move.type.compare("mix")==0 || move.type.compare("bell")==0){
+        } else if(move.type.compare("split")==0 || move.type.compare("bell")==0 || move.type.compare("mix")==0){
             cin >> move.slot[0] >> move.slot[1];
+            move.slot[0]--; move.slot[1]--;
             if(cin.fail() || move.slot[0]<0 || move.slot[0]>8 || move.slot[1]<0 || move.slot[1]>8 || move.slot[0]==move.slot[1])
 				cin.clear();
             else
@@ -126,7 +137,7 @@ bool check_win(uint pl) {
 //    }
 //    DEBUG_CALL(printf("COLLAPSE\n\n"));
     if (win_meas == 1U) {
-        printf(AYELLOW "COLLAPSE -> PLAYER %d WINS\n\n" ARESET,pl+1);
+        printf(AYELLOW "COLLAPSE -> PLAYER %c WINS\n\n" ARESET,qoxocharmap[pl+1]);
         DEBUG_READ_STATE(suqa::state);
     }
 
@@ -150,7 +161,7 @@ bool double_turn(int pl) {
     cout << "turn " << (turn_counter++) << endl;
     
     Move move;
-    cout << "\nPlayer "<<pl+1<<", make move: " << flush;
+    cout << "\nPlayer "<<qoxocharmap[pl+1]<<", make move: " << flush;
     get_player_move(move);
     move.apply_move(pl);
     printf("\n");
@@ -191,19 +202,20 @@ int main(int argc, char** argv) {
     
     printf("Welcome to QOXO\n");
     printf("a quantum generalization of the game OXO (aka tic-tac-toe)\n");
-    printf("\n0|1|2\n");
+    printf("\n1|2|3\n");
     printf("_____\n");
-    printf("3|4|5\n");
+    printf("4|5|6\n");
     printf("______\n");
-    printf("6|7|8\n\n");
+    printf("7|8|9\n\n");
     printf("Notation:\np: generic player, a: antagonist player;\n");
 //    printf("| |_{i} :empty slot at site i; |p|_i : i site occupied by p's symbol\n");
 //    printf("p) <movename> <i> [<j>] : move named <movename> made by player p and at the site <i> and possibly also <j> (depending on the move).\n");
-    printf("\n\nRules: each player can perform certain types of moves, called 'flip', 'mix' or 'bell'.\n");
+    printf("\n\nRules: each player can perform certain types of moves, called 'flip', 'bell' and 'mix'.\n");
     printf("p) flip <i> : \\bar{C}^{(a)}_i X^{(p)}_i [like the usual classical move in OXO]\n");
+    printf("p) split <i> <j>: \\bar{C}^{(a)}_i\\_(X^{(p)}_j H^{(p)}_i C^{(p)}_i\\_X^{(p)}_j)\n");
 //    printf("p) mix <i> <j> : | , >, |a| -> |a| [like the usual classical move in OXO]\n");
-    printf("p) mix <i> <j> : \\bar{C}^{(a)}_{i,j}-(H^{(p)}_i H^{(p)}_j)\n");
-    printf("p) bell <i> <j> : \\bar{C}^{(a)}_{i,j}-(H^{(p)}_i C^{(p)}_i-X^{(p)}_j)\n\n");
+    printf("p) bell <i> <j> : \\bar{C}^{(a)}_{i,j}\\_(H^{(p)}_i C^{(p)}_i\\_X^{(p)}_j)\n");
+    printf("p) mix <i> <j> : \\bar{C}^{(a)}_{i,j}-(H^{(p)}_i H^{(p)}_j)\n\n");
 
 //    if (argc < 1) {
 //        printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile>\n", argv[0]);
