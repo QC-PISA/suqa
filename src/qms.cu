@@ -127,6 +127,11 @@ int main(int argc, char** argv){
     allocate_state(qms::gState, qms::Dim);
     init_state(qms::gState,qms::Dim);
 
+#ifdef GATECOUNT
+    GateCounter all_gatectr; // global gate counter
+    GateCounter metrostep_gatectr;
+    GateCounter retherm_gatectr;
+#endif
 
 
     //TODO: make it an args option?

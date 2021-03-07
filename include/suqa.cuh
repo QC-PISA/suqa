@@ -19,6 +19,44 @@
 
 //#ifdef CUDA
 
+
+//TODO: erase the n in ifndef
+#ifdef GATECOUNT
+struct GateCounter{
+    std::vector<size_t> g1(1,0);  // 1 qubit gate 
+    std::vector<size_t> g2(1,0);  // 2 qubit gate
+
+    void set_g1g2(size_t ng1, ng2){
+        //TODO: implement
+    }
+    void set_g1g2(size_t ng1, ng2){
+        //TODO: implement  
+    }
+
+    // assuming independent samplings
+    void get_meanstd(double& mean, double &err, const std::vector<size_t>& gi){
+        mean = 0.0;
+        err = 0.0;
+        for(const auto& el : gi){
+            mean +=el;
+            err +=el*el;
+        }
+        mean /= (double)gi.size();
+        err = sqrt((err/(double)gi.size() - mean*mean)/(gi.size()-1.0));
+    }
+
+    void get_meanstd_g1(double& mean, double &err){
+       get_meanstd(mean,err,g1); 
+    }
+    void get_meanstd_g2(double& mean, double &err){
+       get_meanstd(mean,err,g2); 
+    }
+};
+#endif
+
+
+
+
 #if !defined(NDEBUG) 
 #ifdef GPU
 extern double *host_state_re, *host_state_im;
