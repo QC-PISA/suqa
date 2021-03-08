@@ -57,32 +57,36 @@ struct GateCounter{
 
 
 
-#if !defined(NDEBUG) 
+#ifndef NDEBUG
+
 #ifdef GPU
 extern double *host_state_re, *host_state_im;
-#define DEBUG_READ_STATE(state) {\
+#define DEBUG_READ_STATE() {\
     HANDLE_CUDACALL(cudaDeviceSynchronize()); \
-    HANDLE_CUDACALL(cudaMemcpyAsync(host_state_re,state.data_re,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1)); \
-    HANDLE_CUDACALL(cudaMemcpyAsync(host_state_im,state.data_im,state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2)); \
+    HANDLE_CUDACALL(cudaMemcpyAsync(host_state_re,suqa::state.data_re,suqa::state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1)); \
+    HANDLE_CUDACALL(cudaMemcpyAsync(host_state_im,suqa::state.data_im,suqa::state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2)); \
     HANDLE_CUDACALL(cudaDeviceSynchronize()); \
     printf("vnorm = %.12lg\n",suqa::vnorm());\
-    sparse_print((double*)host_state_re,(double*)host_state_im, state.size()); \
+    sparse_print((double*)host_state_re,(double*)host_state_im, suqa::state.size()); \
 } 
-#else
+#else // not GPU
+
 #ifdef SPARSE
-#define DEBUG_READ_STATE(state) {\
+#define DEBUG_READ_STATE() {\
     printf("vnorm = %.12lg\n",suqa::vnorm());\
-    sparse_print((double*)state.data_re,(double*)state.data_im, state.size(), suqa::actives); \
+    sparse_print((double*)suqa::state.data_re,(double*)suqa::state.data_im, suqa::state.size(), suqa::actives); \
 }
-#else
-#define DEBUG_READ_STATE(state) {\
-    sparse_print((double*)state.data_re,(double*)state.data_im, state.size()); \
+#else // not SPARSE
+#define DEBUG_READ_STATE() {\
+    sparse_print((double*)suqa::state.data_re,(double*)suqa::state.data_im, suqa::state.size()); \
 }
-#endif
-#endif
-#else
-#define DEBUG_READ_STATE(state)
-#endif
+#endif // ifdef SPARSE
+
+#endif // ifdef GPU
+
+#else  // with NDEBUG
+#define DEBUG_READ_STATE()
+#endif // ifndef NDEBUG
 
 //const double TWOSQINV = 1./sqrt(2.);
 #define TWOSQINV 0.7071067811865475 
@@ -143,11 +147,13 @@ void apply_y(const bmReg& qs);
 void apply_z(uint q);
 void apply_z(const bmReg& qs);
 
-//void apply_sigma_plus(uint q);
-//void apply_sigma_plus(const bmReg& qs);
-//
-//void apply_sigma_minus(uint q);
-//void apply_sigma_minus(const bmReg& qs);
+#ifdef GPU
+void apply_sigma_plus(uint q);
+void apply_sigma_plus(const bmReg& qs);
+
+void apply_sigma_minus(uint q);
+void apply_sigma_minus(const bmReg& qs);
+#endif
 
 void apply_h(uint q);
 void apply_h(const bmReg& qs);
@@ -167,7 +173,6 @@ void apply_u1(uint q, double phase);
 void apply_u1(uint q, uint q_mask, double phase);
 
 // multiple qbit gates
-//void apply_cx(ComplexVec& state, uint q_control, uint q_target);
 void apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask=1U);
 
 void apply_mcx(const bmReg& q_controls, const uint& q_target);
@@ -180,19 +185,22 @@ void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_targ
 
 void apply_swap(const uint& q1, const uint& q2);
 
-//// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
-//void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
-//
-//// rotation by phase in the direction of a pauli tensor product
-//void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
-//
+#ifdef GPU
+// apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
+void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
+
+// rotation by phase in the direction of a pauli tensor product
+void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
+
+#endif
 /* SUQA utils */
 void measure_qbit(uint q, uint& c, double rdoub);
 void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
 
-
-//void apply_reset(uint q, double rdoub);
-//void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
+#ifdef GPU
+void apply_reset(uint q, double rdoub);
+void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
+#endif
 
 void setup(uint nq);
 void clear();

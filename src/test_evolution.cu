@@ -67,7 +67,7 @@ int main(int argc, char** argv){
     FILE * outfile;
 
     DEBUG_CALL(printf("initial state:\n"));
-    DEBUG_READ_STATE(suqa::state);
+    DEBUG_READ_STATE();
 
     for(uint ii=0; ii<=(uint)total_steps; ++ii){
         double t = ii*trotter_stepsize;
