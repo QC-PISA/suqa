@@ -20,8 +20,7 @@ void init_state(){
 
 void exp_it_id_x_x(const bmReg& q, uint pos_id, double phase_t){
 	
-//	suqa::apply_pauli_TP_rotation(state, {q[(pos_id+1)%3],q[(pos_id+2)%3]}, {PAULI_X,PAULI_X}, phase_t);
-    //TODO: implement
+	suqa::apply_pauli_TP_rotation({q[(pos_id+1)%3],q[(pos_id+2)%3]}, {PAULI_X,PAULI_X}, phase_t);
 
 }
 

@@ -318,19 +318,47 @@ void func_suqa_swap(double* const state_re, double* const state_im, uint mask00,
 //        }
 //    }
 //}
-//
-//// PAULI TENSOR PRODUCT ROTATIONS
-//void func_suqa_pauli_TP_rotation_x(double* const state_re, double* const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
-//    for (uint i_0 = 0U; i_0 < len; ++i_0) {
-//        if ((i_0 & mask1s) == mask0s) {
-//            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
-//            uint i_1 = i_0 | mask_q1;
-//
-//            util_rotate4(&state_re[i_0], &state_im[i_1], &state_re[i_1], &state_im[i_0], ctheta, stheta);
-//        }
-//    }
-//}
-//
+
+// PAULI TENSOR PRODUCT ROTATIONS
+//TODO: check correctness in the SPARSE case
+void func_suqa_pauli_TP_rotation_x(double* const state_re, double* const state_im, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
+#ifdef SPARSE
+    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
+    std::vector<uint> visited;
+    for (const uint& i : suqa::actives) { // non-costant actives
+        if ((i & mask1s) == mask0s) {
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i | mask_q1;
+            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
+                util_rotate4(&state_re[i_0], &state_im[i_1], &state_re[i_1], &state_im[i_0], ctheta, stheta);
+                if (norm(state_re[i_0], state_im[i_0]) > 1e-8) {
+                    // new_1 is ensured to have non zero contribution, since the pair was active 
+                    new_actives.push_back(i_0);
+
+                }
+                if (norm(state_re[i_1], state_im[i_1]) > 1e-8) {
+                    new_actives.push_back(i_1);
+
+                }
+                visited.push_back(i_0);
+            }
+        } else { // add to new_actives except for i_1, which is already managed above
+			new_actives.push_back(i_0);
+        }
+    }
+    suqa::actives.swap(new_actives);
+#else
+    for(uint i_0=0U;i_0<suqa::state.size(); ++i_0){
+        if ((i_0 & mask1s) == mask0s) {
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+
+            util_rotate4(&state_re[i_0], &state_im[i_1], &state_re[i_1], &state_im[i_0], ctheta, stheta);
+        }
+    }
+#endif
+}
+
 //void func_suqa_pauli_TP_rotation_y(double* const state_re, double* const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
 //    for (uint i_0 = 0U; i_0 < len; ++i_0) {
 //        if ((i_0 & mask1s) == mask0s) {
@@ -352,24 +380,60 @@ void func_suqa_swap(double* const state_re, double* const state_im, uint mask00,
 //        }
 //    }
 //}
-//
-//void func_suqa_pauli_TP_rotation_xx(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
-//    for (uint i_0 = 0U; i_0 < len; ++i_0) {
-//        if((i_0 & mask1s) == mask0s){
-//            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
-//            uint i_1 = i_0 | mask_q1;
-//            uint i_2 = i_0 | mask_q2;
-//            uint i_3 = i_2 | i_1;
-//            
-//            // 0<->3
-//            util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,stheta);
-//
-//            // 1<->2
-//            util_rotate4(&state_re[i_1],&state_im[i_2],&state_re[i_2],&state_im[i_1],ctheta,stheta);
-//        }
-//    }
-//}
-//
+
+
+//TODO: check correctness in the SPARSE case
+void func_suqa_pauli_TP_rotation_xx(double *const state_re, double *const state_im, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+#ifdef SPARSE
+    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
+    std::vector<uint> visited;
+    for (const uint& i : suqa::actives) { // non-costant actives
+        if ((i & mask1s) == mask0s) {
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_[4];
+            i_[0] = i;
+            i_[1] = i | mask_q1;
+            i_[2] = i | mask_q2;
+            i_[3] = i_[2] | i_[1];
+
+            if (std::find(visited.begin(), visited.end(), i_[0]) == visited.end()) { // apply only once
+                // 0<->3
+                util_rotate4(&state_re[i_[0]],&state_im[i_[3]],&state_re[i_[3]],&state_im[i_[0]],ctheta,stheta);
+
+                // 1<->2
+                util_rotate4(&state_re[i_[1]],&state_im[i_[2]],&state_re[i_[2]],&state_im[i_[1]],ctheta,stheta);
+
+                //XXX: (is this true?) new_1 is ensured to have non zero contribution, since the pair was active 
+                for(size_t s=0; s<4; ++s){
+                    if (norm(state_re[i_[s]], state_im[i_[s]]) > 1e-8)
+                        new_actives.push_back(i_[s]);
+                }
+
+                visited.push_back(i_[0]);
+            }
+        } else { // add to new_actives except for i_1, i_2 and i_3, which are already managed above
+			new_actives.push_back(i);
+        }
+    }
+    suqa::actives.swap(new_actives);
+#else
+    for (uint i_0 = 0U; i_0 < suqa::state.size(); ++i_0) {
+        if((i_0 & mask1s) == mask0s){
+            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
+            uint i_1 = i_0 | mask_q1;
+            uint i_2 = i_0 | mask_q2;
+            uint i_3 = i_2 | i_1;
+            
+            // 0<->3
+            util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,stheta);
+
+            // 1<->2
+            util_rotate4(&state_re[i_1],&state_im[i_2],&state_re[i_2],&state_im[i_1],ctheta,stheta);
+        }
+    }
+#endif
+}
+
 //void func_suqa_pauli_TP_rotation_yy(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
 //    for (uint i_0 = 0U; i_0 < len; ++i_0) {
 //        if((i_0 & mask1s) == mask0s){

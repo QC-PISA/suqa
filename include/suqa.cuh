@@ -185,18 +185,20 @@ void apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_targ
 
 void apply_swap(const uint& q1, const uint& q2);
 
+//TODO: implement for cpu
 #ifdef GPU
 // apply a list of 2^'q_size' phases, specified in 'phases' to all the combination of qubit states starting from qubit q0 to qubit q0+q_size in the computational basis and standard ordering
 void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
+#endif
 
 // rotation by phase in the direction of a pauli tensor product
 void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
 
-#endif
 /* SUQA utils */
 void measure_qbit(uint q, uint& c, double rdoub);
 void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
 
+//TODO: implement for cpu
 #ifdef GPU
 void apply_reset(uint q, double rdoub);
 void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
