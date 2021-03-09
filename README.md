@@ -52,8 +52,7 @@ Each git branch represents a different system:
 ## Compiling
 
 Linux and Windows are supported to this date.  
-This code runs only on machines with NVIDIA gpus.  
-(Previous versions ran also on cpu only, but it has been dismissed since it wasn't mantained anymore; maybe in the future...)
+This code runs both on cpu only or on machines with NVIDIA gpus (CUDA).
 
 ### Linux
 
