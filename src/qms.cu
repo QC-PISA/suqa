@@ -77,12 +77,6 @@ int main(int argc, char** argv){
     qms::t_PE_factor = (qms::ene_levels-1)/(double)(qms::ene_levels*(args.ene_max-args.ene_min)); 
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
-#ifdef GPU
-    suqa::threads = NUM_THREADS;
-    suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
-    if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
-#endif
-
     
     // Banner
     suqa::print_banner();
@@ -91,13 +85,18 @@ int main(int argc, char** argv){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     // Initialization of utilities
-    suqa::setup(qms::Dim);
+    suqa::setup(qms::nqubits);
     qms::setup(beta);
+
 
     // Initialization:
     // known eigenstate of the system (see src/system.cu)
     
+    DEBUG_CALL(cout<<"Preinitial state: "<<endl);
+    DEBUG_READ_STATE();
     init_state();
+    DEBUG_CALL(cout<<"Initial state: "<<endl);
+    DEBUG_READ_STATE();
 
 #ifdef GATECOUNT
     GateCounter all_gatectr; // global gate counter

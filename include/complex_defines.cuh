@@ -45,9 +45,11 @@ struct ComplexVec{
 };
 
 #ifdef GPU
-__host__ __device__ __inline__ 
+__host__ __device__ __inline__ static 
+#else
+static inline
 #endif
-static inline double norm(const double& re, const double& im){
+double norm(const double& re, const double& im){
     return re*re+im*im;
 }
 

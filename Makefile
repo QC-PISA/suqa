@@ -6,7 +6,7 @@ SETVARS = 0
 CXX = g++
 NVCC = nvcc
 CXXFLAGS = -Wall -Wextra -std=c++11 -I./include -I. -O3
-NVCCFLAGS = -std=c++11 -I. -I./include -lcudart -O3
+NVCCFLAGS = -ccbin g++ -std=c++11 -I. -I./include -lcudart -O3
 INCLUDES = $(wildcard include/*)
 
 DEVICE ?= cpu
@@ -33,7 +33,7 @@ setvars:
 ifeq ($(SETVARS),0)
 # no support for sparse gpu access yet!
 ifeq ($(DEVICE),gpu)
-CXXFLAGS += -DGPU
+NVCCFLAGS += -DGPU
 COMPILE = $(NVCC) $(NVCCFLAGS)
 else
 ifeq ($(ACCESS),sparse)
@@ -60,9 +60,13 @@ $(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES) $(OBJDIR) setvars
 
 $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR) setvars
 # need this temporary file because g++ isn't flexible and changes mode depending on the file suffix
+ifeq ($(DEVICE),gpu)
+	$(COMPILE) -o $@ -c $<
+else
 	cp $< $(TEMPFILE) 
 	$(COMPILE) -o $@ -c $(TEMPFILE)
 	rm $(TEMPFILE)
+endif
 
 test_suqa: $(OBJDIR)/test_suqa.cu.o $(SUQAOBJS) setvars
 	$(COMPILE) $< $(SUQAOBJS) -o $@

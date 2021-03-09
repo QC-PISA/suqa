@@ -288,7 +288,7 @@ void suqa::apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q
         if(q_mask[k]) mask_qs |= 1U << q_controls[k];
     }
 #ifdef GPU
-    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask|(1U<<q_target), mask|(1U<<q_target)_qs, q_target);
+    kernel_suqa_mcx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask|(1U<<q_target), mask_qs|(1U<<q_target), q_target);
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, q_target);
 #endif
@@ -623,6 +623,17 @@ void suqa::setup(uint num_qubits){
     uint Dim = 1U << suqa::nq;
 
 #ifdef GPU
+    printf("Running on gpu ");
+#else
+    printf("Running on cpu ");
+#endif
+#ifdef NDEBUG
+    printf("in release mode\n");
+#else
+    printf("in debug mode\n");
+#endif
+
+#ifdef GPU
     suqa::threads = NUM_THREADS;
     suqa::blocks = (Dim+suqa::threads-1)/suqa::threads;
     if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
@@ -652,7 +663,6 @@ void suqa::setup(uint num_qubits){
     HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re,Dim*sizeof(double),cudaHostAllocDefault));
     HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im,Dim*sizeof(double),cudaHostAllocDefault));
 #endif
-
 
 
 #endif // ifdef GPU

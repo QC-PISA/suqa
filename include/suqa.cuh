@@ -55,13 +55,6 @@ struct GateCounter{
 #endif
 
 
-#ifdef GPU
-#define NUM_THREADS 128
-#define MAXBLOCKS 65535
-extern uint suqa::threads;
-extern uint suqa::blocks;
-extern cudaStream_t suqa::stream1, suqa::stream2;
-#endif
 
 
 #ifndef NDEBUG
