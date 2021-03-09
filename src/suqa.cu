@@ -369,7 +369,7 @@ void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& pha
     HANDLE_CUDACALL(cudaMemcpyToSymbol(const_phase_list, c_phases.data(), phases.size()*sizeof(Complex), 0, cudaMemcpyHostToDevice));
     kernel_suqa_phase_list<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),mask0s,q0,size_mask);
 #else
-    func_suqa_phase_list(suqa::state.data_re,suqa::state.data_im,suqa::state.size(),c_phases,mask0s,q0,size_mask);
+    func_suqa_phase_list(c_phases,mask0s,q0,size_mask);
 #endif
      
 }

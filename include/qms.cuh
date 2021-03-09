@@ -178,6 +178,7 @@ void qms_qft_inverse(const std::vector<uint>& qact){
     }
 }
 
+//TODO: put in suqa
 void apply_phase_estimation(const std::vector<uint>& q_syst, const std::vector<uint>& q_target, const double& t, const uint& n){
     DEBUG_CALL(std::cout<<"apply_phase_estimation()"<<std::endl);
     suqa::apply_h(q_target);
@@ -203,6 +204,7 @@ void apply_phase_estimation(const std::vector<uint>& q_syst, const std::vector<u
 
 }
 
+//TODO: put in suqa
 void apply_phase_estimation_inverse(const std::vector<uint>& q_syst, const std::vector<uint>& q_target, const double& t, const uint& n){
     DEBUG_CALL(std::cout<<"apply_phase_estimation_inverse()"<<std::endl);
 
@@ -243,11 +245,11 @@ uint draw_C(){
 }
 
 
+//TODO: put generic oracle builder in suqa
 #ifdef GPU
 __global__
 void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
-    //XXX: since q_acc is the most relevant qubit, we split the cycle beforehand
-//        if( i & (1U << q_acc)){ 
+    //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
     int i = blockDim.x*blockIdx.x + threadIdx.x+len/2;    
     double fs1, fs2;
     while(i<len){
@@ -268,12 +270,68 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         i+=gridDim.x*blockDim.x;
     }
 }
-#else
+#else // CPU
 void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
+    double fs1, fs2;
 #ifdef SPARSE
-    //TODO: implement
+    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
+    std::vector<uint> visited;
+	for (auto& i : suqa::actives){
+        if((i & suqa::gc_mask) == suqa::gc_mask){ 
+            // extract dE reading Eold and Enew
+            uint i_0 = i & ~(1U << q_acc);
+            uint i_1 = i_0 | (1U << q_acc);
+            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
+                //extract energies from other registers
+                uint Eold = (i_0 & dev_W_mask_Eold) >> dev_bm_enes_old;
+                uint Enew = (i_0 & dev_W_mask_Enew) >> dev_bm_enes_new;
+                if(Enew>Eold){
+                    fs1 = exp(-((Enew-Eold)*c)/2.0);
+                    fs2 = sqrt(1.0 - fs1*fs1);
+                }else{
+                    fs1 = 1.0;
+                    fs2 = 0.0;
+                }
+                double tmpval = suqa::state.data_re[i_0];
+                suqa::state.data_re[i_0] = fs2*suqa::state.data_re[i_0] + fs1*suqa::state.data_re[i_1];
+                suqa::state.data_re[i_1] = fs1*tmpval        - fs2*suqa::state.data_re[i_1];
+                tmpval = suqa::state.data_im[i_0];
+                suqa::state.data_im[i_0] = fs2*suqa::state.data_im[i_0] + fs1*suqa::state.data_im[i_1];
+                suqa::state.data_im[i_1] = fs1*tmpval        - fs2*suqa::state.data_im[i_1];
+
+                if(norm(suqa::state.data_re[i_0],suqa::state.data_im[i_0])>1e-8)
+                    new_actives.push_back(i_0);
+
+                if(norm(suqa::state.data_re[i_1],suqa::state.data_im[i_1])>1e-8)
+                    new_actives.push_back(i_1);
+               
+                visited.push_back(i_0); 
+            }
+        }else{
+			new_actives.push_back(i);
+        }
+    }
 #else
-    //TODO: implement
+    //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
+    for (uint i = suqa::state.size()/2; i < suqa::state.size(); ++i) {
+        // extract dE reading Eold and Enew
+        uint j = i & ~(1U << q_acc);
+        uint Eold = (i & dev_W_mask_Eold) >> dev_bm_enes_old;
+        uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
+        if(Enew>Eold){
+            fs1 = exp(-((Enew-Eold)*c)/2.0);
+            fs2 = sqrt(1.0 - fs1*fs1);
+        }else{
+            fs1 = 1.0;
+            fs2 = 0.0;
+        }
+        double tmpval = suqa::state.data_re[j];
+        suqa::state.data_re[j] = fs2*suqa::state.data_re[j] + fs1*suqa::state.data_re[i];
+        suqa::state.data_re[i] = fs1*tmpval        - fs2*suqa::state.data_re[i]; // recall: i has 1 in the q_acc qbit 
+        tmpval = suqa::state.data_im[j];
+        suqa::state.data_im[j] = fs2*suqa::state.data_im[j] + fs1*suqa::state.data_im[i];
+        suqa::state.data_im[i] = fs1*tmpval        - fs2*suqa::state.data_im[i]; // recall: i has 1 in the q_acc qbit 
+    }
 #endif
 }
 #endif
