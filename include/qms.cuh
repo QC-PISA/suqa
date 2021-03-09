@@ -276,7 +276,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, ui
 #ifdef SPARSE
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
     std::vector<uint> visited;
-	for (auto& i : suqa::actives){
+	for (const auto& i : suqa::actives){
         if((i & suqa::gc_mask) == suqa::gc_mask){ 
             // extract dE reading Eold and Enew
             uint i_0 = i & ~(1U << q_acc);
@@ -311,7 +311,8 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, ui
 			new_actives.push_back(i);
         }
     }
-#else
+    suqa::actives.swap(new_actives);
+#else // CPU no SPARSE
     //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
     for (uint i = suqa::state.size()/2; i < suqa::state.size(); ++i) {
         // extract dE reading Eold and Enew
@@ -332,9 +333,9 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, ui
         suqa::state.data_im[j] = fs2*suqa::state.data_im[j] + fs1*suqa::state.data_im[i];
         suqa::state.data_im[i] = fs1*tmpval        - fs2*suqa::state.data_im[i]; // recall: i has 1 in the q_acc qbit 
     }
-#endif
+#endif // ifdef SPARSE
 }
-#endif
+#endif // ifdef GPU
 
 void apply_W(){
     DEBUG_CALL(std::cout<<"\n\nApply W"<<std::endl);

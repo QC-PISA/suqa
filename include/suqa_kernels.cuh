@@ -11,7 +11,6 @@ void kernel_suqa_init_state(double* state_re, double* state_im, size_t len) {
         i += gridDim.x * blockDim.x;
     }
     if (blockIdx.x * blockDim.x + threadIdx.x == 0) {
-        printf("This\n");
         state_re[0] = 1.0;
         state_im[0] = 0.0;
     }

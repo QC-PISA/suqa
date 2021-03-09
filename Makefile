@@ -17,7 +17,6 @@ SRC = src
 OBJDIR = obj
 COMPILE = $(CXX) $(CXXFLAGS)
 SUQAOBJS = $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
-TEMPFILE = $(OBJDIR)/temp.cpp
 
 help:
 	@echo "usage (the first option for each flag is the default one):"
@@ -63,9 +62,9 @@ $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR) setvars
 ifeq ($(DEVICE),gpu)
 	$(COMPILE) -o $@ -c $<
 else
-	cp $< $(TEMPFILE) 
-	$(COMPILE) -o $@ -c $(TEMPFILE)
-	rm $(TEMPFILE)
+	cp $< $<_temp.cpp
+	$(COMPILE) -o $@ -c $<_temp.cpp
+	rm $<_temp.cpp
 endif
 
 test_suqa: $(OBJDIR)/test_suqa.cu.o $(SUQAOBJS) setvars

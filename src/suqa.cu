@@ -626,6 +626,11 @@ void suqa::setup(uint num_qubits){
     printf("Running on gpu ");
 #else
     printf("Running on cpu ");
+#ifdef SPARSE
+    printf("with sparse access ");
+#else
+    printf("with dense access ");
+#endif
 #endif
 #ifdef NDEBUG
     printf("in release mode\n");
