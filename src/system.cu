@@ -25,7 +25,7 @@ void exp_it_id_x_x(const bmReg& q, uint pos_id, double phase_t){
 }
 
 void evolution(const double& t, const int& n){
-
+    (void)n;
 	for (uint iii=0; iii<3; ++iii){
 		exp_it_id_x_x(bm_spin, iii, -t);
  	}

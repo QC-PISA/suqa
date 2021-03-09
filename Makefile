@@ -1,4 +1,4 @@
-.PHONY: setvars clean 
+.PHONY: help setvars clean 
 
 
 SETVARS = 0
@@ -8,15 +8,26 @@ NVCC = nvcc
 CXXFLAGS = -Wall -Wextra -std=c++11 -I./include -I. -O3
 NVCCFLAGS = -std=c++11 -I. -I./include -lcudart -O3
 INCLUDES = $(wildcard include/*)
-TEMPFILE = $(OBJDIR)/temp.cpp
-
-SRC = src
-OBJDIR = obj
 
 DEVICE ?= cpu
 MODE ?= release
 ACCESS ?= dense
+
+SRC = src
+OBJDIR = obj
 COMPILE = $(CXX) $(CXXFLAGS)
+SUQAOBJS = $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
+TEMPFILE = $(OBJDIR)/temp.cpp
+
+help:
+	@echo "usage (the first option for each flag is the default one):"
+	@echo "make <rule> [DEVICE=cpu/gpu] [MODE=release/debug/profile] [ACCESS=dense/sparse]\n"
+	@echo "available rules:"
+	@echo "\thelp\t\t\t- print this text"
+	@echo "\ttest_suqa\t\t- some tests for the suqa gates and structures"
+	@echo "\ttest_evolution\t\t- compile executable for the evolution operator written of the 'system'"
+	@echo "\tqms\t\t\t- compile executable for the quantum metropolis sampling applied to 'system'"
+	@echo "\tclean\t\t\t- clean executables and objects"
 
 setvars:
 ifeq ($(SETVARS),0)
@@ -40,6 +51,7 @@ endif
 SETVARS = 1
 endif
 
+
 $(OBJDIR):
 	mkdir -p $@
 
@@ -51,13 +63,17 @@ $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR) setvars
 	cp $< $(TEMPFILE) 
 	$(COMPILE) -o $@ -c $(TEMPFILE)
 	rm $(TEMPFILE)
-	
-qms: $(OBJDIR)/qms.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o setvars
-	$(NVCC) $(OBJDIR)/qms.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o -o $@
 
-test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o setvars
-	$(COMPILE) $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o -o $@
+test_suqa: $(OBJDIR)/test_suqa.cu.o $(SUQAOBJS) setvars
+	$(COMPILE) $< $(SUQAOBJS) -o $@
+
+test_evolution: $(OBJDIR)/test_evolution.cu.o $(SUQAOBJS) setvars
+	$(COMPILE) $< $(SUQAOBJS) -o $@
+
+qms: $(OBJDIR)/qms.cu.o $(SUQAOBJS) setvars
+	$(NVCC) $< $(SUQAOBJS) -o $@
+
 
 clean:
-	rm -rf qms test_evolution obj
+	rm -rf test_suqa test_evolution qms obj
 

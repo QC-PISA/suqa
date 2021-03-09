@@ -397,31 +397,25 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
 
     if(q_apply.size()==1U){
         mask_q1 = (1U << q_apply[0]);
+#ifdef GPU
+        // better to keep distinct kernels to minimize explicit branching in the device
+        // (even if maybe the ptx compiler is smart enough to not cause overheads)
         switch(pauli_TPtype[0]){
             case PAULI_X:
-#ifdef GPU
                 kernel_suqa_pauli_TP_rotation_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-#else
-                func_suqa_pauli_TP_rotation_x(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, cph, sph);
-#endif
                 break;
-//            case PAULI_Y:
-//#ifdef GPU
-//                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-//#else
-//                func_suqa_pauli_TP_rotation_y(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, cph, sph);
-//#endif
-//                break;
-//            case PAULI_Z:
-//#ifdef GPU
-//                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
-//#else
-//                func_suqa_pauli_TP_rotation_z(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, cph, sph);
-//#endif
-//                break;
+            case PAULI_Y:
+                kernel_suqa_pauli_TP_rotation_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
+            case PAULI_Z:
+                kernel_suqa_pauli_TP_rotation_z<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, cph, sph);
+                break;
             default:
                 break;
         }
+#else
+        func_suqa_pauli_TP_rotation_pauli1(pauli_TPtype[0],suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, cph, sph);
+#endif
     }else if(q_apply.size()==2U){
         if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
             std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
@@ -444,64 +438,49 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
             kernel_suqa_pauli_TP_rotation_zy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q2, mask_q1, cph, sph);
         }
 #else
-        if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
-            func_suqa_pauli_TP_rotation_xx(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-//        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
-//            func_suqa_pauli_TP_rotation_yy(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-//        }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
-//            func_suqa_pauli_TP_rotation_zz(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-//        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Y){
-//            func_suqa_pauli_TP_rotation_xy(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-//        }else if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_Z){
-//            func_suqa_pauli_TP_rotation_zx(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-//        }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Z){
-//            func_suqa_pauli_TP_rotation_zy(suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q2, mask_q1, cph, sph);
-        }
+        func_suqa_pauli_TP_rotation_pauli2(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1],suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, cph, sph);
 #endif
-//
-//    }else if(q_apply.size()==3U){
-//        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
-//            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
-//            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
-//        }
-//        if(pauli_TPtype_cpy[1]>pauli_TPtype_cpy[2]){ //sort cases
-//            std::swap(pauli_TPtype_cpy[1],pauli_TPtype_cpy[2]);
-//            std::swap(q_apply_cpy[1],q_apply_cpy[2]);
-//        }
-//        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
-//            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
-//            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
-//        }
-//
-//        int i_z = -1, i1, i2;
-//        if(pauli_TPtype_cpy[2]==PAULI_Z){
-//            i_z=2;
-//            i1=0;
-//            i2=1;
-//        }else{
-//            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
-//        }
-//        mask_q3 = (1U << q_apply_cpy[i_z]);
-//        mask_q1 = (1U << q_apply_cpy[i1]);
-//        mask_q2 = (1U << q_apply_cpy[i2]);
-//#ifdef GPU
-//        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
-//                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-//        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
-//                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-//        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
-//                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-//#else
-//        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
-//                func_suqa_pauli_TP_rotation_zxx(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-//        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
-//                func_suqa_pauli_TP_rotation_zyy(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-//        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
-//                func_suqa_pauli_TP_rotation_zzz(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
-//#endif
-//        }else{
-//            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
-//        }
+
+    }else if(q_apply.size()==3U){
+        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+        }
+        if(pauli_TPtype_cpy[1]>pauli_TPtype_cpy[2]){ //sort cases
+            std::swap(pauli_TPtype_cpy[1],pauli_TPtype_cpy[2]);
+            std::swap(q_apply_cpy[1],q_apply_cpy[2]);
+        }
+        if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases
+            std::swap(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1]);
+            std::swap(q_apply_cpy[0],q_apply_cpy[1]);
+        }
+
+        int i_z = -1, i1, i2;
+        if(pauli_TPtype_cpy[2]==PAULI_Z){
+            i_z=2;
+            i1=0;
+            i2=1;
+        }else{
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        }
+        mask_q3 = (1U << q_apply_cpy[i_z]);
+        mask_q1 = (1U << q_apply_cpy[i1]);
+        mask_q2 = (1U << q_apply_cpy[i2]);
+
+        if(pauli_TPtype_cpy[i1]!=pauli_TPtype_cpy[i2])
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        
+#ifdef GPU
+        if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
+                kernel_suqa_pauli_TP_rotation_zxx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype_cpy[i1]==PAULI_Y and pauli_TPtype_cpy[i2]==PAULI_Y){
+                kernel_suqa_pauli_TP_rotation_zyy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }else if(pauli_TPtype_cpy[i1]==PAULI_Z and pauli_TPtype_cpy[i2]==PAULI_Z){
+                kernel_suqa_pauli_TP_rotation_zzz<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+        }
+#else
+        func_suqa_pauli_TP_rotation_pauli3(pauli_TPtype_cpy[2],pauli_TPtype_cpy[i1],pauli_TPtype_cpy[i2],suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
+#endif
     }else{
         throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
     }
@@ -615,6 +594,7 @@ void suqa::deallocate_state(){
         HANDLE_CUDACALL(cudaFree(state.data));
 #else
         delete[] state.data;
+        state.data = nullptr;
 #endif
     }
     state.vecsize=0U;
