@@ -26,6 +26,7 @@ help:
 	@echo "\ttest_suqa\t\t- some tests for the suqa gates and structures"
 	@echo "\ttest_evolution\t\t- compile executable for the evolution operator written of the 'system'"
 	@echo "\tqms\t\t\t- compile executable for the quantum metropolis sampling applied to 'system'"
+	@echo "\tqsa\t\t\t- compile executable for the quantum-quantum sampling algorithm applied to 'system'"
 	@echo "\tclean\t\t\t- clean executables and objects"
 
 setvars:
@@ -74,6 +75,9 @@ test_evolution: $(OBJDIR)/test_evolution.cu.o $(SUQAOBJS) setvars
 	$(COMPILE) $< $(SUQAOBJS) -o $@
 
 qms: $(OBJDIR)/qms.cu.o $(SUQAOBJS) setvars
+	$(NVCC) $< $(SUQAOBJS) -o $@
+
+qsa: $(OBJDIR)/qsa.cu.o $(SUQAOBJS) setvars
 	$(NVCC) $< $(SUQAOBJS) -o $@
 
 

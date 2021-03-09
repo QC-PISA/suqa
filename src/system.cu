@@ -10,6 +10,7 @@ void init_state(){
 	suqa::apply_cx(bm_spin[1], bm_spin[0]);
 }
 
+
 void exp_it_id_x_x(const bmReg& q, uint pos_id, double phase_t){
 	
 	suqa::apply_pauli_TP_rotation({q[(pos_id+1)%3],q[(pos_id+2)%3]}, {PAULI_X,PAULI_X}, phase_t);
@@ -22,9 +23,38 @@ void evolution(const double& t, const int& n){
 	for (uint iii=0; iii<3; ++iii){
 		exp_it_id_x_x(bm_spin, iii, -t);
  	}
-
 }
 
+// qsa specifics
+void qsa_init_state(){
+    suqa::apply_h(bm_spin[0]);
+    suqa::apply_h(bm_spin[1]);
+    suqa::apply_h(bm_spin[2]);
+    suqa::apply_cx(bm_spin[0], bm_spin_tilde[0]);
+    suqa::apply_cx(bm_spin[1], bm_spin_tilde[1]);
+    suqa::apply_cx(bm_spin[2], bm_spin_tilde[2]);
+}
+
+void evolution_szegedy(const double& t, const int& n){
+    (void)n;
+    for (uint i = 0; i < 3; i++) {
+      suqa::apply_pauli_TP_rotation({bm_spin_tilde[(0+i)%3],bm_spin_tilde[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);
+      suqa::apply_pauli_TP_rotation({bm_spin[(0+i)%3],bm_spin[(1+i)%3]}, {PAULI_X,PAULI_X}, t);
+    }
+}
+
+void evolution_measure(const double& t, const int& n){
+  for (uint i = 0; i < 3; i++) {
+    suqa::apply_pauli_TP_rotation({bm_spin[(0+i)%3],bm_spin[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);
+  }
+
+}
+void evolution_tracing(const double& t, const int& n){
+  for (uint i = 0; i < 3; i++) {
+    suqa::apply_pauli_TP_rotation({bm_spin_tilde[(0+i)%3],bm_spin_tilde[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);
+  }
+
+}
 
 /* Measure facilities */
 const uint op_bits = 3; // 2^op_bits is the number of eigenvalues for the observable
@@ -82,19 +112,30 @@ double measure_X(pcg& rgen){
 
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
-
-
-
 void apply_C(const uint &Ci){
     if(Ci>2)
         throw std::runtime_error("ERROR: wrong move selection");
-
     suqa::apply_h(bm_spin[Ci]);
 }
 
-
 void apply_C_inverse(const uint &Ci){
     apply_C(Ci);
+}
+
+void qsa_apply_C(const uint &Ci){
+  if(Ci>2) throw std::runtime_error("ERROR: wrong move selection");
+  suqa::apply_h(bm_spin_tilde[Ci]);
+// suqa::apply_h(state,bm_spin_tilde[(Ci+1)%3]);
+
+
+  // suqa::apply_h(state,bm_spin_tilde);
+}
+
+void qsa_apply_C_inverse(const uint &Ci){
+  if(Ci>2) throw std::runtime_error("ERROR: wrong move selection");
+  //suqa::apply_h(state,bm_spin_tilde);
+  //suqa::apply_h(state,bm_spin_tilde[(Ci+1)%3]);
+  suqa::apply_h(bm_spin_tilde[Ci]);
 }
 
 std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
