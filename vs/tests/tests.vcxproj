@@ -16,8 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\src\suqa.cu" />
-    <CudaCompile Include="..\..\src\system.cu" />
-    <CudaCompile Include="..\..\src\test_evolution.cu" />
+    <CudaCompile Include="..\..\src\tests.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\complex_defines.cuh" />
@@ -27,10 +26,9 @@
     <ClInclude Include="..\..\include\suqa.cuh" />
     <ClInclude Include="..\..\include\suqa_cpu.hpp" />
     <ClInclude Include="..\..\include\suqa_kernels.cuh" />
-    <ClInclude Include="..\..\include\system.cuh" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{599F2C82-801B-4A3F-9776-9A088CF50FC2}</ProjectGuid>
+    <ProjectGuid>{7BD765A1-2B4C-4988-A231-F5477CD257CD}</ProjectGuid>
     <RootNamespace>test_evolution</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -65,7 +63,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>GPU;WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SPARSE;WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\..\include%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -83,7 +81,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>GPU;WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>SPARSE;WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\..\include%(AdditionalIncludeDirectories);$(CudaToolkitIncludeDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>

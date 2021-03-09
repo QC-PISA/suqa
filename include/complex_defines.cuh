@@ -1,9 +1,18 @@
 #pragma once
 #include <stdio.h>
+#ifdef GPU
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cuda_device_runtime_api.h>
 #include <cuComplex.h>
+#else
+struct cuDoubleComplex {
+    double x;
+    double y;
+    cuDoubleComplex() = default;
+    cuDoubleComplex(double xx, double yy) : x(xx), y(yy) {}
+};
+#endif
 
 // single structure
 typedef unsigned int uint;
@@ -35,8 +44,12 @@ struct ComplexVec{
     double& im(size_t i) {return data_re[i];}
 };
 
-
-__host__ __device__ static __inline__ double norm(const double& re, const double& im){
+#ifdef GPU
+__host__ __device__ __inline__ static 
+#else
+static inline
+#endif
+double norm(const double& re, const double& im){
     return re*re+im*im;
 }
 
@@ -91,20 +104,11 @@ __host__ __device__ static __inline__ double norm(const double& re, const double
 //}
 
 
-// this is expi(z) == exp(i z)
-__host__ __device__ static __inline__ Complex expi(double z){
-
-    Complex res;
-
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-    res.y = sin(z);
-    res.x = cos(z);
-#else
-    sincos(z, &res.y, &res.x);
-#endif
-
-
-    return res;
-
-}
-
+//#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+//#ifndef GPU
+//void sincos(double phase, double* y, double* x) {
+//    *y = sin(phase);
+//    *x = cos(phase);
+//}
+//#endif
+//#endif

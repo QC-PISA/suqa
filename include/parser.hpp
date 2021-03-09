@@ -11,7 +11,7 @@ struct arg_list{
     double g_beta = 0.0;
     int metro_steps = 0;
     int reset_each = 0;
-    int state_qbits = 0;
+    int syst_qbits = 0;
     int ene_qbits = 0;
     string outfile = "";
     int max_reverse_attempts = 100;
@@ -30,7 +30,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
     o<<"g_beta: "<<al.g_beta<<endl;
     o<<"metro steps: "<<al.metro_steps<<endl;
     o<<"reset each: "<<al.reset_each<<endl;
-    o<<"num state qbits "<<al.state_qbits<<endl;
+    o<<"num syst qbits "<<al.syst_qbits<<endl;
     o<<"num E qbits "<<al.ene_qbits<<endl;
     o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
     o<<"seed: "<<al.seed<<endl;
@@ -55,7 +55,7 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     args.g_beta = stod(argv[2],NULL);
     args.metro_steps = atoi(argv[3]);
     args.reset_each = atoi(argv[4]);
-    args.state_qbits = atoi(argv[5]);
+    args.syst_qbits = atoi(argv[5]);
     args.ene_qbits = atoi(argv[6]);
     args.outfile = argv[7];
 
@@ -150,8 +150,8 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <reset each> non positive";
     }
     
-    if(args.state_qbits <=0){
-        throw "ERROR: argument <num state qbits> non positive";
+    if(args.syst_qbits <=0){
+        throw "ERROR: argument <num syst qbits> non positive";
     }
 
     if(args.ene_qbits <=0){

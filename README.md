@@ -1,5 +1,5 @@
 # Simulator for Universal Quantum Algorithms (SUQA)
-version 1.5 (04/2020)
+version 1.7 (03/2021)
 
 General purpose runtime library for implementing runtime quantum algorithms and hybrids quantum-classical algorithms.
 
@@ -15,28 +15,32 @@ The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
 ## Structure of the project:
 ```bash
 .  
-├ Makefile (for linux compilation)  
-├ README.md (this file)  
-├ include  
-│   ├ Rand.hpp  
-│   ├ complex\_defines.cuh  
-│   ├ io.hpp  
-│   ├ parser.hpp  
-│   ├ pcg32.h  
-│   ├ qms.cuh (implementation of the qms algorithm; header only)  
-│   ├ suqa.cuh  
-│   └ system.cuh  
-├ src  
-│   ├ Rand.cpp  
-│   ├ io.cpp  
-│   ├ qms.cu (runs the qms algorithm)  
-│   ├ suqa.cu (core engine with the implementation of quantum gates)  
-│   ├ system.cu (definitions system-specifics)  
-│   └ test\_evolution.cu (test evolution of the system)  
-└ vs (visual studio solution and project folders)  
-    ├ qms  
-    ├ suqa.sln  
-    └ test_evolution  
+├── README.md (this file)  
+├── Makefile (for linux compilation)  
+├── include
+│   ├── complex\_defines.cuh
+│   ├── io.hpp
+│   ├── parser.hpp
+│   ├── pcg32.h
+│   ├── suqa.cuh            (prototypes of the suqa library)
+│   ├── qms.cuh             (implementation of the qms algorithm; header only)  
+│   ├── Rand.hpp
+│   ├── suqa\_cpu.hpp       (suqa cpu core functions)
+│   ├── suqa\_kernels.cuh   (suqa gpu core functions)
+│   └── system.cuh          (prototypes for any system) 
+├── src
+│   ├── io.cpp              (input/output facilities)
+│   ├── qms.cu              (runs the qms algorithm)
+│   ├── Rand.cpp            (pseudorandom number generators)
+│   ├── suqa.cu             (core engine)
+│   ├── system.cu           (system-specific structures and functions)
+│   ├── test\_evolution.cu  (tests the system's evolution operator)
+│   └── test\_suqa.cu       (tests the suqa functions and structures)
+└── vs      (visual studio solution and project folders)  
+    ├── qms  
+    ├── suqa.sln  
+    └── test\_evolution  
+
 ```
 
 Each git branch represents a different system:
@@ -55,23 +59,20 @@ This code runs only on machines with NVIDIA gpus.
 
 #### dependencies
 * g++ with std>=c++11  
-* CUDA toolkit  
+* CUDA toolkit (if compiled for gpu devices)
 * Make  
 
 #### compilation
-In order to compile, run:
+To know the different compilation options run
 ```bash
-make <target>
+make help
 ```
-where \<target\> can be 'release' for the qms algorithm in production, 
-'debug' for qms in debug mode, 'profile' for qms in profile mode, 
-or 'test\_evolution' for compiling test code for the system evolutor.
 
 ### Windows
 
 #### dependencies
 * Visual Studio 2019
-* CUDA toolkit
+* CUDA toolkit (if compiled for gpu devices)
 
 #### compilation
 The Visual Studio solution is in 'vs/suqa.sln'.  
@@ -80,6 +81,10 @@ to build one of them, right-click on the project name on 'Solution Explorer', an
 then select the mode of compilation 'Release' or 'Debug' on the upper bar, and right-click again on the project name selecting 'Build'.  
 The executable will be created in the folder 'vs/x64/Release' or 'vs/x64/Debug' depending on the compilation mode.  
 To run it, e.g., you can click on 'Tools/Command Line/Developer PowerShell' on the upper bar to open a shell.  
+
+## In progress
+* Find a more elegant way to manage many different systems in the same branch;
+* Implement gate counters.
 
 
 ## Collaborators (in chronological order)
