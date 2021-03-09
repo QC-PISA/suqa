@@ -1,22 +1,14 @@
 #include "system.cuh"
 #include "Rand.hpp"
 
-
-
-//TODO: make the number of "state" qubits determined at compilation time in system.cuh
 double g_beta;
 
-
-
-
-
-
 void init_state(){
+    suqa::init_state();
 	suqa::apply_x(bm_spin[1]);
 	suqa::apply_h(bm_spin[1]);
 	suqa::apply_cx(bm_spin[1], bm_spin[0]);
 }
-
 
 void exp_it_id_x_x(const bmReg& q, uint pos_id, double phase_t){
 	
@@ -24,6 +16,7 @@ void exp_it_id_x_x(const bmReg& q, uint pos_id, double phase_t){
 
 }
 
+// applies exp(-iHt)
 void evolution(const double& t, const int& n){
     (void)n;
 	for (uint iii=0; iii<3; ++iii){

@@ -555,7 +555,6 @@ void suqa::prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double 
 #endif
 }
 
-#ifdef GPU
 // RESET = measure + classical cx
 void suqa::apply_reset(uint q, double rdoub){
 //    DEBUG_CALL(std::cout<<"Calling apply_reset() with q="<<q<<"and rdoub="<<rdoub<<std::endl);
@@ -585,7 +584,6 @@ void suqa::apply_reset(const bmReg& qs, std::vector<double> rdoubs){
         suqa::apply_reset(qs[i], rdoubs[i]); 
     } 
 }
-#endif
 
 
 void suqa::deallocate_state(){

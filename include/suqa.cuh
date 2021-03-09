@@ -55,6 +55,13 @@ struct GateCounter{
 #endif
 
 
+#ifdef GPU
+#define NUM_THREADS 128
+#define MAXBLOCKS 65535
+extern uint suqa::threads;
+extern uint suqa::blocks;
+extern cudaStream_t suqa::stream1, suqa::stream2;
+#endif
 
 
 #ifndef NDEBUG
@@ -198,11 +205,8 @@ void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& paul
 void measure_qbit(uint q, uint& c, double rdoub);
 void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs);
 
-//TODO: implement for cpu
-#ifdef GPU
 void apply_reset(uint q, double rdoub);
 void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
-#endif
 
 void setup(uint nq);
 void clear();

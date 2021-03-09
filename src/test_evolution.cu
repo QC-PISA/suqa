@@ -55,17 +55,17 @@ int main(int argc, char** argv){
 
 //    ComplexVec state;
   
-    suqa::allocate_state(Dim);
+//    suqa::allocate_state(Dim);
 
     pcg rangen;
     rangen.set_seed(time(NULL));
     rangen.randint(0,3);
 
     suqa::setup(Dim);
-    init_state();
 
     FILE * outfile;
 
+    init_state();
     DEBUG_CALL(printf("initial state:\n"));
     DEBUG_READ_STATE();
 
@@ -91,10 +91,13 @@ int main(int argc, char** argv){
 //        plaq_val_std = sqrt((plaq_val_std/(double)num_hits - plaq_val*plaq_val)/(double)(num_hits-1));
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
-        init_state();
+        suqa::init_state();
 		suqa::apply_h(bm_spin[rangen.randint(0,3)]);
-        evolution(t, ii);
         printf("random number= %d\n", rangen.randint(0,3));
+        DEBUG_READ_STATE();
+        evolution(t, ii);
+        printf("after evolution by t=%lg:\n",t);
+        DEBUG_READ_STATE();
 
 	//suqa::apply_h(state,  bm_spin[rangen.randint(0,3)]);
 	
