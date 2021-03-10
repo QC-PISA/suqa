@@ -3,7 +3,7 @@
 
 
 __global__
-void kernel_suqa_init_state(double* state_re, double* state_im, size_t len) {
+void kernel_suqa_init_state(double* state_re, double* state_im, uint len) {
     uint i = blockIdx.x * blockDim.x + threadIdx.x;
     while (i < len) {
         state_re[i] = 0.0;
@@ -20,7 +20,7 @@ void kernel_suqa_init_state(double* state_re, double* state_im, size_t len) {
 
 //TODO: optimize reduce
 __global__
-void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, size_t len){
+void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len){
     extern __shared__ double local_ret[];
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -29,13 +29,13 @@ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, 
     local_ret[threadIdx.x] = 0.0;
     double tmpval;
     while(i<len){
-        tmpval = v_re[i]; 
+        tmpval = v_re[i];
         local_ret[threadIdx.x] +=  tmpval*tmpval;
-        tmpval = v_im[i]; 
+        tmpval = v_im[i];
         local_ret[threadIdx.x] +=  tmpval*tmpval;
 //        if(v_re[i]>0.0)
 //            printf("%u %.16lg, %.16lg; loc_ret[%d] = %.16lg\n",i, v_re[i], v_im[i], threadIdx.x, local_ret[threadIdx.x]);
-//        tmpval = v_comp[i+blockDim.x]; 
+//        tmpval = v_comp[i+blockDim.x];
 //        local_ret[threadIdx.x] +=  tmpval*tmpval;
         i += gridDim.x*blockDim.x;
 //        printf("v[%d] = (%.16lg, %.16lg)\n",i, v_re[i], v_im[i]);
@@ -71,7 +71,7 @@ void kernel_suqa_vnorm(double *dev_partial_ret_ptr, double *v_re, double *v_im, 
 }
 
 //__launch_bounds__(128, 6)
-__global__ void kernel_suqa_vnormalize_by(double *v_comp, size_t len, double value){
+__global__ void kernel_suqa_vnormalize_by(double *v_comp, uint len, double value){
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
     while(i < len){
         v_comp[i]*=value;
@@ -80,8 +80,8 @@ __global__ void kernel_suqa_vnormalize_by(double *v_comp, size_t len, double val
 }
 
 __global__ 
-void kernel_suqa_x(double *const state_re, double *const state_im, size_t len, uint q, uint glob_mask){
-    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+void kernel_suqa_x(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
     glob_mask |= (1U <<q);
     while(i<len){
         if((i & glob_mask) == glob_mask){
@@ -98,7 +98,7 @@ void kernel_suqa_x(double *const state_re, double *const state_im, size_t len, u
 }
 
 __global__
-void kernel_suqa_y(double *const state_re, double *const state_im, size_t len, uint q, uint glob_mask){
+void kernel_suqa_y(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     glob_mask |= (1U <<q);
     while(i<len){
@@ -117,7 +117,7 @@ void kernel_suqa_y(double *const state_re, double *const state_im, size_t len, u
 }
 
 __global__ 
-void kernel_suqa_sigma_plus(double *const state_re, double *const state_im, size_t len, uint q, uint glob_mask){
+void kernel_suqa_sigma_plus(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     glob_mask |= (1U <<q);
     while(i<len){
@@ -133,7 +133,7 @@ void kernel_suqa_sigma_plus(double *const state_re, double *const state_im, size
 }
 
 __global__ 
-void kernel_suqa_sigma_minus(double *const state_re, double *const state_im, size_t len, uint q, uint glob_mask){
+void kernel_suqa_sigma_minus(double *const state_re, double *const state_im, uint len, uint q, uint glob_mask){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     glob_mask |= (1U <<q);
     while(i<len){
@@ -148,12 +148,12 @@ void kernel_suqa_sigma_minus(double *const state_re, double *const state_im, siz
     }
 }
 
-__global__ 
-void kernel_suqa_h(double *state_re, double *state_im, size_t len, uint q, uint glob_mask){
+__global__
+void kernel_suqa_h(double *state_re, double *state_im, uint len, uint q, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
-     
-    uint i_0 = blockDim.x*blockIdx.x + threadIdx.x;    
-    
+
+    uint i_0 = blockDim.x*blockIdx.x + threadIdx.x;
+
     uint loc_mask = glob_mask | (1U << q);
     while(i_0<len){
         if((i_0 & loc_mask) == glob_mask){
@@ -162,7 +162,7 @@ void kernel_suqa_h(double *state_re, double *state_im, size_t len, uint q, uint 
             double a_1_re = state_re[i_1];
             double a_0_im = state_im[i_0];
             double a_1_im = state_im[i_1];
-            
+
             state_re[i_0]= TWOSQINV*(a_0_re+a_1_re);
             state_re[i_1]= TWOSQINV*(a_0_re-a_1_re);
             state_im[i_0]= TWOSQINV*(a_0_im+a_1_im);
@@ -173,7 +173,7 @@ void kernel_suqa_h(double *state_re, double *state_im, size_t len, uint q, uint 
 }
 
 __global__ 
-void kernel_suqa_u1(double *state_re, double *state_im, size_t len, uint q, Complex phase, uint qmask, uint glob_mask){
+void kernel_suqa_u1(double *state_re, double *state_im, uint len, uint q, Complex phase, uint qmask, uint glob_mask){
 //    const Complex TWOSQINV_CMPX = make_cuDoubleComplex(TWOSQINV,0.0f);
      
     uint i = blockDim.x*blockIdx.x + threadIdx.x;    
@@ -190,7 +190,7 @@ void kernel_suqa_u1(double *state_re, double *state_im, size_t len, uint q, Comp
 }
 
 __global__ 
-void kernel_suqa_mcx(double *const state_re, double *const state_im, size_t len, uint control_mask, uint mask_qs, uint q_target){
+void kernel_suqa_mcx(double *const state_re, double *const state_im, uint len, uint control_mask, uint mask_qs, uint q_target){
     int i = blockDim.x*blockIdx.x + threadIdx.x;    
     while(i<len){
         if((i & control_mask) == mask_qs){
@@ -207,12 +207,12 @@ void kernel_suqa_mcx(double *const state_re, double *const state_im, size_t len,
 }
 
 __global__ 
-void kernel_suqa_mcu1(double *const state_re, double *const state_im, size_t len, uint control_mask, uint mask_qs, uint q_target, Complex rphase){
-    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+void kernel_suqa_mcu1(double *const state_re, double *const state_im, uint len, uint control_mask, uint mask_qs, uint q_target, Complex rphase){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
     while(i<len){
         if((i & control_mask) == mask_qs){
 //            uint j = i & ~(1U << q_target);
-            double tmpval = state_re[i]; 
+            double tmpval = state_re[i];
             state_re[i] = state_re[i]*rphase.x-state_im[i]*rphase.y;
             state_im[i] = tmpval*rphase.y+state_im[i]*rphase.x;
         }
@@ -221,8 +221,8 @@ void kernel_suqa_mcu1(double *const state_re, double *const state_im, size_t len
 }
 
 __global__ 
-void kernel_suqa_swap(double *const state_re, double *const state_im, size_t len, uint mask00, uint mask11, uint mask_q1, uint mask_q2){
-    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+void kernel_suqa_swap(double *const state_re, double *const state_im, uint len, uint mask00, uint mask11, uint mask_q1, uint mask_q2){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
     while(i<len){
         if((i & mask11) == mask00){
             // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
@@ -243,14 +243,14 @@ void kernel_suqa_swap(double *const state_re, double *const state_im, size_t len
 __constant__ Complex const_phase_list[MAX_PHASES_NUM];
 //supports up to PHASES_NUM complex phases
 
-__global__ 
-void kernel_suqa_phase_list(double *const state_re, double *const state_im, size_t len, uint mask0s, uint bm_offset, uint size_mask){
-    int i = blockDim.x*blockIdx.x + threadIdx.x;    
+__global__
+void kernel_suqa_phase_list(double *const state_re, double *const state_im, uint len, uint mask0s, uint bm_offset, uint size_mask){
+    int i = blockDim.x*blockIdx.x + threadIdx.x;
     while(i<len){
         if(i & mask0s){ // any state with gmask set
             uint ph_idx=(i>>bm_offset) & size_mask; //index in the phases list
             Complex cph = const_phase_list[ph_idx];
-            double tmpval = state_re[i]; 
+            double tmpval = state_re[i];
             state_re[i] = state_re[i]*cph.x-state_im[i]*cph.y;
             state_im[i] = tmpval*cph.y+state_im[i]*cph.x;
         }
@@ -271,7 +271,7 @@ void util_rotate4(double *a, double *b, double *c, double *d, double ctheta, dou
 
 
 __global__
-void kernel_suqa_pauli_TP_rotation_x(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_x(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -285,7 +285,7 @@ void kernel_suqa_pauli_TP_rotation_x(double *const state_re, double *const state
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -299,7 +299,7 @@ void kernel_suqa_pauli_TP_rotation_y(double *const state_re, double *const state
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -313,7 +313,7 @@ void kernel_suqa_pauli_TP_rotation_z(double *const state_re, double *const state
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_xx(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_xx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -321,7 +321,7 @@ void kernel_suqa_pauli_TP_rotation_xx(double *const state_re, double *const stat
             uint i_1 = i_0 | mask_q1;
             uint i_2 = i_0 | mask_q2;
             uint i_3 = i_2 | i_1;
-            
+
             // 0<->3
             util_rotate4(&state_re[i_0],&state_im[i_3],&state_re[i_3],&state_im[i_0],ctheta,stheta);
 
@@ -333,7 +333,7 @@ void kernel_suqa_pauli_TP_rotation_xx(double *const state_re, double *const stat
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_yy(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_yy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -353,7 +353,7 @@ void kernel_suqa_pauli_TP_rotation_yy(double *const state_re, double *const stat
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_zz(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_zz(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -361,7 +361,7 @@ void kernel_suqa_pauli_TP_rotation_zz(double *const state_re, double *const stat
             uint i_1 = i_0 | mask_q1;
             uint i_2 = i_0 | mask_q2;
             uint i_3 = i_2 | i_1;
-            
+
             // kl -> i(-)^(k+l) kl
 
             // +i
@@ -376,7 +376,7 @@ void kernel_suqa_pauli_TP_rotation_zz(double *const state_re, double *const stat
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_xy(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_xy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -384,7 +384,7 @@ void kernel_suqa_pauli_TP_rotation_xy(double *const state_re, double *const stat
             uint i_1 = i_0 | mask_q1;
             uint i_2 = i_0 | mask_q2;
             uint i_3 = i_2 | i_1;
-            
+
             // 0<->3
             util_rotate4(&state_re[i_0],&state_re[i_3],&state_im[i_0],&state_im[i_3],ctheta,-stheta);
 
@@ -396,7 +396,7 @@ void kernel_suqa_pauli_TP_rotation_xy(double *const state_re, double *const stat
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_zx(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_zx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -404,7 +404,7 @@ void kernel_suqa_pauli_TP_rotation_zx(double *const state_re, double *const stat
             uint i_1 = i_0 | mask_q1;
             uint i_2 = i_0 | mask_q2;
             uint i_3 = i_2 | i_1;
-            
+
             // ix on 0<->1
             util_rotate4(&state_re[i_0],&state_im[i_1],&state_re[i_1],&state_im[i_0],ctheta,stheta);
 
@@ -417,7 +417,7 @@ void kernel_suqa_pauli_TP_rotation_zx(double *const state_re, double *const stat
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_zy(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_zy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -425,7 +425,7 @@ void kernel_suqa_pauli_TP_rotation_zy(double *const state_re, double *const stat
             uint i_1 = i_0 | mask_q1;
             uint i_2 = i_0 | mask_q2;
             uint i_3 = i_2 | i_1;
-            
+
             // iy on 0<->1
             util_rotate4(&state_re[i_0],&state_re[i_1],&state_im[i_0],&state_im[i_1],ctheta,-stheta);
 
@@ -438,7 +438,7 @@ void kernel_suqa_pauli_TP_rotation_zy(double *const state_re, double *const stat
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_zxx(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_zxx(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -468,7 +468,7 @@ void kernel_suqa_pauli_TP_rotation_zxx(double *const state_re, double *const sta
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_zyy(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_zyy(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -493,14 +493,14 @@ void kernel_suqa_pauli_TP_rotation_zyy(double *const state_re, double *const sta
 
             // 5<->6 zyy is real negative on 5,6
             util_rotate4(&state_re[i_5],&state_im[i_6],&state_re[i_6],&state_im[i_5],ctheta,-stheta);
-            
+
         }
         i_0+=gridDim.x*blockDim.x;
     }
 }
 
 __global__
-void kernel_suqa_pauli_TP_rotation_zzz(double *const state_re, double *const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
+void kernel_suqa_pauli_TP_rotation_zzz(double *const state_re, double *const state_im, uint len, uint mask0s, uint mask1s, uint mask_q1, uint mask_q2, uint mask_q3, double ctheta, double stheta){
     int i_0 = blockDim.x*blockIdx.x + threadIdx.x;
     while(i_0<len){
         if((i_0 & mask1s) == mask0s){
@@ -527,7 +527,7 @@ void kernel_suqa_pauli_TP_rotation_zzz(double *const state_re, double *const sta
 
 // sets amplitudes with value <val> in qubit <q> to zero
 // !! it leaves the state unnormalized !!
-__global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im, size_t len, uint q, uint val){
+__global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im, uint len, uint q, uint val){
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
     while(i<len){
         if(((i >> q) & 1U) == val){
@@ -539,7 +539,7 @@ __global__ void kernel_suqa_set_ampl_to_zero(double *state_re, double *state_im,
 }
 
 
-__global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_re, double *v_im, size_t len, uint q){
+__global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len, uint q){
     extern __shared__ double local_ret[];
     uint tid = threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;
@@ -585,7 +585,7 @@ __global__ void kernel_suqa_prob1(double *dev_partial_ret_ptr, double *v_re, dou
     if(tid==0) dev_partial_ret_ptr[blockIdx.x] = local_ret[0];
 }
 
-__global__ void kernel_suqa_prob_filter(double *dev_partial_ret_ptr, double *v_re, double *v_im, size_t len, uint mask_qs, uint mask){
+__global__ void kernel_suqa_prob_filter(double *dev_partial_ret_ptr, double *v_re, double *v_im, uint len, uint mask_qs, uint mask){
     extern __shared__ double local_ret[];
     uint tid = threadIdx.x;
     uint i =  blockIdx.x*blockDim.x + threadIdx.x;

@@ -14,7 +14,7 @@
 #include <cuda_runtime_api.h>
 #include <cuda_device_runtime_api.h>
 #include "io.hpp"
-#include "parser.hpp"
+#include "parser_qms.hpp"
 #include "suqa.cuh"
 #include "system.cuh"
 #include "qms.cuh"
@@ -45,14 +45,14 @@ void save_measures(string outfilename){
 
 int main(int argc, char** argv){
     if(argc < 8){
-        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num syst qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
+        printf("usage: %s <beta> <metro steps> <reset each> <num syst qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
     parse_arguments(args, argc, argv);
 
     beta = args.beta;
-    g_beta = args.g_beta; // defined as extern in system.cuh
+//    g_beta = args.g_beta; // defined as extern in system.cuh
     thermalization = args.thermalization;
     qms::metro_steps = (uint)args.metro_steps;
     qms::reset_each = (uint)args.reset_each;
