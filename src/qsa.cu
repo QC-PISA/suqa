@@ -38,7 +38,7 @@ void print_banner(){
 double beta;
 
 // defined in src/system.cu
-void init_state();
+void qsa_init_state();
 void evolution_measure(const double& t, const int& n);
 void evolution_szegedy(const double& t, const int& n);
 void evolution_tracing(const double& t, const int& n);
@@ -132,6 +132,8 @@ int main(int argc, char** argv){
 
 	suqa::setup(qsa::nqubits);
 	qsa::setup();
+    DEBUG_CALL(cout<<"Init state: "<<endl);
+    DEBUG_READ_STATE();
 
 	// Initialization:
 	// known eigenstate of the system (see src/system.cu)
@@ -148,7 +150,8 @@ int main(int argc, char** argv){
 	int rejection=0;
 	int rejection1=0;
 	//	int rejection2=0;
-	double mean=0;
+    int itctr=0;
+	double mean=0.0,std=0.0;
 	//annealing_sequences=(int)(1000*qsa::beta/3.5);
 	double beta_i=qsa::beta/((double)annealing_sequences);
 	for( uint iiii=0; iiii< sampling; ++iiii){
@@ -164,14 +167,21 @@ int main(int argc, char** argv){
 			int control2=0;
 			uint move= qsa::draw_C();
 			qsa::reset_non_syst_qbits();
-			init_state();
+			qsa_init_state();
+            DEBUG_CALL(cout<<"Init syst state: "<<endl);
+            DEBUG_READ_STATE();
 
 
 			for( uint s=0U; s< annealing_sequences; s++){
+            DEBUG_CALL(cout<<"After annealing: "<<s<<endl);
 move= qsa::draw_C();
 				qsa::apply_PE_szegedy(qsa::bm_states, qsa::bm_szegedy,(double)(s+1)*beta_i,move);
+        DEBUG_CALL(cout<<"After PE szegedy: "<<endl);
+        DEBUG_READ_STATE();
 
 				suqa::measure_qbits(qsa::bm_szegedy, c_Ene_test, qsa::extract_rands(qsa::szegedy_qbits));
+        DEBUG_CALL(cout<<"After measure: "<<endl);
+        DEBUG_READ_STATE();
 
 				if(qsa::creg_to_uint(c_Ene_test)!=0U  ) {
 					control2=1;
@@ -186,6 +196,8 @@ move= qsa::draw_C();
 
 			if (control2==0) control=1;
 		}
+        DEBUG_CALL(cout<<"CETS: "<<endl);
+        DEBUG_READ_STATE();
 
 //FINDING W EIGENVALUE
 /*
@@ -207,15 +219,24 @@ save_measures(outfilename,0);
 //	suqa::measure_qbits(qsa::bm_enes, c_meas, qsa::extract_rands(qsa::ene_qbits));
 
 			qsa::apply_phase_estimation_measure(qsa::bm_states,qsa::bm_szegedy, qsa::t_phase_estimation_szegedy, qsa::n_phase_estimation);
+            DEBUG_CALL(cout<<"after apply_phase_estimation_measure()"<<endl);
+            DEBUG_READ_STATE();
 			suqa::measure_qbits(qsa::bm_szegedy, c_Ene, qsa::extract_rands(qsa::szegedy_qbits));
+            DEBUG_CALL(cout<<"after measure_qbits()"<<endl);
+            DEBUG_READ_STATE();
 
 			Ene_measure= qsa::t_PE_shift_szegedy+qsa::creg_to_uint(c_Ene)/(double)(qsa::t_PE_factor_szegedy*szegedy_levels);
 
             printf("measured eigenvalue:%f\n",Ene_measure);
-            mean+= 	(Ene_measure)/(sampling);
-            printf("mean=%f   expected mean=%f\n", mean, (6-6*exp(4*qsa::beta))/(2+6*exp(4*qsa::beta)));
+            itctr++;
+            mean+= 	Ene_measure;
+            std+= 	Ene_measure*Ene_measure;
+            if(itctr>1)
+                printf("mean=%f, std=%f; expected mean=%f\n", mean/itctr, sqrt((std-mean*mean/itctr)/((itctr)*(itctr-1))), (6-6*exp(4*qsa::beta))/(2+6*exp(4*qsa::beta)));
             qsa::E_measures.push_back(Ene_measure);
             qsa::X_measures.push_back(measure_X(qsa::rangen));
+            DEBUG_CALL(cout<<"after measure_X()"<<endl);
+            DEBUG_READ_STATE();
 
             cout<<"iteration: "<<iiii+1<<"/"<<sampling<<endl;
             save_measures(outfilename,rejection1);

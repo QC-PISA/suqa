@@ -82,5 +82,5 @@ qsa: $(OBJDIR)/qsa.cu.o $(SUQAOBJS) setvars
 
 
 clean:
-	rm -rf test_suqa test_evolution qms obj
+	rm -rf test_suqa test_evolution qms qsa obj
 

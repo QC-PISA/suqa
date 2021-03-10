@@ -7,9 +7,9 @@
 // defined in src/system.cu
 void evolution_measure(const double& t, const int& n);
 void evolution_szegedy(const double& t, const int& n);
-void apply_C(const uint &Ci);
+void qsa_apply_C(const uint &Ci);
 double measure_X(pcg& rgen);
-void apply_C_inverse(const uint &Ci);
+void qsa_apply_C_inverse(const uint &Ci);
 
 std::vector<double> get_C_weigthsums();
 
@@ -123,12 +123,15 @@ void cevolution_measure(const double& t, const int& n, const uint& q_control, co
 void cevolution_szegedy_PE(const double& t, const int& n, const uint& q_control, const bmReg& qstate){
     if(qstate.size()!=syst_qbits)
         throw std::runtime_error("ERROR: controlled evolution has wrong number of state qbits");
+    DEBUG_CALL(std::cout<<"cevolution_szegedy()"<<std::endl);
 
     qsa::activate_gc_mask_into_szegedy({q_control});
+    DEBUG_CALL(std::cout<<"activate_gc_mask_into_szegedy()\nglobal mask: "<<suqa::gc_mask<<", szegedy_mask: "<<gc_mask_szegedy<<std::endl);
 
     evolution_szegedy(t, n);
 
     qsa::deactivate_gc_mask_into_szegedy();
+    DEBUG_CALL(std::cout<<"deactivate_gc_mask_into_szegedy()\nglobal mask: "<<suqa::gc_mask<<", szegedy_mask: "<<gc_mask_szegedy<<std::endl);
 
 }
 
@@ -217,33 +220,47 @@ void qsa_qft_szegedy(const std::vector<uint>& qact){
 
 //TODO: put in suqa
 void qsa_qft_inverse_szegedy(const std::vector<uint>& qact){
+    DEBUG_CALL(std::cout<<"qsa_qft_inverse_szegedy()"<<std::endl);
     int qsize = qact.size();
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
             qsa_crm_szegedy(qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            DEBUG_CALL(std::cout<<"after qsa_crm_szegedy() in qsa_qft_inverse_szegedy outer "<<outer_i<<", inner "<<inner_i<<std::endl);
+            DEBUG_READ_STATE();
 
         }
         suqa::apply_h(qact[outer_i]);
+        DEBUG_CALL(std::cout<<"after apply h in qsa_qft_inverse_szegedy"<<std::endl);
+        DEBUG_READ_STATE();
 
     }
 }
 //in questa funzione registro sui bm_enes
 void apply_phase_estimation(const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
+  DEBUG_CALL(std::cout<<"apply_phase_estimation()"<<std::endl);
 
 
     suqa::apply_h(q_target);
+  DEBUG_CALL(std::cout<<"after apply h in QPE"<<std::endl);
+  DEBUG_READ_STATE();
 
     // apply CUs
     for(int trg = q_target.size() - 1; trg > -1; --trg){
         double powr = (double)(1U << (q_target.size()-1-trg));
 
         cevolution_szegedy_PE(-powr*t, powr*n, q_target[trg], q_state);
+      DEBUG_CALL(std::cout<<"after cevolution_szegedy_PE() in QPE trg="<<trg<<std::endl);
+      DEBUG_READ_STATE();
 
-        suqa::apply_u1(q_target[trg], -powr*t*t_PE_shift);
+      suqa::apply_u1(q_target[trg], -powr*t*t_PE_shift);
+      DEBUG_CALL(std::cout<<"after apply_u1() in QPE trg="<<trg<<std::endl);
+      DEBUG_READ_STATE();
     }
 
     // apply QFT^{-1}
     qsa_qft_inverse(q_target);
+    DEBUG_CALL(std::cout<<"after qsa_qft_inverse() in QPE"<<std::endl);
+    DEBUG_READ_STATE();
 }
 
 void apply_phase_estimation_inverse(const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
@@ -337,54 +354,110 @@ double eigenvalue_trans(int x_2d){
   f_x_2d= t_PE_shift+x_2d/(double)(t_PE_factor*ene_levels);
   return f_x_2d;
 }
-void universal_rotation(const double& beta_j){
-  int tmp1=0,tmp2=0;
-  for(uint x_2d=0;x_2d< ene_levels;x_2d++){
+/*
+void universal_rotation(ComplexVec& state,const double& beta_j){
+  int x_2d=0,tmp1=0,tmp2=0;
+  for(x_2d=0;x_2d< ene_levels;x_2d++){
     double tmp=eigenvalue_trans(x_2d);
     tmp1=x_2d;
     tmp2=x_2d;
     if(tmp>0){
-      apply_ctrl_x(tmp1);
-      qsa::activate_gc_mask_into_szegedy(bm_enes);
-      suqa::apply_pauli_TP_rotation({bm_acc}, {PAULI_Y},-acos(exp(-0.5*beta_j*tmp))); //r_y(theta)=cos(theta/2)  2*acos(exp(-2*d_beta))
-      qsa::deactivate_gc_mask_into_szegedy();
-      apply_ctrl_x(tmp2);
+      apply_ctrl_x(state,tmp1);
+      suqa::activate_gc_mask_into_szegedy(bm_enes);
+      suqa::apply_pauli_TP_rotation( state, {bm_acc}, {PAULI_Y},-acos(exp(-0.5*beta_j*tmp))); //r_y(theta)=cos(theta/2)  2*acos(exp(-2*d_beta))
+      suqa::deactivate_gc_mask_into_szegedy();
+      apply_ctrl_x(state,tmp2);
     }
   }
 }
-void universal_rotation_inverse(const double& beta_j){
-  int tmp1=0,tmp2=0;
-  for(uint x_2d=0;x_2d< ene_levels;x_2d++){
+void universal_rotation_inverse(ComplexVec& state,const double& beta_j){
+  int x_2d=0,tmp1=0,tmp2=0;
+  for(x_2d=0;x_2d< ene_levels;x_2d++){
     double tmp=eigenvalue_trans(x_2d);
     tmp1=x_2d;
     tmp2=x_2d;
     if(tmp>0){
-      apply_ctrl_x(tmp1);
-      qsa::activate_gc_mask_into_szegedy(bm_enes);
-      suqa::apply_pauli_TP_rotation({bm_acc}, {PAULI_Y},acos(exp(-0.5*beta_j*tmp))); //r_y(theta)=cos(theta/2)  2*acos(exp(-2*d_beta))
-      qsa::deactivate_gc_mask_into_szegedy();
-      apply_ctrl_x(tmp2);
+      apply_ctrl_x(state,tmp1);
+      suqa::activate_gc_mask_into_szegedy(bm_enes);
+      suqa::apply_pauli_TP_rotation( state, {bm_acc}, {PAULI_Y},acos(exp(-0.5*beta_j*tmp))); //r_y(theta)=cos(theta/2)  2*acos(exp(-2*d_beta))
+      suqa::deactivate_gc_mask_into_szegedy();
+      apply_ctrl_x(state,tmp2);
     }
   }
 }
-void universal_reflection(){
-  int tmp1=0,tmp2=0;
-  for(uint x_2d=0;x_2d< ene_levels;x_2d++){
+void universal_reflection(ComplexVec& state){
+  int x_2d=0,tmp1=0,tmp2=0;
+  for(x_2d=0;x_2d< ene_levels;x_2d++){
     double tmp=eigenvalue_trans(x_2d);
     tmp1=x_2d;
     tmp2=x_2d;
     if(tmp==0){
-      apply_ctrl_x(tmp1);
-      qsa::activate_gc_mask_into_szegedy(bm_enes);
-      suqa::apply_x(bm_acc);
-      suqa::apply_u1(bm_acc, M_PI);
-      suqa::apply_x(bm_acc);
-      qsa::deactivate_gc_mask_into_szegedy();
-      apply_ctrl_x(tmp2);
+      apply_ctrl_x(state,tmp1);
+      suqa::activate_gc_mask_into_szegedy(bm_enes);
+      suqa::apply_x(state,   bm_acc);
+      suqa::apply_u1(state,   bm_acc, M_PI);
+      suqa::apply_x(state,   bm_acc);
+      suqa::deactivate_gc_mask_into_szegedy();
+      apply_ctrl_x(state,tmp2);
       }
     }
 }
+*/
 
+void universal_rotation(const double& beta_j){
+  int tmp1=0,tmp2=0;
+  double tmp;
+//  for(x_2d=0;x_2d< ene_levels;x_2d++){
+ for(int x_2d=2;x_2d>1 ;x_2d--){
+    tmp=eigenvalue_trans(x_2d);
+   tmp1=x_2d;
+    tmp2=x_2d;
+  //  if(tmp>0){
+      apply_ctrl_x(tmp1);
+      qsa::activate_gc_mask_into_szegedy(bm_enes);
+      suqa::apply_pauli_TP_rotation({bm_acc}, {PAULI_Y},-acos(exp(-0.5*beta_j*tmp))); //r_y(theta)=cos(theta/2)  2*acos(exp(-2*d_beta))
+      qsa::deactivate_gc_mask_into_szegedy();
+     apply_ctrl_x(tmp2);
+    //}
+  }
+}
+void universal_rotation_inverse(const double& beta_j){
+  int tmp1=0,tmp2=0;
+  //for(x_2d=0;x_2d< ene_levels;x_2d++){
+      double tmp;
+ for(int x_2d=2;x_2d>1 ;x_2d--){
+
+        tmp=eigenvalue_trans(x_2d);
+    tmp1=x_2d;
+    tmp2=x_2d;
+  //  if(tmp>0){
+     apply_ctrl_x(tmp1);
+      qsa::activate_gc_mask_into_szegedy(bm_enes);
+      suqa::apply_pauli_TP_rotation({bm_acc}, {PAULI_Y},acos(exp(-0.5*beta_j*tmp))); //r_y(theta)=cos(theta/2)  2*acos(exp(-2*d_beta))
+      qsa::deactivate_gc_mask_into_szegedy();
+     apply_ctrl_x(tmp2);
+    //}
+  }
+}
+void universal_reflection(){
+//  int x_2d=0,tmp1=0,tmp2=0;
+  //for(x_2d=0;x_2d< ene_levels;x_2d++){
+
+ //for(int x_2d=2;x_2d>1 ;x_2d--){
+//  double  tmp=eigenvalue_trans(1);
+  int  tmp1=1;
+  int tmp2=1;
+  //  if(tmp==0){
+    apply_ctrl_x(tmp1);
+    qsa::activate_gc_mask_into_szegedy(bm_enes);
+    suqa::apply_x(bm_acc);
+    suqa::apply_u1(bm_acc, M_PI);
+    suqa::apply_x(bm_acc);
+    qsa::deactivate_gc_mask_into_szegedy();
+    apply_ctrl_x(tmp2);
+      //}
+  //  }
+}
 #ifdef GPU
 //XXX: TESTTTTTTTTTTTTTTTTTTTTTT
 __global__
@@ -451,13 +524,15 @@ suqa::apply_x(bm_enes[0]);
 }
 void apply_ux(const double& beta_j,const uint &Ci){
 
-	apply_C(Ci);
+	qsa_apply_C(Ci);
 
 apply_phase_estimation(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimation);
 
 	//rotation(beta_j);
  //apply_W(beta_j);
  universal_rotation(beta_j);
+    DEBUG_CALL(std::cout<<"after universal_rotation() in apply_ux()"<<std::endl);
+    DEBUG_READ_STATE();
 
 apply_phase_estimation_inverse(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimation);
 
@@ -471,7 +546,7 @@ void apply_ux_inverse( const double& beta_j,const uint &Ci){
      universal_rotation_inverse(beta_j);
 
   apply_phase_estimation_inverse(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimation);
-  apply_C_inverse( Ci);
+  qsa_apply_C_inverse( Ci);
 }
 void apply_uy(const double& beta_j,const uint &Ci){
 	apply_ux(beta_j,Ci);
@@ -529,7 +604,10 @@ void cevolution_szegedy(const uint& q_control, const bmReg& qstate,const int& po
 
 void apply_PE_szegedy(const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& beta_j,const uint &Ci){
 
+  DEBUG_CALL(std::cout<<"apply_PE_szegedy()"<<std::endl);
 	suqa::apply_h(q_target);
+  DEBUG_CALL(std::cout<<"after apply h "<<std::endl);
+  DEBUG_READ_STATE();
 
 
 	// apply CUs
@@ -537,6 +615,8 @@ void apply_PE_szegedy(const std::vector<uint>& q_state, const std::vector<uint>&
 
 		double powr = (double)(1U << (q_target.size()-1-trg));
 		cevolution_szegedy(q_target[trg], q_state,powr,beta_j,Ci);
+          DEBUG_CALL(std::cout<<"after cevolution_szegedy()"<<std::endl);
+          DEBUG_READ_STATE();
 
 
 	}
@@ -544,6 +624,8 @@ void apply_PE_szegedy(const std::vector<uint>& q_state, const std::vector<uint>&
 	// apply QFT^{-1}
 	qsa_qft_inverse_szegedy(q_target);
 	//suqa::apply_h(state,q_target);
+  DEBUG_CALL(std::cout<<"after qsa_qft_inverse_szegedy()"<<std::endl);
+  DEBUG_READ_STATE();
 }
 
 
@@ -554,20 +636,9 @@ void setup(){
     qsa::fill_rphase(qsa::ene_qbits+1);
     qsa::fill_rphase_szegedy(qsa::szegedy_qbits+1);
     qsa::fill_bitmap();
-
-
-#if defined(GPU) & !defined(NDEBUG)
-    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_re,qsa::Dim*sizeof(double),cudaHostAllocDefault));
-    HANDLE_CUDACALL(cudaHostAlloc((void**)&host_state_im,qsa::Dim*sizeof(double),cudaHostAllocDefault));
-#endif
 }
 
 void clear(){
-#if defined(GPU) & !defined(NDEBUG)
-    HANDLE_CUDACALL(cudaFreeHost(host_state_re));
-    HANDLE_CUDACALL(cudaFreeHost(host_state_im));
-#endif
-
 }
 
 

@@ -9,8 +9,9 @@ General purpose runtime library for implementing runtime quantum algorithms and 
 Estimation of thermal averages using quantum information algorithms.
 
 ### Quantum Metropolis Sampling (QMS)
-Implementation of the algorithm from paper: https://www.nature.com/articles/nature09770  
+Implementation of the QMS algorithm from paper: https://www.nature.com/articles/nature09770  
 The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
+Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/109/3/754 [Implemented by Riccardo Aiudi]
 
 ## Structure of the project:
 ```bash
@@ -23,7 +24,8 @@ The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
 │   ├── parser.hpp
 │   ├── pcg32.h
 │   ├── suqa.cuh            (prototypes of the suqa library)
-│   ├── qms.cuh             (implementation of the qms algorithm; header only)  
+│   ├── qms.cuh             (core of the qms algorithm)  
+│   ├── qsa.cu              (core of the qsa algorithm [gpu only for now])
 │   ├── Rand.hpp
 │   ├── suqa\_cpu.hpp       (suqa cpu core functions)
 │   ├── suqa\_kernels.cuh   (suqa gpu core functions)
@@ -31,6 +33,7 @@ The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
 ├── src
 │   ├── io.cpp              (input/output facilities)
 │   ├── qms.cu              (runs the qms algorithm)
+│   ├── qsa.cu              (runs the qsa algorithm)
 │   ├── Rand.cpp            (pseudorandom number generators)
 │   ├── suqa.cu             (core engine)
 │   ├── system.cu           (system-specific structures and functions)
@@ -45,9 +48,9 @@ The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
 
 Each git branch represents a different system:
 - master : frustrated triangle
-- z2\_matter\_gauge : model with hamiltonian evolution of a gauge theory as decribed in https://arxiv.org/abs/1903.08807 
-- d4-gauge : another model from the previous paper
-- z2-gauge : toy model for d4-gauge with gauge group Z2
+- z2\_matter\_gauge : model with hamiltonian evolution of a gauge theory as decribed in https://arxiv.org/abs/1903.08807 [implemented by Marco Cardinali]
+- d4-gauge : another model from the previous paper  [implemented only the evolution]
+- z2-gauge : toy model for d4-gauge with gauge group Z2 [implemented by Lorenzo Maio]
 
 ## Compiling
 

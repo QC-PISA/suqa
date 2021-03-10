@@ -27,6 +27,7 @@ void evolution(const double& t, const int& n){
 
 // qsa specifics
 void qsa_init_state(){
+    suqa::init_state();
     suqa::apply_h(bm_spin[0]);
     suqa::apply_h(bm_spin[1]);
     suqa::apply_h(bm_spin[2]);
@@ -37,19 +38,26 @@ void qsa_init_state(){
 
 void evolution_szegedy(const double& t, const int& n){
     (void)n;
+      DEBUG_CALL(std::cout<<"apply evolution_szegedy()"<<std::endl);
     for (uint i = 0; i < 3; i++) {
       suqa::apply_pauli_TP_rotation({bm_spin_tilde[(0+i)%3],bm_spin_tilde[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);
+      DEBUG_CALL(std::cout<<"apply pauli 1 it "<<i<<std::endl);
+      DEBUG_READ_STATE();
       suqa::apply_pauli_TP_rotation({bm_spin[(0+i)%3],bm_spin[(1+i)%3]}, {PAULI_X,PAULI_X}, t);
+      DEBUG_CALL(std::cout<<"apply pauli 2 it "<<i<<std::endl);
+      DEBUG_READ_STATE();
     }
 }
 
 void evolution_measure(const double& t, const int& n){
+    (void)n;
   for (uint i = 0; i < 3; i++) {
     suqa::apply_pauli_TP_rotation({bm_spin[(0+i)%3],bm_spin[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);
   }
 
 }
 void evolution_tracing(const double& t, const int& n){
+    (void)n;
   for (uint i = 0; i < 3; i++) {
     suqa::apply_pauli_TP_rotation({bm_spin_tilde[(0+i)%3],bm_spin_tilde[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);
   }
