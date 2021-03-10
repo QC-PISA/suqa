@@ -4,13 +4,16 @@ version 1.7 (03/2021)
 General purpose runtime library for implementing runtime quantum algorithms and hybrids quantum-classical algorithms.
 
 
-## Main project: thermal methods for Quantum Information
+## Main project: Thermal Methods for Quantum Information
 
-Estimation of thermal averages using quantum information algorithms.
+Estimation of thermal averages using quantum information algorithms.<br>
+Up to now we considered two types of algorithms: QMS and QSA, discussed next.
 
 ### Quantum Metropolis Sampling (QMS)
-Implementation of the QMS algorithm from paper: https://www.nature.com/articles/nature09770  
+Implementation of the QMS algorithm from paper: https://www.nature.com/articles/nature09770  <br>
 The QMS applied to a frustrated triangle: https://arxiv.org/abs/2001.05328
+
+### Quantum Metropolis Sampling (QSA)
 Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/109/3/754 [Implemented by Riccardo Aiudi]
 
 ## Structure of the project:
@@ -77,8 +80,8 @@ make help
 * CUDA toolkit (if compiled for gpu devices)
 
 #### compilation
-The Visual Studio solution is in 'vs/suqa.sln'.  
-It contains two projects, 'qms' and 'test\_evolution';
+The Visual Studio solution is in 'vs/suqa.sln'.<br>
+It contains two projects, 'qms' and 'test\_evolution';<br>
 to build one of them, right-click on the project name on 'Solution Explorer', and select 'Set as Startup Project',
 then select the mode of compilation 'Release' or 'Debug' on the upper bar, and right-click again on the project name selecting 'Build'.  
 The executable will be created in the folder 'vs/x64/Release' or 'vs/x64/Debug' depending on the compilation mode.  
