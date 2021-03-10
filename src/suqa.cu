@@ -19,6 +19,10 @@ ComplexVec suqa::state;
 std::vector<uint> suqa::actives;
 #endif
 
+#ifdef GATECOUNT
+suqa::GateCounterList suqa::gatecounters;
+#endif
+
 #if !defined(NDEBUG) && defined(GPU)
 double *host_state_re, *host_state_im;
 #endif
@@ -39,11 +43,19 @@ cudaStream_t suqa::stream1, suqa::stream2;
 void suqa::activate_gc_mask(const bmReg& q_controls){
     for(const auto& q : q_controls)
         suqa::gc_mask |= 1U << q;
+
+#ifdef GATECOUNT
+    suqa::gatecounters.update_gc_mask_setbits();
+#endif
 }
 
 void suqa::deactivate_gc_mask(const bmReg& q_controls){
     for(const auto& q : q_controls)
         suqa::gc_mask &= ~(1U << q);
+
+#ifdef GATECOUNT
+    suqa::gatecounters.update_gc_mask_setbits();
+#endif
 }
 
 #ifdef GPU
@@ -105,7 +117,21 @@ void suqa::apply_x(uint q){
     kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
 #else
     func_suqa_x(suqa::state.data_re, suqa::state.data_im, q, suqa::gc_mask);
-#endif
+#endif 
+
+#ifdef GATECOUNT
+    // if n controls are in place, it acts as a C^{n}NOT
+    // which can be written as 1 CNOT for n=1 or 2*n Toffoli + 1 CNOT for n>2
+    // or at least 2n CNOTs https://arxiv.org/pdf/0803.2316.pdf
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    if(n==0){
+        suqa::gatecounters.increment_g1g2(1,0);
+    }else if (n==1){
+        suqa::gatecounters.increment_g1g2(0,1);
+    }else{
+        suqa::gatecounters.increment_g1g2(0,2*n);
+    }
+#endif // GATECOUNT
 }
 
 void suqa::apply_x(const bmReg& qs){

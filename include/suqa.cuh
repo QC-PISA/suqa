@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
+#include <bitset>
 #include "io.hpp"
 #include "complex_defines.cuh"
 
@@ -17,48 +18,9 @@
 #endif
 
 
-//#ifdef CUDA
-
-
-//TODO: erase the n in ifndef
-#ifdef GATECOUNT
-struct GateCounter{
-    std::vector<size_t> g1(1,0);  // 1 qubit gate 
-    std::vector<size_t> g2(1,0);  // 2 qubit gate
-
-    void set_g1g2(size_t ng1, ng2){
-        //TODO: implement
-    }
-    void set_g1g2(size_t ng1, ng2){
-        //TODO: implement  
-    }
-
-    // assuming independent samplings
-    void get_meanstd(double& mean, double &err, const std::vector<size_t>& gi){
-        mean = 0.0;
-        err = 0.0;
-        for(const auto& el : gi){
-            mean +=el;
-            err +=el*el;
-        }
-        mean /= (double)gi.size();
-        err = sqrt((err/(double)gi.size() - mean*mean)/(gi.size()-1.0));
-    }
-
-    void get_meanstd_g1(double& mean, double &err){
-       get_meanstd(mean,err,g1); 
-    }
-    void get_meanstd_g2(double& mean, double &err){
-       get_meanstd(mean,err,g2); 
-    }
-};
-#endif
-
-
 
 
 #ifndef NDEBUG
-
 #ifdef GPU
 extern double *host_state_re, *host_state_im;
 #define DEBUG_READ_STATE() {\
@@ -118,8 +80,79 @@ extern cudaStream_t stream1, stream2;
 // using it as condition (the user should make sure
 // to use it only for operations not involving it)
 extern uint gc_mask;
-
 extern uint nq;
+
+#ifdef GATECOUNT
+struct GateCounter{
+public:
+    std::vector<size_t> g1;  // 1 qubit gate 
+    std::vector<size_t> g2;  // 2 qubit gate
+
+    void increment_g1g2(size_t ng1, size_t ng2){
+        if(active){
+            g1.back()+=ng1;
+            g2.back()+=ng2;
+        }
+    }
+
+    void get_meanstd(double& mean1, double &err1, double& mean2, double& err2){
+       get_meanstd(mean1,err1,g1); 
+       get_meanstd(mean2,err2,g2); 
+    }
+
+    inline void activate(){ new_record(); active=true; }
+    inline void deactivate(){ active=false; }
+
+private:
+    void new_record(){
+        g1.push_back(0);
+        g2.push_back(0);
+    }
+
+    // assuming independent samplings
+    void get_meanstd(double& mean, double &err, const std::vector<size_t>& gi){
+        mean = 0.0;
+        err = 0.0;
+        for(const auto& el : gi){
+            mean +=el;
+            err +=el*el;
+        }
+        if(gi.size()>0)
+            mean /= (double)gi.size();
+        if(gi.size()>1)
+            err = sqrt((err/(double)gi.size() - mean*mean)/(gi.size()-1.0));
+    }
+
+    bool active=false; // unactive by default
+};
+
+struct GateCounterList{
+    uint gc_mask_set_qbits=0;
+    std::vector<GateCounter*> counters;
+
+    void add_counter(GateCounter* gctr){
+        counters.push_back(gctr);
+    }
+
+    void increment_g1g2(size_t ng1, size_t ng2){
+        for(GateCounter* gc : counters){
+            gc->increment_g1g2(ng1,ng2);
+        }
+    }
+
+    void update_gc_mask_setbits(){
+        uint count=0, n=suqa::gc_mask;
+        while(n!=0){
+            if((n & 1) == 1)
+                count++;
+            n>>=1;
+        }
+        gc_mask_set_qbits=count;
+    }
+};
+extern GateCounterList gatecounters;
+#endif
+
 
 void print_banner();
 
@@ -205,4 +238,5 @@ void clear();
 void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
 
 };
+
 

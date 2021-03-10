@@ -12,6 +12,7 @@ INCLUDES = $(wildcard include/*)
 DEVICE ?= cpu
 MODE ?= release
 ACCESS ?= dense
+GATECOUNT ?= no
 
 SRC = src
 OBJDIR = obj
@@ -20,7 +21,7 @@ SUQAOBJS = $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJD
 
 help:
 	@echo "usage (the first option for each flag is the default one):"
-	@echo "make <rule> [DEVICE=cpu/gpu] [MODE=release/debug/profile] [ACCESS=dense/sparse]\n"
+	@echo "make <rule> [DEVICE=cpu/gpu] [MODE=release/debug/profile] [ACCESS=dense/sparse] [GATECOUNT=no/yes]\n"
 	@echo "available rules:"
 	@echo "\thelp\t\t\t- print this text"
 	@echo "\ttest_suqa\t\t- some tests for the suqa gates and structures"
@@ -47,6 +48,10 @@ endif
 ifeq ($(MODE),profile)
 CXXFLAGS += -DNDEBUG -g 
 NVCCFLAGS += -DNDEBUG -m64 -G -g
+endif
+ifeq ($(GATECOUNT),yes)
+CXXFLAGS += -DGATECOUNT
+NVCCFLAGS += -DGATECOUNT
 endif
 SETVARS = 1
 endif
