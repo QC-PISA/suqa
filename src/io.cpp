@@ -53,7 +53,8 @@ void sparse_print(double *v_re, double *v_im, size_t size){
        if(norm(var)>1e-10){
             std::string index= std::bitset<32>(i).to_string();
             index.erase(0,32-index_size);
-            printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e, phase= %.3e pi\n",index.c_str(),i, v_re[i], v_im[i], norm(var),atan2(v_im[i],v_re[i])/M_PI);
+            printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e\n",index.c_str(),i, (fabs(v_re[i])>1e-8)? v_re[i] : 0, (fabs(v_im[i])>1e-8)? v_im[i] : 0, norm(var));
+//, phase= %.3e pi   ,atan2(v_im[i],v_re[i])/M_PI
        }
     }
     std::cout<<std::endl;
@@ -65,9 +66,12 @@ void sparse_print(double *v_re, double *v_im, size_t size, std::vector<uint>& in
     size_t index_size = (int)std::round(std::log2(size));
     for(const auto& idx : indexes){
        std::complex<double> var(v_re[idx],v_im[idx]);
+       if(norm(var)>1e-8){
 		std::string index= std::bitset<32>(idx).to_string();
 		index.erase(0,32-index_size);
-		printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e, phase= %.3e pi\n",index.c_str(),idx, v_re[idx], v_im[idx], norm(var),atan2(v_im[idx],v_re[idx])/M_PI);
+		printf("|%s> (%5d) -> (%.3e, %.3e ) : mod2= %.3e\n",index.c_str(),idx, (fabs(v_re[idx])>1e-8)? v_re[idx] : 0, (fabs(v_im[idx])>1e-8)? v_im[idx] : 0,norm(var));
+//, phase= %.3e pi   ,atan2(v_im[idx],v_re[idx])/M_PI
+       }
     }
     std::cout<<std::endl;
 }

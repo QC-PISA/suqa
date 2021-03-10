@@ -38,6 +38,8 @@ void qsa_init_state(){
 
 void evolution_szegedy(const double& t, const int& n){
     (void)n;
+      DEBUG_CALL(std::cout<<"before evolution_szegedy()"<<std::endl);
+      DEBUG_READ_STATE();
       DEBUG_CALL(std::cout<<"apply evolution_szegedy()"<<std::endl);
     for (uint i = 0; i < 3; i++) {
       suqa::apply_pauli_TP_rotation({bm_spin_tilde[(0+i)%3],bm_spin_tilde[(1+i)%3]}, {PAULI_X,PAULI_X}, -t);

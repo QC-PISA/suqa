@@ -70,16 +70,15 @@ void func_suqa_x(double* const state_re, double* const state_im, uint q, uint gl
 #ifdef SPARSE
     std::vector<uint> visited;
     for (auto& i: suqa::actives) { // number of actives is conserved
-        if ((i& glob_mask)==glob_mask) { 
+        if ((i & glob_mask)==glob_mask) { 
             uint j = i^ (1U << q); // flip of q bit
-            if (std::find(visited.begin(),visited.end(),i)==visited.end()) { // swap only once
+            uint i_0=i & ~(1U << q);
+            if (std::find(visited.begin(),visited.end(),i_0)==visited.end()) { // swap only once
 				util_signed_swap(&state_re[i], &state_re[j]);
 				util_signed_swap(&state_im[i], &state_im[j]);
-            } else {
-                visited.push_back(i);
-                visited.push_back(j);
+                visited.push_back(i_0);
             }
-            i= j;
+            i = j;
         }
     }
 #else
@@ -152,32 +151,33 @@ void func_suqa_h(double* state_re, double* state_im, uint q, uint glob_mask) {
 #ifdef SPARSE
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
     std::vector<uint> visited;
-    for (const uint& i : suqa::actives) {
+    for(const uint& i : suqa::actives){
         if ((i & glob_mask) == glob_mask) { // any matching the controls
             uint i_0 = i & ~(1U << q);
             uint i_1 = i_0 | (1U << q);
-            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
-                double new_0_re = TWOSQINV * (state_re[i_0] + state_re[i_1]);
-                double new_0_im = TWOSQINV * (state_im[i_0] + state_im[i_1]);
-                double new_1_re = TWOSQINV * (state_re[i_0] - state_re[i_1]);
-                double new_1_im = TWOSQINV * (state_im[i_0] - state_im[i_1]);
+            if(std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
+                double a_0_re = state_re[i_0];
+                double a_0_im = state_im[i_0];
+                double a_1_re = state_re[i_1];
+                double a_1_im = state_im[i_1];
 
-				state_re[i_0] = new_0_re;
-				state_im[i_0] = new_0_im;
-				state_re[i_1] = new_1_re;
-				state_im[i_1] = new_1_im;
-                if (norm(new_0_re, new_0_im) > 1e-8) {
+                state_re[i_0] = TWOSQINV * (a_0_re + a_1_re);
+                state_im[i_0] = TWOSQINV * (a_0_im + a_1_im);
+                state_re[i_1] = TWOSQINV * (a_0_re - a_1_re);
+                state_im[i_1] = TWOSQINV * (a_0_im - a_1_im);
+
+                if (norm(state_re[i_0], state_im[i_0]) > 1e-8) {
                     // new_1 is ensured to have non zero contribution, since the pair was active 
                     new_actives.push_back(i_0);
 
                 }
-                if (norm(new_1_re, new_1_im) > 1e-8) {
+                if (norm(state_re[i_1], state_im[i_1]) > 1e-8) {
                     new_actives.push_back(i_1);
 
                 }
                 visited.push_back(i_0);
             }
-        } else { // add to new_actives except for i_1, which is already managed above
+        }else{ // add to new_actives except for i_1, which is already managed above
 			new_actives.push_back(i);
         }
     }
@@ -188,14 +188,18 @@ void func_suqa_h(double* state_re, double* state_im, uint q, uint glob_mask) {
         if ((i_0 & loc_mask) == glob_mask) {
             const uint i_1 = i_0 | (1U << q);
             double a_0_re = state_re[i_0];
-            double a_1_re = state_re[i_1];
             double a_0_im = state_im[i_0];
+            double a_1_re = state_re[i_1];
             double a_1_im = state_im[i_1];
 
             state_re[i_0] = TWOSQINV * (a_0_re + a_1_re);
-            state_re[i_1] = TWOSQINV * (a_0_re - a_1_re);
             state_im[i_0] = TWOSQINV * (a_0_im + a_1_im);
+            state_re[i_1] = TWOSQINV * (a_0_re - a_1_re);
             state_im[i_1] = TWOSQINV * (a_0_im - a_1_im);
+
+//            [b1r,b0r] = [[c, -s],[s,c]] . [a1r,a0r]
+//            [b0r,b1r] = [[z, z],[-z,z]] . [a0r,a1r]
+//            
         }
     }
 #endif
@@ -267,8 +271,8 @@ void func_suqa_swap(double* const state_re, double* const state_im, uint mask00,
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
     std::vector<uint> visited;
     for (auto& i : suqa::actives) { // number of actives is conserved
-        uint i_0 = i & ~mask_q1 & ~mask_q2;
-        if (i & mask00){
+        uint i_0 = i & ~(mask_q1|mask_q2);
+        if ((i & mask00)==mask00){
             if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) {
                 // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
                 uint i_1 = i_0 | mask_q1;
@@ -301,12 +305,14 @@ void func_suqa_swap(double* const state_re, double* const state_im, uint mask00,
             // i -> ...00..., i_1 -> ...10..., i_2 -> ...01...
             uint i_1 = i | mask_q1;
             uint i_2 = i | mask_q2;
-            double tmpval = state_re[i_1];
-            state_re[i_1] = state_re[i_2];
-            state_re[i_2] = tmpval;
-            tmpval = state_im[i_1];
-            state_im[i_1] = state_im[i_2];
-            state_im[i_2] = tmpval;
+            util_signed_swap(&state_re[i_1], &state_re[i_2]);
+            util_signed_swap(&state_im[i_1], &state_im[i_2]);
+//            double tmpval = state_re[i_1];
+//            state_re[i_1] = state_re[i_2];
+//            state_re[i_2] = tmpval;
+//            tmpval = state_im[i_1];
+//            state_im[i_1] = state_im[i_2];
+//            state_im[i_2] = tmpval;
         }
     }
 #endif
@@ -327,66 +333,6 @@ void func_suqa_phase_list(std::vector<Complex> c_phases, uint mask0s, uint bm_of
 }
 
 // PAULI TENSOR PRODUCT ROTATIONS
-void func_suqa_pauli_TP_rotation_x(double* const state_re, double* const state_im, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
-#ifdef SPARSE
-    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
-    std::vector<uint> visited;
-    for (const uint& i : suqa::actives) {
-        if ((i & mask0s) == mask0s) {
-            // i_0 -> ...0..., i_1 -> ...1...
-            uint i_0 = i & ~mask1s;
-            uint i_1 = i_0 | mask_q1;
-            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
-                util_rotate4(&state_re[i_0], &state_im[i_1], &state_re[i_1], &state_im[i_0], ctheta, stheta);
-                if (norm(state_re[i_0], state_im[i_0]) > 1e-8) {
-                    // new_1 is ensured to have non zero contribution, since the pair was active 
-                    new_actives.push_back(i_0);
-
-                }
-                if (norm(state_re[i_1], state_im[i_1]) > 1e-8) {
-                    new_actives.push_back(i_1);
-
-                }
-                visited.push_back(i_0);
-            }
-        } else { // add to new_actives except for i_1 and i_2, which is already managed above
-			new_actives.push_back(i);
-        }
-    }
-    suqa::actives.swap(new_actives);
-#else
-    for(uint i_0=0U;i_0<suqa::state.size(); ++i_0){
-        if ((i_0 & mask1s) == mask0s) {
-            // i -> ...0..., i_1 -> ...1...
-            uint i_1 = i_0 | mask_q1;
-
-            util_rotate4(&state_re[i_0], &state_im[i_1], &state_re[i_1], &state_im[i_0], ctheta, stheta);
-        }
-    }
-#endif
-}
-
-//void func_suqa_pauli_TP_rotation_y(double* const state_re, double* const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
-//    for (uint i_0 = 0U; i_0 < len; ++i_0) {
-//        if ((i_0 & mask1s) == mask0s) {
-//            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
-//            uint i_1 = i_0 | mask_q1;
-//
-//            util_rotate4(&state_re[i_0], &state_re[i_1], &state_im[i_0], &state_im[i_1], ctheta, -stheta);
-//        }
-//    }
-//}
-//
-//void func_suqa_pauli_TP_rotation_z(double* const state_re, double* const state_im, size_t len, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
-//    for (uint i_0 = 0U; i_0 < len; ++i_0) {
-//        if ((i_0 & mask1s) == mask0s) {
-//            // i -> ...00..., i_1 -> ...01..., i_2 -> ...10...
-//            uint i_1 = i_0 | mask_q1;
-//
-//            util_rotate4(&state_re[i_0], &state_im[i_0], &state_im[i_1], &state_re[i_1], ctheta, stheta);
-//        }
-//    }
-//}
 
 //TODO: get rid of mask1s if possible
 void func_suqa_pauli_TP_rotation_pauli1(uint p1, double* const state_re, double* const state_im, uint mask0s, uint mask1s, uint mask_q1, double ctheta, double stheta) {
@@ -448,6 +394,7 @@ void func_suqa_pauli_TP_rotation_pauli2(const uint p1, const uint p2, double *co
     (void)mask1s;
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
     std::vector<uint> visited;
+    std::sort(suqa::actives.begin(),suqa::actives.end());
     for (const uint& i : suqa::actives) {
         if ((i & mask0s) == mask0s) {
             // i_0 -> ...00..., i_1 -> ...01..., i_2 -> ...10...
@@ -467,6 +414,11 @@ void func_suqa_pauli_TP_rotation_pauli2(const uint p1, const uint p2, double *co
 #ifdef SPARSE
             if (std::find(visited.begin(), visited.end(), i_[0]) == visited.end()) { // apply only once
 #endif
+//                std::cout<<"Before "<<i_[0]<<std::endl;
+//                std::cout<<"state["<<i_[0]<<"] = "<<state_re[i_[0]]<<"+i*("<<state_im[i_[0]]<<")"<<std::endl;
+//                std::cout<<"state["<<i_[1]<<"] = "<<state_re[i_[1]]<<"+i*("<<state_im[i_[1]]<<")"<<std::endl;
+//                std::cout<<"state["<<i_[2]<<"] = "<<state_re[i_[2]]<<"+i*("<<state_im[i_[2]]<<")"<<std::endl;
+//                std::cout<<"state["<<i_[3]<<"] = "<<state_re[i_[3]]<<"+i*("<<state_im[i_[3]]<<")"<<std::endl;
                 if(p1==1 and p2==1){ // XX
                     util_rotate4(&state_re[i_[0]],&state_im[i_[3]],&state_re[i_[3]],&state_im[i_[0]],ctheta,stheta); // 0<->3
                     util_rotate4(&state_re[i_[1]],&state_im[i_[2]],&state_re[i_[2]],&state_im[i_[1]],ctheta,stheta); // 1<->2
@@ -486,6 +438,11 @@ void func_suqa_pauli_TP_rotation_pauli2(const uint p1, const uint p2, double *co
                     util_rotate4(&state_re[i_[0]],&state_re[i_[1]],&state_im[i_[0]],&state_im[i_[1]],ctheta,-stheta); // iy on 0<->1
                     util_rotate4(&state_re[i_[2]],&state_re[i_[3]],&state_im[i_[2]],&state_im[i_[3]],ctheta,stheta); // -iy on 2<->3
                 }
+//                std::cout<<"After "<<i_[0]<<std::endl;
+//                std::cout<<"state["<<i_[0]<<"] = "<<state_re[i_[0]]<<"+i*("<<state_im[i_[0]]<<")"<<std::endl;
+//                std::cout<<"state["<<i_[1]<<"] = "<<state_re[i_[1]]<<"+i*("<<state_im[i_[1]]<<")"<<std::endl;
+//                std::cout<<"state["<<i_[2]<<"] = "<<state_re[i_[2]]<<"+i*("<<state_im[i_[2]]<<")"<<std::endl;
+//                std::cout<<"state["<<i_[3]<<"] = "<<state_re[i_[3]]<<"+i*("<<state_im[i_[3]]<<")"<<std::endl;
 #ifdef SPARSE
                 for(size_t s=0; s<4; ++s){
                     if (norm(state_re[i_[s]], state_im[i_[s]]) > 1e-8)

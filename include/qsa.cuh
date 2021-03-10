@@ -63,8 +63,9 @@ void fill_rphase_szegedy(const uint& nqubits){
 
 void activate_gc_mask_szegedy(const bmReg& q_controls){
     qsa::gc_mask_szegedy=0U;
-    for(const auto& q : q_controls)
+    for(const auto& q : q_controls){
         qsa::gc_mask_szegedy |= 1U << q;
+    }
 	suqa::gc_mask=qsa::gc_mask_szegedy;
 }
 
@@ -239,6 +240,8 @@ void qsa_qft_inverse_szegedy(const std::vector<uint>& qact){
 void apply_phase_estimation(const std::vector<uint>& q_state, const std::vector<uint>& q_target, const double& t, const uint& n){
   DEBUG_CALL(std::cout<<"apply_phase_estimation()"<<std::endl);
 
+  DEBUG_CALL(std::cout<<"before apply h in QPE"<<std::endl);
+  DEBUG_READ_STATE();
 
     suqa::apply_h(q_target);
   DEBUG_CALL(std::cout<<"after apply h in QPE"<<std::endl);
@@ -469,7 +472,6 @@ void kernel_qsa_apply_W(double *const state_comp, uint len, uint q_acc,  uint de
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
-    //    printf("deltaE= %d\n", deltaE);
         double DE=		E_m+deltaE/(double)(PE_factor*levels);
         if(DE<0){
             fs1 = exp(-((DE)*c)/2.0);
@@ -484,6 +486,73 @@ void kernel_qsa_apply_W(double *const state_comp, uint len, uint q_acc,  uint de
         i+=gridDim.x*blockDim.x;
     }
 }
+#else
+void func_qsa_apply_W(uint q_acc,  uint dev_W_mask, uint dev_bm_enes, double c,double E_m, double PE_factor, uint levels){
+    double fs1, fs2;
+#ifdef SPARSE
+    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
+    std::vector<uint> visited;
+	for (const auto& i : suqa::actives){
+        if((i & suqa::gc_mask) == suqa::gc_mask){ 
+            // extract dE reading Eold and Enew
+            uint i_0 = i & ~(1U << q_acc);
+            uint i_1 = i_0 | (1U << q_acc);
+            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
+                //extract energies from other registers
+                uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
+                double DE=		E_m+deltaE/(double)(PE_factor*levels);
+                if(DE<0){
+                    fs1 = exp(-((DE)*c)/2.0);
+                    fs2 = sqrt(1.0 - fs1*fs1);
+                }else{
+                    fs1 = 1.0;
+                    fs2 = 0.0;
+                }
+
+                double tmpval = suqa::state.data_re[i_0];
+                suqa::state.data_re[i_0] = fs2*suqa::state.data_re[i_0] + fs1*suqa::state.data_re[i_1];
+                suqa::state.data_re[i_1] = fs1*tmpval        - fs2*suqa::state.data_re[i_1];
+                tmpval = suqa::state.data_im[i_0];
+                suqa::state.data_im[i_0] = fs2*suqa::state.data_im[i_0] + fs1*suqa::state.data_im[i_1];
+                suqa::state.data_im[i_1] = fs1*tmpval        - fs2*suqa::state.data_im[i_1];
+
+                if(norm(suqa::state.data_re[i_0],suqa::state.data_im[i_0])>1e-8)
+                    new_actives.push_back(i_0);
+
+                if(norm(suqa::state.data_re[i_1],suqa::state.data_im[i_1])>1e-8)
+                    new_actives.push_back(i_1);
+               
+                visited.push_back(i_0); 
+            }
+        }else{
+			new_actives.push_back(i);
+        }
+    }
+    suqa::actives.swap(new_actives);
+#else // CPU no SPARSE
+    //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
+    for (uint i = suqa::state.size()/2; i < suqa::state.size(); ++i) {
+        // extract dE reading Eold and Enew
+        uint j = i & ~(1U << q_acc);
+        uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
+        double DE=		E_m+deltaE/(double)(PE_factor*levels);
+        if(DE<0){
+            fs1 = exp(-((DE)*c)/2.0);
+            fs2 = sqrt(1.0 - fs1*fs1);
+        }else{
+            fs1 = 1.0;
+            fs2 = 0.0;
+        }
+
+        double tmpval = suqa::state.data_re[j];
+        suqa::state.data_re[j] = fs2*suqa::state.data_re[j] + fs1*suqa::state.data_re[i];
+        suqa::state.data_re[i] = fs1*tmpval        - fs2*suqa::state.data_re[i]; // recall: i has 1 in the q_acc qbit 
+        tmpval = suqa::state.data_im[j];
+        suqa::state.data_im[j] = fs2*suqa::state.data_im[j] + fs1*suqa::state.data_im[i];
+        suqa::state.data_im[i] = fs1*tmpval        - fs2*suqa::state.data_im[i]; // recall: i has 1 in the q_acc qbit 
+    }
+#endif // ifdef SPARSE
+}
 
 #endif
 
@@ -493,15 +562,20 @@ void apply_W(double const delta_beta){
     qsa::kernel_qsa_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
     cudaDeviceSynchronize();
 #else
-    throw std::runtime_error("ERROR: qsa still not implemented on CPU only!!\n");
+    qsa::func_qsa_apply_W(bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+//#ifdef SPARSE
+//    throw std::runtime_error("ERROR: qsa still not implemented on CPU only!!\n");
+//#else
+//    qsa::func_qsa_apply_W(bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+//#endif
 #endif
+    DEBUG_CALL(std::cout<<"after apply_W()"<<std::endl);
+    DEBUG_READ_STATE();
 }
 
 void apply_W_inverse(double const delta_beta){
     apply_W(delta_beta);
 }
-//TESTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-
 
 void rotation(const double& beta_j){
 //se bm_enes= 00 autovalore-4 se bm_enes[0]=0 e bm_enes[1]=1 autovalore 4
@@ -514,6 +588,8 @@ suqa::apply_x(bm_enes[0]);
 }
 
 void rotation_inverse(const double& beta_j){
+  DEBUG_CALL(std::cout<<"before rotation_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 
 suqa::apply_x(bm_enes[0]);
 	qsa::activate_gc_mask_into_szegedy(bm_enes);
@@ -523,6 +599,8 @@ suqa::apply_x(bm_enes[0]);
 
 }
 void apply_ux(const double& beta_j,const uint &Ci){
+  DEBUG_CALL(std::cout<<"before apply_ux()"<<std::endl);
+  DEBUG_READ_STATE();
 
 	qsa_apply_C(Ci);
 
@@ -530,7 +608,7 @@ apply_phase_estimation(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimat
 
 	//rotation(beta_j);
  //apply_W(beta_j);
- universal_rotation(beta_j);
+    universal_rotation(beta_j);
     DEBUG_CALL(std::cout<<"after universal_rotation() in apply_ux()"<<std::endl);
     DEBUG_READ_STATE();
 
@@ -539,34 +617,66 @@ apply_phase_estimation_inverse(bm_states, bm_enes,  t_phase_estimation,  n_phase
 }
 void apply_ux_inverse( const double& beta_j,const uint &Ci){
 
+  DEBUG_CALL(std::cout<<"at init apply_ux_inverse() before apply_phase_estimation()"<<std::endl);
+  DEBUG_READ_STATE();
+
   apply_phase_estimation(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimation);
+
+  DEBUG_CALL(std::cout<<"after apply_phase_estimation() in apply_ux_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 
 	//rotation_inverse(state,beta_j);
     //apply_W(beta_j);
      universal_rotation_inverse(beta_j);
+  DEBUG_CALL(std::cout<<"after universal_rotation_inverse() in apply_ux_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 
   apply_phase_estimation_inverse(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimation);
+  DEBUG_CALL(std::cout<<"after apply_phase_estimation_inverse() in apply_ux_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
   qsa_apply_C_inverse( Ci);
+  DEBUG_CALL(std::cout<<"after qsa_apply_C_inverse() in apply_ux_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 }
 void apply_uy(const double& beta_j,const uint &Ci){
+  DEBUG_CALL(std::cout<<"at init apply_uy()"<<std::endl);
+  DEBUG_READ_STATE();
 	apply_ux(beta_j,Ci);
+  DEBUG_CALL(std::cout<<"before apply_x() after apply_ux() in apply_uy()"<<std::endl);
+  DEBUG_READ_STATE();
 	suqa::apply_x(bm_acc);
+  DEBUG_CALL(std::cout<<"before apply_swap() after apply_x() in apply_uy()"<<std::endl);
+  DEBUG_READ_STATE();
 	qsa::activate_gc_mask_into_szegedy({bm_acc});
 	for(uint j=0; j<bm_spin.size(); ++j) suqa::apply_swap(bm_spin[j],bm_spin_tilde[j]);
+  DEBUG_CALL(std::cout<<"before apply_x() after apply_swap() in apply_uy()"<<std::endl);
+  DEBUG_READ_STATE();
 	qsa::deactivate_gc_mask_into_szegedy();
 	suqa::apply_x(bm_acc);
+  DEBUG_CALL(std::cout<<"after last apply_x() in apply_uy()"<<std::endl);
+  DEBUG_READ_STATE();
 }
 void apply_uy_inverse(const double& beta_j,const uint &Ci){
+  DEBUG_CALL(std::cout<<"at init apply_uy_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 
 	suqa::apply_x(bm_acc);
+  DEBUG_CALL(std::cout<<"before apply_swap() after apply_x() in apply_uy_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 	qsa::activate_gc_mask_into_szegedy({bm_acc});
 	for(uint j=0; j<bm_spin.size(); ++j) suqa::apply_swap(bm_spin[j],bm_spin_tilde[j]);
+  DEBUG_CALL(std::cout<<"before apply_x() after apply_swap() in apply_uy_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
 	qsa::deactivate_gc_mask_into_szegedy();
 	suqa::apply_x(bm_acc);
 
+  DEBUG_CALL(std::cout<<"before apply_ux_inverse() after apply_x() in apply_uy_inverse()"<<std::endl);
+  DEBUG_READ_STATE();
   apply_ux_inverse(beta_j,Ci);
 }
 void reflection(){
+  DEBUG_CALL(std::cout<<"at init reflection()"<<std::endl);
+  DEBUG_READ_STATE();
 
 	suqa::apply_mcx(bm_enes, {1U, 0U}, bm_acc);
 	suqa::apply_mcu1(bm_enes, {1U, 0U}, bm_acc, M_PI);
@@ -574,6 +684,8 @@ void reflection(){
 
 }
 void apply_lambda1(){
+  DEBUG_CALL(std::cout<<"before apply_lambda1()"<<std::endl);
+  DEBUG_READ_STATE();
 
     apply_phase_estimation(bm_states, bm_enes,  t_phase_estimation,  n_phase_estimation);
     universal_reflection();

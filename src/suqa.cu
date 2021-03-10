@@ -423,13 +423,12 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
         }
         mask_q1 = (1U << q_apply_cpy[0]);
         mask_q2 = (1U << q_apply_cpy[1]);
+
+        DEBUG_CALL(std::cout<<"Before kernel_suqa_pauli_TP_rotation_pauli2() "<<pauli_TPtype_cpy[0]<<" "<<pauli_TPtype_cpy[1]<<" "<<cph<<" "<<sph<<std::endl);
+        DEBUG_READ_STATE();
 #ifdef GPU
         if(pauli_TPtype_cpy[0]==PAULI_X and pauli_TPtype_cpy[1]==PAULI_X){
-            DEBUG_CALL(std::cout<<"Before kernel_suqa_pauli_TP_rotation_xx() "<<cph<<" "<<sph<<std::endl);
-            DEBUG_READ_STATE();
             kernel_suqa_pauli_TP_rotation_xx<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
-            DEBUG_CALL(std::cout<<"After kernel_suqa_pauli_TP_rotation_xx()"<<std::endl);
-            DEBUG_READ_STATE();
         }else if(pauli_TPtype_cpy[0]==PAULI_Y and pauli_TPtype_cpy[1]==PAULI_Y){
             kernel_suqa_pauli_TP_rotation_yy<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), mask0s, mask1s, mask_q1, mask_q2, cph, sph);
         }else if(pauli_TPtype_cpy[0]==PAULI_Z and pauli_TPtype_cpy[1]==PAULI_Z){
@@ -444,6 +443,8 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
 #else
         func_suqa_pauli_TP_rotation_pauli2(pauli_TPtype_cpy[0],pauli_TPtype_cpy[1],suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, cph, sph);
 #endif
+        DEBUG_CALL(std::cout<<"After kernel_suqa_pauli_TP_rotation_pauli2() "<<pauli_TPtype_cpy[0]<<" "<<pauli_TPtype_cpy[1]<<" "<<cph<<" "<<sph<<std::endl);
+        DEBUG_READ_STATE();
 
     }else if(q_apply.size()==3U){
         if(pauli_TPtype_cpy[0]>pauli_TPtype_cpy[1]){ //sort cases

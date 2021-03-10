@@ -1,5 +1,5 @@
 # Simulator for Universal Quantum Algorithms (SUQA)
-version 1.7 (03/2021)
+version 1.8 (03/2021)
 
 General purpose runtime library for implementing runtime quantum algorithms and hybrids quantum-classical algorithms.
 
@@ -28,7 +28,7 @@ Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/10
 │   ├── pcg32.h
 │   ├── suqa.cuh            (prototypes of the suqa library)
 │   ├── qms.cuh             (core of the qms algorithm)  
-│   ├── qsa.cu              (core of the qsa algorithm [gpu only for now])
+│   ├── qsa.cu              (core of the qsa algorithm)
 │   ├── Rand.hpp
 │   ├── suqa\_cpu.hpp       (suqa cpu core functions)
 │   ├── suqa\_kernels.cuh   (suqa gpu core functions)
