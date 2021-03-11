@@ -120,17 +120,9 @@ void suqa::apply_x(uint q){
 #endif 
 
 #ifdef GATECOUNT
-    // if n controls are in place, it acts as a C^{n}NOT
-    // which can be written as 1 CNOT for n=1 or 2*n Toffoli + 1 CNOT for n>2
-    // or at least 2n CNOTs https://arxiv.org/pdf/0803.2316.pdf
     uint n=suqa::gatecounters.gc_mask_set_qbits;
-    if(n==0){
-        suqa::gatecounters.increment_g1g2(1,0);
-    }else if (n==1){
-        suqa::gatecounters.increment_g1g2(0,1);
-    }else{
-        suqa::gatecounters.increment_g1g2(0,2*n);
-    }
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
 #endif // GATECOUNT
 }
 
@@ -149,6 +141,12 @@ void suqa::apply_y(uint q){
 #else
     func_suqa_y(suqa::state.data_re, suqa::state.data_im, q, suqa::gc_mask);
 #endif
+
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_y(const bmReg& qs){
@@ -178,6 +176,11 @@ void suqa::apply_sigma_plus(uint q){
 #else 
     func_suqa_sigma_plus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
 #endif
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_sigma_plus(const bmReg& qs){
@@ -195,6 +198,11 @@ void suqa::apply_sigma_minus(uint q){
 #else 
     func_suqa_sigma_minus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
 #endif
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_sigma_minus(const bmReg& qs){
@@ -214,6 +222,11 @@ void suqa::apply_h(uint q){
 #else
     func_suqa_h(suqa::state.data_re, suqa::state.data_im, q, suqa::gc_mask);
 #endif
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 
@@ -276,6 +289,11 @@ void suqa::apply_u1(uint q, uint q_mask, double phase){
 #else
     func_suqa_u1(state.data_re, state.data_im, q, phasec, qmask, suqa::gc_mask);
 #endif
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 
@@ -291,6 +309,12 @@ void suqa::apply_cx(const uint& q_control, const uint& q_target, const uint& q_m
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, q_target);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_control
+    uint n=suqa::gatecounters.gc_mask_set_qbits+1;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
@@ -302,6 +326,12 @@ void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask, q_target);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_controls
+    uint n=suqa::gatecounters.gc_mask_set_qbits+q_controls.size();
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 
@@ -318,6 +348,12 @@ void suqa::apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, q_target);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_controls
+    uint n=suqa::gatecounters.gc_mask_set_qbits+q_controls.size();
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
@@ -332,6 +368,12 @@ void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
 #else
     func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, phasec);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_control
+    uint n=suqa::gatecounters.gc_mask_set_qbits+1;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
@@ -351,6 +393,12 @@ void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& 
 #else
     func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, phasec);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_controls
+    uint n=suqa::gatecounters.gc_mask_set_qbits+q_controls.size();
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
@@ -371,6 +419,13 @@ void suqa::apply_swap(const uint& q1, const uint& q2){
 #else
     func_suqa_swap(suqa::state.data_re, suqa::state.data_im, mask00, mask11, mask_q1, mask_q2);
 #endif
+#ifdef GATECOUNT
+    // a swap can be realized by 3 CNOTS, so, if gc_mask has m bits set, then it is like
+    // a 3 of (m+1)-qubits Toffoli gates
+    uint n=suqa::gatecounters.gc_mask_set_qbits+1;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(3*gr.ng1,3*gr.ng2);
+#endif // GATECOUNT
 }
 
 //TODO: implement for cpu
@@ -398,6 +453,18 @@ void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& pha
     func_suqa_phase_list(c_phases,mask0s,q0,size_mask);
 #endif
      
+#ifdef GATECOUNT
+    // without controls, a list of phases on k qubits can be ideally realized using
+    // [2^{k+1}-3] CNOTS + [2^{k+1}-3] 1 qubit gates 
+    // (https://cds.cern.ch/record/608317/files/0303039.pdf).
+    // with n controls set, these would become 
+    // [2^{k+1}-3] (n+1)-Toffoli + [2^{k+1}-3] n-Toffoli
+    uint fact = 1U<<(q_size+1)-3;
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord grA(GateCounter::n_ctrl_toffoli_gates(n));
+    GateRecord grB(GateCounter::n_ctrl_toffoli_gates(n+1));
+    suqa::gatecounters.increment_g1g2(fact*(grA.ng1+grB.ng1),fact*(grA.ng2+grB.ng2));
+#endif // GATECOUNT
 }
 #endif // GPU
 
@@ -515,6 +582,28 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
     }else{
         throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
     }
+
+#ifdef GATECOUNT
+    // For q_apply.size()>2 this is a non-trivial operation, which should be studied.
+    // Let us consider only the other cases.
+    if(q_apply.size()>2){
+        throw std::runtime_error(("ERROR: unimplemented gate counters for pauli tensor product rotations with "+std::to_string(q_apply.size())+" qubits").c_str());
+    }else if(q_apply.size()==1){
+        // the case with q_apply.size()==1 is like any 1-qubit case
+        uint n=suqa::gatecounters.gc_mask_set_qbits;
+        GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+        suqa::gatecounters.increment_g1g2(gr);
+    }else{ //q_apply.size()==2
+        // the case with q_apply.size()==2 needs knowing the gates 
+        // required to perform a generic TP rotation to 2 qubits
+        //TODO: implement this
+//    uint fact = 1U<<(q_size+1)-3;
+//    uint n=suqa::gatecounters.gc_mask_set_qbits;
+//    GateRecord grA(GateCounter::n_ctrl_toffoli_gates(n));
+//    GateRecord grB(GateCounter::n_ctrl_toffoli_gates(n+1));
+//    suqa::gatecounters.increment_g1g2(fact*(grA.ng1+grB.ng1),fact*(grA.ng2+grB.ng2));
+    }
+#endif // GATECOUNT
 }
 
 /* End of Pauli Tensor Product rotations */
