@@ -1,6 +1,7 @@
 #pragma once
 #ifdef GATECOUNT
 #include <math.h>
+#include <string>
 #include <vector>
 
 typedef unsigned int uint;
@@ -9,27 +10,30 @@ struct GateRecord{
     uint ng1=0;  // 1 qubit gate 
     uint ng2=0;  // 2 qubit gate
     GateRecord(uint gi1=0,uint gi2=0) : ng1(gi1), ng2(gi2) {}
-    GateRecord(const GateRecord& gr) : ng1(gr.ng1), ng2(gr.ng2) {}
+    GateRecord(GateRecord&& gr) : ng1(gr.ng1), ng2(gr.ng2) {}
 };
 struct GateCounter{
 public:
-    std::vector<GateRecord> gs;
+    std::string name;
+    std::vector<GateRecord> grecords;
+
+    GateCounter(std::string nname) : name(nname) {}
 
     void increment_g1g2(uint ng1, uint ng2){
         if(active){
-            gs.back().ng1+=ng1;
-            gs.back().ng2+=ng2;
+            grecords.back().ng1+=ng1;
+            grecords.back().ng2+=ng2;
         }
     }
     void increment_g1g2(const GateRecord& gr){
         if(active){
-            gs.back().ng1+=gr.ng1;
-            gs.back().ng2+=gr.ng2;
+            grecords.back().ng1+=gr.ng1;
+            grecords.back().ng2+=gr.ng2;
         }
     }
 
-    void get_meanstd(double& mean1, double &err1, double& mean2, double& err2){
-       get_meanstd(mean1,err1,mean2,err2,gs); 
+    void get_info(double& mean1, double &err1, double& mean2, double& err2, uint& iters) const{
+       get_info(mean1,err1,mean2,err2,iters,grecords); 
     }
 
     inline void activate(){ new_record(); active=true; }
@@ -58,29 +62,39 @@ public:
     }
 
     void new_record(){
-        gs.push_back(GateRecord());
+        active = true;
+        grecords.push_back(GateRecord());
     }
+
+    void clear(){
+        active = false; 
+        grecords.clear();
+    }
+
 private:
 
     // assuming independent samplings
-    void get_meanstd(double& mean1, double &err1, double& mean2, double &err2, const std::vector<GateRecord>& gs){
+    void get_info(double& mean1, double &err1, double& mean2, double &err2, uint &iters, const std::vector<GateRecord>& grecords) const{ 
+        iters=grecords.size();
         mean1 = 0.0;
         mean2 = 0.0;
         err1 = 0.0;
         err2 = 0.0;
-        for(const auto& el : gs){
+        for(const auto& el : grecords){
             mean1 +=el.ng1;
             mean2 +=el.ng2;
             err1 +=el.ng1*el.ng1;
             err2 +=el.ng2*el.ng2;
         }
-        if(gs.size()>0){
-            mean1 /= (double)gs.size();
-            mean2 /= (double)gs.size();
+        if(grecords.size()>0){
+            mean1 /= (double)iters;
+            mean2 /= (double)iters;
         }
-        if(gs.size()>1){
-            err1 = sqrt((err1/(double)gs.size() - mean1*mean1)/(gs.size()-1.0));
-            err2 = sqrt((err2/(double)gs.size() - mean2*mean2)/(gs.size()-1.0));
+        if(iters>1){
+            err1 = sqrt((err1/(double)iters - mean1*mean1)/(iters-1.0));
+            err2 = sqrt((err2/(double)iters - mean2*mean2)/(iters-1.0));
+        }else{
+            err1=err2=0;
         }
     }
 
@@ -117,5 +131,25 @@ struct GateCounterList{
         gc_mask_set_qbits=count;
     }
 
+    void print_averages(){
+        uint samples;
+        double m1, e1, m2, e2;
+        printf("\ngate counter\t\t<ng1>\td<ng1>\t<ng2>\t<dng2>\tsamples\n");
+        for(const GateCounter* gc : counters){
+            gc->get_info(m1,e1,m2,e2,samples);
+            printf("%s\t\t%.3lg\t%.3lg\t%.3lg\t%.3lg\t%u\n",gc->name.c_str(),m1,e1,m2,e2,samples);
+        }
+    }
+
+    void print_counts(){
+        for(const GateCounter* gc : counters){
+            printf("\ngate counter '%s' (%zu records):\n",gc->name.c_str(),gc->grecords.size());
+            uint rec_ctr=0;
+            for(const GateRecord& gr : gc->grecords){
+                printf("record %u: ng1=%u, ng2=%u\n",rec_ctr++,gr.ng1,gr.ng2);
+            }
+        }
+        printf("\n");
+    }
 };
 #endif

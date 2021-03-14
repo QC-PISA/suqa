@@ -164,10 +164,10 @@ void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<doub
 void apply_reset(uint q, double rdoub);
 void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
 
+void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
+
 void setup(uint nq);
 void clear();
-
-void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
 
 };
 
