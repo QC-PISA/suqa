@@ -586,22 +586,16 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
 #ifdef GATECOUNT
     // For q_apply.size()>2 this is a non-trivial operation, which should be studied.
     // Let us consider only the other cases.
-    if(q_apply.size()>2){
-        throw std::runtime_error(("ERROR: unimplemented gate counters for pauli tensor product rotations with "+std::to_string(q_apply.size())+" qubits").c_str());
-    }else if(q_apply.size()==1){
-        // the case with q_apply.size()==1 is like any 1-qubit case
-        uint n=suqa::gatecounters.gc_mask_set_qbits;
-        GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
-        suqa::gatecounters.increment_g1g2(gr);
-    }else{ //q_apply.size()==2
-        // the case with q_apply.size()==2 needs knowing the gates 
-        // required to perform a generic TP rotation to 2 qubits
-        //TODO: implement this
-//    uint fact = 1U<<(q_size+1)-3;
-//    uint n=suqa::gatecounters.gc_mask_set_qbits;
-//    GateRecord grA(GateCounter::n_ctrl_toffoli_gates(n));
-//    GateRecord grB(GateCounter::n_ctrl_toffoli_gates(n+1));
-//    suqa::gatecounters.increment_g1g2(fact*(grA.ng1+grB.ng1),fact*(grA.ng2+grB.ng2));
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    uint qtar = q_apply.size();
+    GateRecord gr0(GateCounter::n_ctrl_toffoli_gates(n));
+    GateRecord gr1(GateCounter::n_ctrl_toffoli_gates(n+1));
+    suqa::gatecounters.increment_g1g2(gr0.ng1,gr0.ng2);
+    suqa::gatecounters.increment_g1g2(2*(qtar-1)*gr1.ng1,2*(qtar-1)*gr1.ng2);
+    for(uint i1=0; i1<qtar;++i1){
+        if(pauli_TPtype_cpy[i1]!=3){
+            suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2);
+        }
     }
 #endif // GATECOUNT
 }

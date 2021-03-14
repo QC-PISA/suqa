@@ -74,7 +74,6 @@ void deactivate_gc_mask_szegedy(){
     suqa::gc_mask=0U;
 }
 
-//XXX: ??
 void activate_gc_mask_into_szegedy(const bmReg& q_controls){
    //suqa::gc_mask=suqa::gc_mask_szegedy;
     for(const auto& q : q_controls)
@@ -461,121 +460,125 @@ void universal_reflection(){
       //}
   //  }
 }
-#ifdef GPU
-//XXX: TESTTTTTTTTTTTTTTTTTTTTTT
-__global__
-void kernel_qsa_apply_W(double *const state_comp, uint len, uint q_acc,  uint dev_W_mask, uint dev_bm_enes, double c,double E_m, double PE_factor, uint levels){
-    //XXX: since q_acc is the most relevant qubit, we split the cycle beforehand
-    int i = blockDim.x*blockIdx.x + threadIdx.x+len/2;
-    double fs1, fs2;
-    while(i<len){
-        // extract dE reading Eold and Enew
-        uint j = i & ~(1U << q_acc);
-        uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
-        double DE=		E_m+deltaE/(double)(PE_factor*levels);
-        if(DE<0){
-            fs1 = exp(-((DE)*c)/2.0);
-            fs2 = sqrt(1.0 - fs1*fs1);
-        }else{
-            fs1 = 1.0;
-            fs2 = 0.0;
-        }
-        double tmpval = state_comp[j];
-        state_comp[j] = fs2*state_comp[j] + fs1*state_comp[i];
-        state_comp[i] = fs1*tmpval        - fs2*state_comp[i]; // recall: i has 1 in the q_acc qbit
-        i+=gridDim.x*blockDim.x;
-    }
-}
-#else
-void func_qsa_apply_W(uint q_acc,  uint dev_W_mask, uint dev_bm_enes, double c,double E_m, double PE_factor, uint levels){
-    double fs1, fs2;
-#ifdef SPARSE
-    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
-    std::vector<uint> visited;
-	for (const auto& i : suqa::actives){
-        if((i & suqa::gc_mask) == suqa::gc_mask){ 
-            // extract dE reading Eold and Enew
-            uint i_0 = i & ~(1U << q_acc);
-            uint i_1 = i_0 | (1U << q_acc);
-            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
-                //extract energies from other registers
-                uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
-                double DE=		E_m+deltaE/(double)(PE_factor*levels);
-                if(DE<0){
-                    fs1 = exp(-((DE)*c)/2.0);
-                    fs2 = sqrt(1.0 - fs1*fs1);
-                }else{
-                    fs1 = 1.0;
-                    fs2 = 0.0;
-                }
-
-                double tmpval = suqa::state.data_re[i_0];
-                suqa::state.data_re[i_0] = fs2*suqa::state.data_re[i_0] + fs1*suqa::state.data_re[i_1];
-                suqa::state.data_re[i_1] = fs1*tmpval        - fs2*suqa::state.data_re[i_1];
-                tmpval = suqa::state.data_im[i_0];
-                suqa::state.data_im[i_0] = fs2*suqa::state.data_im[i_0] + fs1*suqa::state.data_im[i_1];
-                suqa::state.data_im[i_1] = fs1*tmpval        - fs2*suqa::state.data_im[i_1];
-
-                if(norm(suqa::state.data_re[i_0],suqa::state.data_im[i_0])>1e-8)
-                    new_actives.push_back(i_0);
-
-                if(norm(suqa::state.data_re[i_1],suqa::state.data_im[i_1])>1e-8)
-                    new_actives.push_back(i_1);
-               
-                visited.push_back(i_0); 
-            }
-        }else{
-			new_actives.push_back(i);
-        }
-    }
-    suqa::actives.swap(new_actives);
-#else // CPU no SPARSE
-    //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
-    for (uint i = suqa::state.size()/2; i < suqa::state.size(); ++i) {
-        // extract dE reading Eold and Enew
-        uint j = i & ~(1U << q_acc);
-        uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
-        double DE=		E_m+deltaE/(double)(PE_factor*levels);
-        if(DE<0){
-            fs1 = exp(-((DE)*c)/2.0);
-            fs2 = sqrt(1.0 - fs1*fs1);
-        }else{
-            fs1 = 1.0;
-            fs2 = 0.0;
-        }
-
-        double tmpval = suqa::state.data_re[j];
-        suqa::state.data_re[j] = fs2*suqa::state.data_re[j] + fs1*suqa::state.data_re[i];
-        suqa::state.data_re[i] = fs1*tmpval        - fs2*suqa::state.data_re[i]; // recall: i has 1 in the q_acc qbit 
-        tmpval = suqa::state.data_im[j];
-        suqa::state.data_im[j] = fs2*suqa::state.data_im[j] + fs1*suqa::state.data_im[i];
-        suqa::state.data_im[i] = fs1*tmpval        - fs2*suqa::state.data_im[i]; // recall: i has 1 in the q_acc qbit 
-    }
-#endif // ifdef SPARSE
-}
-
-#endif
-
-void apply_W(double const delta_beta){
-#ifdef GPU
-    qsa::kernel_qsa_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(suqa::state.data_re, suqa::state.size(), bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
-    qsa::kernel_qsa_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
-    cudaDeviceSynchronize();
-#else
-    qsa::func_qsa_apply_W(bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+//#ifdef GPU
+////XXX: TESTTTTTTTTTTTTTTTTTTTTTT
+//__global__
+//void kernel_qsa_apply_W(double *const state_comp, uint len, uint q_acc,  uint dev_W_mask, uint dev_bm_enes, double c,double E_m, double PE_factor, uint levels){
+//    //XXX: since q_acc is the most relevant qubit, we split the cycle beforehand
+//    int i = blockDim.x*blockIdx.x + threadIdx.x+len/2;
+//    double fs1, fs2;
+//    while(i<len){
+//        // extract dE reading Eold and Enew
+//        uint j = i & ~(1U << q_acc);
+//        uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
+//        double DE=		E_m+deltaE/(double)(PE_factor*levels);
+//        if(DE<0){
+//            fs1 = exp(-((DE)*c)/2.0);
+//            fs2 = sqrt(1.0 - fs1*fs1);
+//        }else{
+//            fs1 = 1.0;
+//            fs2 = 0.0;
+//        }
+//        double tmpval = state_comp[j];
+//        state_comp[j] = fs2*state_comp[j] + fs1*state_comp[i];
+//        state_comp[i] = fs1*tmpval        - fs2*state_comp[i]; // recall: i has 1 in the q_acc qbit
+//        i+=gridDim.x*blockDim.x;
+//    }
+//}
+//#else
+//void func_qsa_apply_W(uint q_acc,  uint dev_W_mask, uint dev_bm_enes, double c,double E_m, double PE_factor, uint levels){
+//    double fs1, fs2;
 //#ifdef SPARSE
-//    throw std::runtime_error("ERROR: qsa still not implemented on CPU only!!\n");
+//    std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
+//    std::vector<uint> visited;
+//	for (const auto& i : suqa::actives){
+//        if((i & suqa::gc_mask) == suqa::gc_mask){ 
+//            // extract dE reading Eold and Enew
+//            uint i_0 = i & ~(1U << q_acc);
+//            uint i_1 = i_0 | (1U << q_acc);
+//            if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
+//                //extract energies from other registers
+//                uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
+//                double DE=		E_m+deltaE/(double)(PE_factor*levels);
+//                if(DE<0){
+//                    fs1 = exp(-((DE)*c)/2.0);
+//                    fs2 = sqrt(1.0 - fs1*fs1);
+//                }else{
+//                    fs1 = 1.0;
+//                    fs2 = 0.0;
+//                }
+//
+//                double tmpval = suqa::state.data_re[i_0];
+//                suqa::state.data_re[i_0] = fs2*suqa::state.data_re[i_0] + fs1*suqa::state.data_re[i_1];
+//                suqa::state.data_re[i_1] = fs1*tmpval        - fs2*suqa::state.data_re[i_1];
+//                tmpval = suqa::state.data_im[i_0];
+//                suqa::state.data_im[i_0] = fs2*suqa::state.data_im[i_0] + fs1*suqa::state.data_im[i_1];
+//                suqa::state.data_im[i_1] = fs1*tmpval        - fs2*suqa::state.data_im[i_1];
+//
+//                if(norm(suqa::state.data_re[i_0],suqa::state.data_im[i_0])>1e-8)
+//                    new_actives.push_back(i_0);
+//
+//                if(norm(suqa::state.data_re[i_1],suqa::state.data_im[i_1])>1e-8)
+//                    new_actives.push_back(i_1);
+//               
+//                visited.push_back(i_0); 
+//            }
+//        }else{
+//			new_actives.push_back(i);
+//        }
+//    }
+//    suqa::actives.swap(new_actives);
+//#else // CPU no SPARSE
+//    //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
+//    for (uint i = suqa::state.size()/2; i < suqa::state.size(); ++i) {
+//        // extract dE reading Eold and Enew
+//        uint j = i & ~(1U << q_acc);
+//        uint deltaE = (i & dev_W_mask) >> dev_bm_enes;
+//        double DE=		E_m+deltaE/(double)(PE_factor*levels);
+//        if(DE<0){
+//            fs1 = exp(-((DE)*c)/2.0);
+//            fs2 = sqrt(1.0 - fs1*fs1);
+//        }else{
+//            fs1 = 1.0;
+//            fs2 = 0.0;
+//        }
+//
+//        double tmpval = suqa::state.data_re[j];
+//        suqa::state.data_re[j] = fs2*suqa::state.data_re[j] + fs1*suqa::state.data_re[i];
+//        suqa::state.data_re[i] = fs1*tmpval        - fs2*suqa::state.data_re[i]; // recall: i has 1 in the q_acc qbit 
+//        tmpval = suqa::state.data_im[j];
+//        suqa::state.data_im[j] = fs2*suqa::state.data_im[j] + fs1*suqa::state.data_im[i];
+//        suqa::state.data_im[i] = fs1*tmpval        - fs2*suqa::state.data_im[i]; // recall: i has 1 in the q_acc qbit 
+//    }
+//#endif // ifdef SPARSE
+//}
+//
+//#endif
+//
+//void apply_W(double const delta_beta){
+//#ifdef GPU
+//    qsa::kernel_qsa_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(suqa::state.data_re, suqa::state.size(), bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+//    qsa::kernel_qsa_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+//    cudaDeviceSynchronize();
 //#else
 //    qsa::func_qsa_apply_W(bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+////#ifdef SPARSE
+////    throw std::runtime_error("ERROR: qsa still not implemented on CPU only!!\n");
+////#else
+////    qsa::func_qsa_apply_W(bm_acc,  W_mask_E, bm_enes[0], delta_beta,t_PE_shift, t_PE_factor,ene_levels);
+////#endif
 //#endif
-#endif
-    DEBUG_CALL(std::cout<<"after apply_W()"<<std::endl);
-    DEBUG_READ_STATE();
-}
-
-void apply_W_inverse(double const delta_beta){
-    apply_W(delta_beta);
-}
+//    DEBUG_CALL(std::cout<<"after apply_W()"<<std::endl);
+//    DEBUG_READ_STATE();
+//
+//#ifdef GATECOUNT
+//     
+//#endif
+//}
+//
+//void apply_W_inverse(double const delta_beta){
+//    apply_W(delta_beta);
+//}
 
 void rotation(const double& beta_j){
 //se bm_enes= 00 autovalore-4 se bm_enes[0]=0 e bm_enes[1]=1 autovalore 4
