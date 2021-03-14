@@ -135,10 +135,10 @@ public:
         return gr;
     }
 
-private:
     void new_record(){
         gs.push_back(GateRecord());
     }
+private:
 
     // assuming independent samplings
     void get_meanstd(double& mean1, double &err1, double& mean2, double &err2, const std::vector<GateRecord>& gs){
