@@ -454,8 +454,14 @@ void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& pha
 
 /* Pauli Tensor Product rotations */
 
+////TODO: generalize by decomposition (see Nielsen-Chuang Fig 4.19)
+//void general_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
+//    
+//
+//    throw std::runtime_error("ERROR: unimplemented generic pauli TP rotation in the selected configuration");
+//}
+
 // rotation by phase in the direction of a pauli tensor product
-//TODO: generalize by decomposition (see Nielsen-Chuang Fig 4.19)
 void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
     uint mask0s = suqa::gc_mask;
     uint mask1s = mask0s;
@@ -544,14 +550,17 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
             i1=0;
             i2=1;
         }else{
-            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation in the selected configuration");
+//            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
         }
         mask_q3 = (1U << q_apply_cpy[i_z]);
         mask_q1 = (1U << q_apply_cpy[i1]);
         mask_q2 = (1U << q_apply_cpy[i2]);
 
-        if(pauli_TPtype_cpy[i1]!=pauli_TPtype_cpy[i2])
-            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        if(pauli_TPtype_cpy[i1]!=pauli_TPtype_cpy[i2]){
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation in the selected configuration");
+//            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
+        }
         
 #ifdef GPU
         if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
@@ -565,25 +574,29 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
         func_suqa_pauli_TP_rotation_pauli3(pauli_TPtype_cpy[2],pauli_TPtype_cpy[i1],pauli_TPtype_cpy[i2],suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
 #endif
     }else{
-        throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
+        throw std::runtime_error("ERROR: unimplemented pauli TP rotation in the selected configuration");
+//            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
     }
-
 #ifdef GATECOUNT
-    // For q_apply.size()>2 this is a non-trivial operation, which should be studied.
-    // Let us consider only the other cases.
     uint n=suqa::gatecounters.gc_mask_set_qbits;
     uint qtar = q_apply.size();
     GateRecord gr0(GateCounter::n_ctrl_toffoli_gates(n));
     GateRecord gr1(GateCounter::n_ctrl_toffoli_gates(n+1));
     suqa::gatecounters.increment_g1g2(gr0.ng1,gr0.ng2);
     suqa::gatecounters.increment_g1g2(2*(qtar-1)*gr1.ng1,2*(qtar-1)*gr1.ng2);
+    uint count_non_zeta=0;
     for(uint i1=0; i1<qtar;++i1){
         if(pauli_TPtype[i1]!=3){
-            suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2);
+            count_non_zeta++;
         }
+    }
+    if(count_non_zeta>0){
+        suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2); // because you can merge controls
+        suqa::gatecounters.increment_g1g2(0,2*(count_non_zeta-1));
     }
 #endif // GATECOUNT
 }
+
 
 /* End of Pauli Tensor Product rotations */
 
