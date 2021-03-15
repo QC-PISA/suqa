@@ -785,4 +785,8 @@ void suqa::clear(){
     }
 #endif
     deallocate_state();
+
+#ifdef GATECOUNT
+    suqa::gatecounters.print_counts();
+#endif
 }

@@ -131,17 +131,22 @@ struct GateCounterList{
         gc_mask_set_qbits=count;
     }
 
-    void print_averages(){
+    void print_counts(){
+        if(counters.empty()) return;
+        printf("\n\nGate counts\n");
         uint samples;
         double m1, e1, m2, e2;
-        printf("\ngate counter\t\t<ng1>\td<ng1>\t<ng2>\t<dng2>\tsamples\n");
+        printf("\ncounter name\trecords\ttot_ng1\t<ng1>\td<ng1>\ttot_ng2\t<ng2>\t<dng2>\n");
         for(const GateCounter* gc : counters){
             gc->get_info(m1,e1,m2,e2,samples);
-            printf("%s\t\t%.3lg\t%.3lg\t%.3lg\t%.3lg\t%u\n",gc->name.c_str(),m1,e1,m2,e2,samples);
+            printf("%s\t\t%u\t%u\t%.3lg\t%.3lg\t%u\t%.3lg\t%.3lg\t\n",gc->name.c_str(),samples,(uint)(round(m1*samples)),m1,e1,(uint)(round(m2*samples)),m2,e2);
         }
+        printf("\n");
     }
 
-    void print_counts(){
+    void print_counts_detailed(){
+        if(counters.empty()) return;
+        printf("\n\nDetailed gate counts\n");
         for(const GateCounter* gc : counters){
             printf("\ngate counter '%s' (%zu records):\n",gc->name.c_str(),gc->grecords.size());
             uint rec_ctr=0;

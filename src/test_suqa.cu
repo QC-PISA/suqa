@@ -22,14 +22,6 @@ int main() {
 
 	suqa::setup(5);
 
-#ifdef GATECOUNT
-    GateCounter gctr_global("global");
-    GateCounter gctr_region1("region1");
-    GateCounter gctr_region2("region2");
-    suqa::gatecounters.add_counter(&gctr_global);
-    suqa::gatecounters.add_counter(&gctr_region1);
-    suqa::gatecounters.add_counter(&gctr_region2);
-#endif
 
 //	suqa::init_state();
 	DEBUG_CALL(printf("Initial state:\n"));
@@ -119,10 +111,16 @@ int main() {
 	DEBUG_READ_STATE();
 
 #ifdef GATECOUNT
-    printf("\n\nTest gatecounters:\n\n");
-
 	suqa::clear();
 	suqa::setup(5);
+    printf("\n\nTest gatecounters:\n\n");
+
+    GateCounter gctr_global("global");
+    GateCounter gctr_region1("region1");
+    GateCounter gctr_region2("region2");
+    suqa::gatecounters.add_counter(&gctr_global);
+    suqa::gatecounters.add_counter(&gctr_region1);
+    suqa::gatecounters.add_counter(&gctr_region2);
 
     pcg rangen;
 
@@ -157,11 +155,7 @@ int main() {
             ++i;
         }
     }
-    printf("\n\nGate counts\n\n");
-    suqa::gatecounters.print_counts();
-
-    printf("\n\nGate averages\n\n");
-    suqa::gatecounters.print_averages();
+    suqa::gatecounters.print_counts_detailed();
 #endif
 
     suqa::clear();
