@@ -578,22 +578,26 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
 //            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
     }
 #ifdef GATECOUNT
-    uint n=suqa::gatecounters.gc_mask_set_qbits;
-    uint qtar = q_apply.size();
+    const uint n=suqa::gatecounters.gc_mask_set_qbits;
+    const uint qtar = q_apply.size();
     GateRecord gr0(GateCounter::n_ctrl_toffoli_gates(n));
     GateRecord gr1(GateCounter::n_ctrl_toffoli_gates(n+1));
     suqa::gatecounters.increment_g1g2(gr0.ng1,gr0.ng2);
     suqa::gatecounters.increment_g1g2(2*(qtar-1)*gr1.ng1,2*(qtar-1)*gr1.ng2);
-    uint count_non_zeta=0;
     for(uint i1=0; i1<qtar;++i1){
-        if(pauli_TPtype[i1]!=3){
-            count_non_zeta++;
+        if(pauli_TPtype[i1]!=PAULI_Z){
+            suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2);
         }
     }
-    if(count_non_zeta>0){
-        suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2); // because you can merge controls
-        suqa::gatecounters.increment_g1g2(0,2*(count_non_zeta-1));
-    }
+//    uint count_non_zeta=0;
+//    for(uint i1=0; i1<qtar;++i1){
+//        if(pauli_TPtype[i1]!=3)
+//            count_non_zeta++;
+//    }
+//    if(count_non_zeta>0){
+//        suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2); // because you can merge controls
+//        suqa::gatecounters.increment_g1g2(0,2*(count_non_zeta-1));
+//    }
 #endif // GATECOUNT
 }
 
