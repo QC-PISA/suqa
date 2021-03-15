@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string>
 #include <vector>
+#include <iostream>
 
 typedef unsigned int uint;
 
@@ -12,7 +13,7 @@ struct GateRecord{
     GateRecord(uint gi1=0,uint gi2=0) : ng1(gi1), ng2(gi2) {}
     GateRecord(GateRecord&& gr) : ng1(gr.ng1), ng2(gr.ng2) {}
 };
-struct GateCounter{
+class GateCounter{
 public:
     std::string name;
     std::vector<GateRecord> grecords;
@@ -32,11 +33,11 @@ public:
         }
     }
 
-    void get_info(double& mean1, double &err1, double& mean2, double& err2, uint& iters) const{
+    void get_info(double& mean1, double &err1, double& mean2, double& err2, size_t& iters) const{
        get_info(mean1,err1,mean2,err2,iters,grecords); 
     }
 
-    inline void activate(){ new_record(); active=true; }
+    inline void activate(){ new_record(); }
     inline void deactivate(){ active=false; }
 
     // In a naive implementation, an n-control Toffoli can be described
@@ -74,7 +75,7 @@ public:
 private:
 
     // assuming independent samplings
-    void get_info(double& mean1, double &err1, double& mean2, double &err2, uint &iters, const std::vector<GateRecord>& grecords) const{ 
+    void get_info(double& mean1, double &err1, double& mean2, double &err2, size_t &iters, const std::vector<GateRecord>& grecords) const{ 
         iters=grecords.size();
         mean1 = 0.0;
         mean2 = 0.0;
@@ -86,13 +87,15 @@ private:
             err1 +=el.ng1*el.ng1;
             err2 +=el.ng2*el.ng2;
         }
-        if(grecords.size()>0){
+        if(iters>0){
             mean1 /= (double)iters;
             mean2 /= (double)iters;
         }
         if(iters>1){
-            err1 = sqrt((err1/(double)iters - mean1*mean1)/(iters-1.0));
-            err2 = sqrt((err2/(double)iters - mean2*mean2)/(iters-1.0));
+            err1 = sqrt(abs(err1/(double)iters - mean1*mean1)/(iters-1.0));
+            err2 = sqrt(abs(err2/(double)iters - mean2*mean2)/(iters-1.0));
+            if(err1<1e-10) err1=0.0;
+            if(err2<1e-10) err2=0.0;
         }else{
             err1=err2=0;
         }
@@ -101,7 +104,8 @@ private:
     bool active=false; // unactive by default
 };
 
-struct GateCounterList{
+class GateCounterList{
+public:
     uint gc_mask_set_qbits=0;
     std::vector<GateCounter*> counters;
 
@@ -134,12 +138,12 @@ struct GateCounterList{
     void print_counts(){
         if(counters.empty()) return;
         printf("\n\nGate counts\n");
-        uint samples;
+        size_t samples;
         double m1, e1, m2, e2;
-        printf("\ncounter name\trecords\ttot_ng1\t<ng1>\td<ng1>\ttot_ng2\t<ng2>\t<dng2>\n");
+        printf("\n%-15s  %8s  %8s  %8s  %8s  %8s  %8s  %8s\n","counter name","records","tot_ng1","<ng1>","d<ng1>","tot_ng2","<ng2>","<dng2>");
         for(const GateCounter* gc : counters){
             gc->get_info(m1,e1,m2,e2,samples);
-            printf("%s\t\t%u\t%u\t%.3lg\t%.3lg\t%u\t%.3lg\t%.3lg\t\n",gc->name.c_str(),samples,(uint)(round(m1*samples)),m1,e1,(uint)(round(m2*samples)),m2,e2);
+            printf("%-15s  %8zu  %8u  %8.3lg  %8.3lg  %8u  %8.3lg  %8.3lg\n",gc->name.c_str(),samples,(uint)(round(m1*samples)),m1,e1,(uint)(round(m2*samples)),m2,e2);
         }
         printf("\n");
     }
