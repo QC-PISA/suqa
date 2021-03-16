@@ -140,10 +140,10 @@ public:
         printf("\n\nGate counts\n");
         size_t samples;
         double m1, e1, m2, e2;
-        printf("\n%-15s  %8s  %8s  %8s  %8s  %8s  %8s  %8s\n","counter name","records","tot_ng1","<ng1>","d<ng1>","tot_ng2","<ng2>","<dng2>");
+        printf("\n%-15s  %-9s  %-9s  %-9s  %-9s  %-9s  %-9s  %-9s\n","counter name","records","tot_ng1","<ng1>","d<ng1>","tot_ng2","<ng2>","<dng2>");
         for(const GateCounter* gc : counters){
             gc->get_info(m1,e1,m2,e2,samples);
-            printf("%-15s  %8zu  %8u  %8.3lg  %8.3lg  %8u  %8.3lg  %8.3lg\n",gc->name.c_str(),samples,(uint)(round(m1*samples)),m1,e1,(uint)(round(m2*samples)),m2,e2);
+            printf("%-15s  %-9zu  %-9u  %-9.3lg  %-9.3lg  %-9u  %-9.3lg  %-9.3lg\n",gc->name.c_str(),samples,(uint)(round(m1*samples)),m1,e1,(uint)(round(m2*samples)),m2,e2);
         }
         printf("\n");
     }
