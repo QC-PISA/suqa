@@ -19,6 +19,10 @@ ComplexVec suqa::state;
 std::vector<uint> suqa::actives;
 #endif
 
+#ifdef GATECOUNT
+GateCounterList suqa::gatecounters;
+#endif
+
 #if !defined(NDEBUG) && defined(GPU)
 double *host_state_re, *host_state_im;
 #endif
@@ -26,7 +30,7 @@ double *host_state_re, *host_state_im;
 // global control mask:
 // it applies every next operation 
 // using it as condition (the user should make sure
-// to use it only for operations not involving it)
+// to use it only for operations not already involving it)
 uint suqa::gc_mask;
 
 uint suqa::nq;
@@ -39,11 +43,19 @@ cudaStream_t suqa::stream1, suqa::stream2;
 void suqa::activate_gc_mask(const bmReg& q_controls){
     for(const auto& q : q_controls)
         suqa::gc_mask |= 1U << q;
+
+#ifdef GATECOUNT
+    suqa::gatecounters.update_cmask_setbits(suqa::gc_mask);
+#endif
 }
 
 void suqa::deactivate_gc_mask(const bmReg& q_controls){
     for(const auto& q : q_controls)
         suqa::gc_mask &= ~(1U << q);
+
+#ifdef GATECOUNT
+    suqa::gatecounters.update_cmask_setbits(suqa::gc_mask);
+#endif
 }
 
 #ifdef GPU
@@ -96,16 +108,20 @@ void suqa::vnormalize(){
 #endif
 }
 
+
 //  X GATE
-
-
-
 void suqa::apply_x(uint q){
 #ifdef GPU
     kernel_suqa_x<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
 #else
     func_suqa_x(suqa::state.data_re, suqa::state.data_im, q, suqa::gc_mask);
-#endif
+#endif 
+
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 void suqa::apply_x(const bmReg& qs){
@@ -115,14 +131,18 @@ void suqa::apply_x(const bmReg& qs){
 
 
 //  Y GATE
-
-
 void suqa::apply_y(uint q){
 #ifdef GPU
     kernel_suqa_y<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
 #else
     func_suqa_y(suqa::state.data_re, suqa::state.data_im, q, suqa::gc_mask);
 #endif
+
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_y(const bmReg& qs){
@@ -131,7 +151,6 @@ void suqa::apply_y(const bmReg& qs){
 }  
 
 //  Z GATE
-
 void suqa::apply_z(uint q){
     suqa::apply_u1(q, M_PI);
 }  
@@ -141,55 +160,60 @@ void suqa::apply_z(const bmReg& qs){
 		suqa::apply_u1(q, M_PI);
 }  
 
+//
+////  SIGMA+ = 1/2(X+iY) GATE
+//void suqa::apply_sigma_plus(uint q){
+//#ifdef GPU
+//    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
+//#else 
+//    func_suqa_sigma_plus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
+//#endif
+//#ifdef GATECOUNT
+//    uint n=suqa::gatecounters.gc_mask_set_qbits;
+//    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+//    suqa::gatecounters.increment_g1g2(gr);
+//#endif // GATECOUNT
+//}  
+//
+//void suqa::apply_sigma_plus(const bmReg& qs){
+//    for (const auto& q : qs)
+//        suqa::apply_sigma_plus(q);
+//}
+//
+//
+////  SIGMA- = 1/2(X-iY) GATE
+//void suqa::apply_sigma_minus(uint q){
+//#ifdef GPU
+//    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
+//#else 
+//    func_suqa_sigma_minus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
+//#endif
+//#ifdef GATECOUNT
+//    uint n=suqa::gatecounters.gc_mask_set_qbits;
+//    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+//    suqa::gatecounters.increment_g1g2(gr);
+//#endif // GATECOUNT
+//}  
+//
+//void suqa::apply_sigma_minus(const bmReg& qs){
+//    for(const auto& q : qs)
+//        suqa::apply_sigma_minus(q);
+//}
 
-#ifdef GPU
-//  SIGMA+ = 1/2(X+iY) GATE
-
-
-void suqa::apply_sigma_plus(uint q){
-#ifdef GPU
-    kernel_suqa_sigma_plus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
-#else 
-    func_suqa_sigma_plus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
-#endif
-}  
-
-void suqa::apply_sigma_plus(const bmReg& qs){
-    for (const auto& q : qs)
-        suqa::apply_sigma_plus(q);
-}
-
-
-//  SIGMA- = 1/2(X-iY) GATE
-
-
-void suqa::apply_sigma_minus(uint q){
-#ifdef GPU
-    kernel_suqa_sigma_minus<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
-#else 
-    func_suqa_sigma_minus(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
-#endif
-}  
-
-void suqa::apply_sigma_minus(const bmReg& qs){
-    for(const auto& q : qs)
-        suqa::apply_sigma_minus(q);
-}
-
-#endif
 
 //  HADAMARD GATE
-
-
-
 void suqa::apply_h(uint q){
 #ifdef GPU
     kernel_suqa_h<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size(), q, suqa::gc_mask);
 #else
     func_suqa_h(suqa::state.data_re, suqa::state.data_im, q, suqa::gc_mask);
 #endif
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
-
 
 void suqa::apply_h(const bmReg& qs){
     for(const auto& q : qs){
@@ -235,6 +259,7 @@ void suqa::apply_s(const bmReg& qs){
     }
 }  
 
+
 // U1 GATE
 
 void suqa::apply_u1(uint q, double phase){
@@ -250,12 +275,15 @@ void suqa::apply_u1(uint q, uint q_mask, double phase){
 #else
     func_suqa_u1(state.data_re, state.data_im, q, phasec, qmask, suqa::gc_mask);
 #endif
+#ifdef GATECOUNT
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 
 //  CONTROLLED-NOT GATE
-
-
 void suqa::apply_cx(const uint& q_control, const uint& q_target, const uint& q_mask){
     uint mask_qs = suqa::gc_mask;
     uint mask = mask_qs | (1U << q_control);
@@ -265,8 +293,15 @@ void suqa::apply_cx(const uint& q_control, const uint& q_target, const uint& q_m
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, q_target);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_control
+    uint n=suqa::gatecounters.gc_mask_set_qbits+1;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
+// MULTICONTROLLED-NOT (Toffoli for 2 controls)
 void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
     uint mask = suqa::gc_mask;
     for(const auto& q : q_controls)
@@ -276,6 +311,12 @@ void suqa::apply_mcx(const bmReg& q_controls, const uint& q_target){
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask, q_target);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_controls
+    uint n=suqa::gatecounters.gc_mask_set_qbits+q_controls.size();
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 
@@ -292,6 +333,12 @@ void suqa::apply_mcx(const bmReg& q_controls, const bmReg& q_mask, const uint& q
 #else
     func_suqa_mcx(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, q_target);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_controls
+    uint n=suqa::gatecounters.gc_mask_set_qbits+q_controls.size();
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }  
 
 void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
@@ -306,6 +353,12 @@ void suqa::apply_cu1(uint q_control, uint q_target, double phase, uint q_mask){
 #else
     func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, phasec);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_control
+    uint n=suqa::gatecounters.gc_mask_set_qbits+1;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& q_target, double phase){
@@ -325,6 +378,12 @@ void suqa::apply_mcu1(const bmReg& q_controls, const bmReg& q_mask, const uint& 
 #else
     func_suqa_mcu1(suqa::state.data_re, suqa::state.data_im, mask, mask_qs, phasec);
 #endif
+#ifdef GATECOUNT
+    // assuming no overlap between gc_mask set bits and q_controls
+    uint n=suqa::gatecounters.gc_mask_set_qbits+q_controls.size();
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(gr);
+#endif // GATECOUNT
 }
 
 void suqa::apply_mcu1(const bmReg& q_controls, const uint& q_target, double phase) {
@@ -345,9 +404,15 @@ void suqa::apply_swap(const uint& q1, const uint& q2){
 #else
     func_suqa_swap(suqa::state.data_re, suqa::state.data_im, mask00, mask11, mask_q1, mask_q2);
 #endif
+#ifdef GATECOUNT
+    // a swap can be realized by 3 CNOTS, so, if gc_mask has m bits set, then it is like
+    // a 3 of (m+1)-qubits Toffoli gates
+    uint n=suqa::gatecounters.gc_mask_set_qbits+1;
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(n));
+    suqa::gatecounters.increment_g1g2(3*gr.ng1,3*gr.ng2);
+#endif // GATECOUNT
 }
 
-//TODO: implement for cpu
 #ifdef GPU
 void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases){
     if(!(q_size>0U and (uint)phases.size()==(1U<<q_size))){
@@ -372,10 +437,29 @@ void suqa::apply_phase_list(uint q0, uint q_size, const std::vector<double>& pha
     func_suqa_phase_list(c_phases,mask0s,q0,size_mask);
 #endif
      
+#ifdef GATECOUNT
+    // without controls, a list of phases on k qubits can be ideally realized using
+    // [2^{k+1}-3] CNOTS + [2^{k+1}-3] 1 qubit gates 
+    // (https://cds.cern.ch/record/608317/files/0303039.pdf).
+    // with n controls set, these would become 
+    // [2^{k+1}-3] (n+1)-Toffoli + [2^{k+1}-3] n-Toffoli
+    uint fact = 1U<<(q_size+1)-3;
+    uint n=suqa::gatecounters.gc_mask_set_qbits;
+    GateRecord grA(GateCounter::n_ctrl_toffoli_gates(n));
+    GateRecord grB(GateCounter::n_ctrl_toffoli_gates(n+1));
+    suqa::gatecounters.increment_g1g2(fact*(grA.ng1+grB.ng1),fact*(grA.ng2+grB.ng2));
+#endif // GATECOUNT
 }
 #endif // GPU
 
 /* Pauli Tensor Product rotations */
+
+////TODO: generalize by decomposition (see Nielsen-Chuang Fig 4.19)
+//void general_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
+//    
+//
+//    throw std::runtime_error("ERROR: unimplemented generic pauli TP rotation in the selected configuration");
+//}
 
 // rotation by phase in the direction of a pauli tensor product
 void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPtype, double phase){
@@ -466,14 +550,17 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
             i1=0;
             i2=1;
         }else{
-            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation in the selected configuration");
+//            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
         }
         mask_q3 = (1U << q_apply_cpy[i_z]);
         mask_q1 = (1U << q_apply_cpy[i1]);
         mask_q2 = (1U << q_apply_cpy[i2]);
 
-        if(pauli_TPtype_cpy[i1]!=pauli_TPtype_cpy[i2])
-            throw std::runtime_error("ERROR: unimplemented pauli TP rotation with 3 qubits in the selected configuration");
+        if(pauli_TPtype_cpy[i1]!=pauli_TPtype_cpy[i2]){
+            throw std::runtime_error("ERROR: unimplemented pauli TP rotation in the selected configuration");
+//            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
+        }
         
 #ifdef GPU
         if(pauli_TPtype_cpy[i1]==PAULI_X and pauli_TPtype_cpy[i2]==PAULI_X){
@@ -487,9 +574,33 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
         func_suqa_pauli_TP_rotation_pauli3(pauli_TPtype_cpy[2],pauli_TPtype_cpy[i1],pauli_TPtype_cpy[i2],suqa::state.data_re, suqa::state.data_im, mask0s, mask1s, mask_q1, mask_q2, mask_q3, cph, sph);
 #endif
     }else{
-        throw std::runtime_error(("ERROR: unimplemented pauli tensor product rotation with "+std::to_string(q_apply.size())+" qubits").c_str());
+        throw std::runtime_error("ERROR: unimplemented pauli TP rotation in the selected configuration");
+//            return general_pauli_TP_rotation(q_apply,pauli_TPtype,phase);
     }
+#ifdef GATECOUNT
+    const uint n=suqa::gatecounters.gc_mask_set_qbits;
+    const uint qtar = q_apply.size();
+    GateRecord gr0(GateCounter::n_ctrl_toffoli_gates(n));
+    GateRecord gr1(GateCounter::n_ctrl_toffoli_gates(n+1));
+    suqa::gatecounters.increment_g1g2(gr0.ng1,gr0.ng2);
+    suqa::gatecounters.increment_g1g2(2*(qtar-1)*gr1.ng1,2*(qtar-1)*gr1.ng2);
+    for(uint i1=0; i1<qtar;++i1){
+        if(pauli_TPtype[i1]!=PAULI_Z){
+            suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2);
+        }
+    }
+//    uint count_non_zeta=0;
+//    for(uint i1=0; i1<qtar;++i1){
+//        if(pauli_TPtype[i1]!=3)
+//            count_non_zeta++;
+//    }
+//    if(count_non_zeta>0){
+//        suqa::gatecounters.increment_g1g2(2*gr0.ng1,2*gr0.ng2); // because you can merge controls
+//        suqa::gatecounters.increment_g1g2(0,2*(count_non_zeta-1));
+//    }
+#endif // GATECOUNT
 }
+
 
 /* End of Pauli Tensor Product rotations */
 
@@ -527,15 +638,13 @@ void suqa::measure_qbit(uint q, uint& c, double rdoub){
     suqa::vnormalize();
 }
 
-////TODO: can be optimized for multiple qbits measures?
+////TODO: can be optimized for multiple simultaneous qbits measures?
 void suqa::measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<double>& rdoubs){
     for(uint k = 0U; k < qs.size(); ++k)
         suqa::measure_qbit(qs[k], cs[k], rdoubs[k]);
 }
 
 
-//
-//
 void suqa::prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob){
     prob = 0.0;
     uint mask_qs = 0U;
@@ -571,7 +680,7 @@ void suqa::apply_reset(uint q, double rdoub){
     }
 }  
 
-// fake reset
+// cheating reset (valid only if you know that the register is in 1)
 //void suqa::apply_reset(ComplexVec& state, uint q, double rdoub){
 //    for(uint i = 0U; i < state.size(); ++i){
 //        if((i >> q) & 1U){ // checks q-th digit in i
@@ -651,9 +760,6 @@ void suqa::setup(uint num_qubits){
 
     cudaHostAlloc((void**)&host_partial_ret,suqa::blocks*sizeof(double),cudaHostAllocDefault);
     cudaMalloc((void**)&dev_partial_ret, suqa::blocks*sizeof(double));  
-// the following are allocated only for library versions of reduce
-//    cudaHostAlloc((void**)&ret_re_im,2*sizeof(double),cudaHostAllocDefault);
-//    cudaMalloc((void**)&d_ret_re_im,2*sizeof(double));
 
     cudaDeviceProp prop;
     int whichDevice;
@@ -681,8 +787,6 @@ void suqa::setup(uint num_qubits){
 }
 
 void suqa::clear(){
-//    cudaFree(d_ret_re_im);
-//    cudaFreeHost(ret_re_im);
 #ifdef GPU
     cudaFree(dev_partial_ret); 
     cudaFreeHost(host_partial_ret);
@@ -698,10 +802,8 @@ void suqa::clear(){
     }
 #endif
     deallocate_state();
+
+#ifdef GATECOUNT
+    suqa::gatecounters.print_counts();
+#endif
 }
-
-//int main(){
-//    std::cout<<"Suqa unit testing to be implemented"<<std::endl;
-//    return 0;
-//}
-

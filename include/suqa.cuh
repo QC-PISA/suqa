@@ -4,8 +4,10 @@
 #include <vector>
 #include <algorithm>
 #include <stdexcept>
+#include <bitset>
 #include "io.hpp"
 #include "complex_defines.cuh"
+#include "gatecounters.hpp"
 
 #ifdef GPU
 #ifndef __CUDACC__  
@@ -17,48 +19,9 @@
 #endif
 
 
-//#ifdef CUDA
-
-
-//TODO: erase the n in ifndef
-#ifdef GATECOUNT
-struct GateCounter{
-    std::vector<size_t> g1(1,0);  // 1 qubit gate 
-    std::vector<size_t> g2(1,0);  // 2 qubit gate
-
-    void set_g1g2(size_t ng1, ng2){
-        //TODO: implement
-    }
-    void set_g1g2(size_t ng1, ng2){
-        //TODO: implement  
-    }
-
-    // assuming independent samplings
-    void get_meanstd(double& mean, double &err, const std::vector<size_t>& gi){
-        mean = 0.0;
-        err = 0.0;
-        for(const auto& el : gi){
-            mean +=el;
-            err +=el*el;
-        }
-        mean /= (double)gi.size();
-        err = sqrt((err/(double)gi.size() - mean*mean)/(gi.size()-1.0));
-    }
-
-    void get_meanstd_g1(double& mean, double &err){
-       get_meanstd(mean,err,g1); 
-    }
-    void get_meanstd_g2(double& mean, double &err){
-       get_meanstd(mean,err,g2); 
-    }
-};
-#endif
-
-
 
 
 #ifndef NDEBUG
-
 #ifdef GPU
 extern double *host_state_re, *host_state_im;
 #define DEBUG_READ_STATE() {\
@@ -118,8 +81,12 @@ extern cudaStream_t stream1, stream2;
 // using it as condition (the user should make sure
 // to use it only for operations not involving it)
 extern uint gc_mask;
-
 extern uint nq;
+
+#ifdef GATECOUNT
+extern GateCounterList gatecounters;
+#endif
+
 
 void print_banner();
 
@@ -148,13 +115,11 @@ void apply_y(const bmReg& qs);
 void apply_z(uint q);
 void apply_z(const bmReg& qs);
 
-#ifdef GPU
-void apply_sigma_plus(uint q);
-void apply_sigma_plus(const bmReg& qs);
-
-void apply_sigma_minus(uint q);
-void apply_sigma_minus(const bmReg& qs);
-#endif
+//void apply_sigma_plus(uint q);
+//void apply_sigma_plus(const bmReg& qs);
+//
+//void apply_sigma_minus(uint q);
+//void apply_sigma_minus(const bmReg& qs);
 
 void apply_h(uint q);
 void apply_h(const bmReg& qs);
@@ -199,10 +164,11 @@ void measure_qbits(const bmReg& qs, std::vector<uint>& cs,const std::vector<doub
 void apply_reset(uint q, double rdoub);
 void apply_reset(const bmReg& qs, std::vector<double> rdoubs);
 
+void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
+
 void setup(uint nq);
 void clear();
 
-void prob_filter(const bmReg& qs, const std::vector<uint>& q_mask, double &prob);
-
 };
+
 

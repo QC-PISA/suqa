@@ -33,6 +33,14 @@ void init_state();
 
 arg_list args;
 
+#ifdef GATECOUNT
+GateCounter gctr_global("global");
+GateCounter gctr_metrostep("metro step");
+GateCounter gctr_sample("sample");
+GateCounter gctr_measure("measure");
+GateCounter gctr_reverse("reverse");
+#endif
+
 void save_measures(string outfilename){
     FILE * fil = fopen(outfilename.c_str(), "a");
     for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
@@ -44,7 +52,7 @@ void save_measures(string outfilename){
 }
 
 int main(int argc, char** argv){
-    if(argc < 8){
+    if(argc < 7){
         printf("usage: %s <beta> <metro steps> <reset each> <num syst qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
         exit(1);
     }
@@ -88,6 +96,17 @@ int main(int argc, char** argv){
     suqa::setup(qms::nqubits);
     qms::setup(beta);
 
+#ifdef GATECOUNT
+    suqa::gatecounters.add_counter(&gctr_global);
+    suqa::gatecounters.add_counter(&gctr_metrostep);
+    suqa::gatecounters.add_counter(&gctr_sample);
+    suqa::gatecounters.add_counter(&gctr_measure);
+    suqa::gatecounters.add_counter(&gctr_reverse);
+
+    gctr_global.new_record();
+    gctr_sample.new_record();
+#endif
+
 
     // Initialization:
     // known eigenstate of the system (see src/system.cu)
@@ -97,12 +116,6 @@ int main(int argc, char** argv){
     init_state();
     DEBUG_CALL(cout<<"Initial state: "<<endl);
     DEBUG_READ_STATE();
-
-#ifdef GATECOUNT
-    GateCounter all_gatectr; // global gate counter
-    GateCounter metrostep_gatectr;
-    GateCounter retherm_gatectr;
-#endif
 
 
     //TODO: make it an args option?
@@ -117,6 +130,7 @@ int main(int argc, char** argv){
 
     bool take_measure;
     uint s0 = 0U;
+    //TODO: change metro_steps into actual measures sampled?
     for(uint s = 0U; s < qms::metro_steps; ++s){
         DEBUG_CALL(cout<<"metro step: "<<s<<endl);
         take_measure = (s>s0+(uint)thermalization and (s-s0)%qms::reset_each ==0U);

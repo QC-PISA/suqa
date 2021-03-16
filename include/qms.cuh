@@ -17,6 +17,16 @@ void apply_C_inverse(const uint &Ci);
 std::vector<double> get_C_weigthsums();
 // end defs
 
+
+#ifdef GATECOUNT
+extern GateCounter gctr_global;
+extern GateCounter gctr_metrostep;
+extern GateCounter gctr_sample;
+extern GateCounter gctr_measure;
+extern GateCounter gctr_reverse;
+#endif
+
+
 namespace qms{
 
 uint syst_qbits;
@@ -347,6 +357,13 @@ void apply_W(){
 #else
     qms::func_qms_apply_W(bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
 #endif
+
+#ifdef GATECOUNT
+    // assume gc_mask unactive (why should it be?)
+    GateRecord gr(GateCounter::n_ctrl_toffoli_gates(2*ene_qbits));
+    const uint nToff=((ene_levels*(ene_levels-1))/2);
+    suqa::gatecounters.increment_g1g2(nToff*gr.ng1,nToff*gr.ng2);
+#endif
 }
 
 void apply_W_inverse(){
@@ -391,6 +408,10 @@ std::vector<double> extract_rands(uint n){
 
 
 int metro_step(bool take_measure){
+#ifdef GATECOUNT
+        gctr_metrostep.new_record();
+#endif
+
 
     // return values:
     // 1 -> step accepted, not measured
@@ -433,6 +454,9 @@ int metro_step(bool take_measure){
         DEBUG_READ_STATE()
         apply_Phi_inverse();
         if(take_measure){
+#ifdef GATECOUNT
+            gctr_measure.new_record();
+#endif
             Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels); // -1 + 3/(3/4)= -1 + 4
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
@@ -452,6 +476,10 @@ int metro_step(bool take_measure){
             DEBUG_READ_STATE();
             apply_Phi_inverse();
 
+#ifdef GATECOUNT
+            gctr_measure.deactivate();
+            gctr_sample.new_record();
+#endif
             ret = 2; // step accepted, measured
         }else{
             ret = 1; // step accepted, not measured
@@ -466,6 +494,9 @@ int metro_step(bool take_measure){
     DEBUG_CALL(std::cout<<"\n\nBefore reverse attempts"<<std::endl);
     DEBUG_READ_STATE();
     uint iters = 0;
+#ifdef GATECOUNT
+        gctr_reverse.new_record();
+#endif
     while(iters < max_reverse_attempts){
         apply_Phi();
         uint Eold_meas, Enew_meas;
@@ -516,6 +547,9 @@ int metro_step(bool take_measure){
 
         iters++;
     }
+#ifdef GATECOUNT
+        gctr_reverse.deactivate();
+#endif
 
     if(record_reverse){
         reverse_counters.push_back(iters);

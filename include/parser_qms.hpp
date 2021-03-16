@@ -8,7 +8,6 @@ using namespace std;
 
 struct arg_list{
     double beta = 0.0;
-    double g_beta = 0.0;
     int metro_steps = 0;
     int reset_each = 0;
     int syst_qbits = 0;
@@ -27,7 +26,6 @@ struct arg_list{
 
 ostream& operator<<(ostream& o, const arg_list& al){
     o<<"beta: "<<al.beta<<endl;
-    o<<"g_beta: "<<al.g_beta<<endl;
     o<<"metro steps: "<<al.metro_steps<<endl;
     o<<"reset each: "<<al.reset_each<<endl;
     o<<"num syst qbits "<<al.syst_qbits<<endl;
@@ -44,7 +42,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
 }
 
 void parse_arguments(arg_list& args, int argc, char** argv){
-    int fixed_args = 7;
+    int fixed_args = 6;
     map<string,int> argmap;
     map<int,string> argmap_inv;
     char *end;
@@ -52,12 +50,11 @@ void parse_arguments(arg_list& args, int argc, char** argv){
 
     // fixed arguments
     args.beta = stod(argv[1],NULL);
-    args.g_beta = stod(argv[2],NULL);
-    args.metro_steps = atoi(argv[3]);
-    args.reset_each = atoi(argv[4]);
-    args.syst_qbits = atoi(argv[5]);
-    args.ene_qbits = atoi(argv[6]);
-    args.outfile = argv[7];
+    args.metro_steps = atoi(argv[2]);
+    args.reset_each = atoi(argv[3]);
+    args.syst_qbits = atoi(argv[4]);
+    args.ene_qbits = atoi(argv[5]);
+    args.outfile = argv[6];
 
     // floating arguments
     for(int i = fixed_args+1; i < argc; ++i){
@@ -136,10 +133,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     // argument checking
     if(args.beta <= 0.0){
         throw "ERROR: argument <beta> invalid";
-    }
-
-    if(args.g_beta <= 0.0){
-        throw "ERROR: argument <g_beta> invalid";
     }
 
     if(args.metro_steps <= 0){

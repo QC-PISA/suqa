@@ -21,19 +21,6 @@
 
 using namespace std;
 
-void print_banner(){
-	printf("\n"
-	"                                          \n"
-	"    ███████╗██╗   ██╗ ██████╗  █████╗     \n"
-	"    ██╔════╝██║   ██║██╔═══██╗██╔══██╗    \n"
-	"    ███████╗██║   ██║██║   ██║███████║    \n"
-	"    ╚════██║██║   ██║██║▄▄ ██║██╔══██║    \n"
-	"    ███████║╚██████╔╝╚██████╔╝██║  ██║    \n"
-	"    ╚══════╝ ╚═════╝  ╚══▀▀═╝ ╚═╝  ╚═╝    \n"
-	"                                          \n"
-	"\nSimulator for Universal Quantum Algorithms\n\n");
-}
-
 // simulation parameters
 double beta;
 
@@ -43,7 +30,16 @@ void evolution_measure(const double& t, const int& n);
 void evolution_szegedy(const double& t, const int& n);
 void evolution_tracing(const double& t, const int& n);
 
+
 arg_list args;
+
+#ifdef GATECOUNT
+GateCounter gctr_global("global");
+GateCounter gctr_annstep("ann. step");
+GateCounter gctr_annealing("annealing");
+GateCounter gctr_sample("sample");
+GateCounter gctr_measure("measure");
+#endif
 
 void save_measures(string outfilename, int rej){
 	FILE * fil = fopen(outfilename.c_str(), "a");
@@ -85,7 +81,7 @@ void apply_phase_estimation_tracing(const std::vector<uint>& q_state, const std:
 int main(int argc, char** argv){
 
 	if(argc < 6){
-		printf("usage: %s <beta> <sampling> <num state qbits> <num ene qbits> <num szegedy qbits> <output file path>  [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)]  [--szegedy-iterations (100)]\n", argv[0]);
+		printf("usage: %s <beta> <sampling> <num state qbits> <num ene qbits> <num szegedy qbits> <output file path>  [--seed <seed> (random)] [--annealing_sequences (100)]\n", argv[0]);
 		exit(1);
 	}
 
@@ -123,8 +119,7 @@ int main(int argc, char** argv){
 	qsa::t_phase_estimation_szegedy = qsa::t_PE_factor_szegedy*8.*atan(1.0);
 
 
-	// Banner
-	print_banner();
+    suqa::print_banner();
 	cout<<"arguments:\n"<<args<<endl;
 	auto t_start = std::chrono::high_resolution_clock::now();
 	// Initialization of utilities
@@ -134,6 +129,16 @@ int main(int argc, char** argv){
 	qsa::setup();
     DEBUG_CALL(cout<<"Init state: "<<endl);
     DEBUG_READ_STATE();
+
+#ifdef GATECOUNT
+    suqa::gatecounters.add_counter(&gctr_global);
+    suqa::gatecounters.add_counter(&gctr_annstep);
+    suqa::gatecounters.add_counter(&gctr_annealing);
+    suqa::gatecounters.add_counter(&gctr_sample);
+    suqa::gatecounters.add_counter(&gctr_measure);
+
+    gctr_global.new_record();
+#endif
 
 	// Initialization:
 	// known eigenstate of the system (see src/system.cu)
@@ -154,7 +159,11 @@ int main(int argc, char** argv){
 	double mean=0.0,std=0.0;
 	//annealing_sequences=(int)(1000*qsa::beta/3.5);
 	double beta_i=qsa::beta/((double)annealing_sequences);
-	for( uint iiii=0; iiii< sampling; ++iiii){
+	for( uint iiii=0; iiii< sampling; ){
+#ifdef GATECOUNT
+        gctr_sample.new_record();
+        gctr_annealing.new_record();
+#endif
 		double Ene_measure;
 		uint c_ac=0U;
 		std::vector<uint> c_Ene_test(qsa::szegedy_qbits,0);
@@ -173,31 +182,40 @@ int main(int argc, char** argv){
 
 
 			for( uint s=0U; s< annealing_sequences; s++){
-            DEBUG_CALL(cout<<"After annealing: "<<s<<endl);
-move= qsa::draw_C();
+#ifdef GATECOUNT
+                gctr_annstep.new_record();
+#endif
+                DEBUG_CALL(cout<<"After annealing: "<<s<<endl);
+                move= qsa::draw_C();
 				qsa::apply_PE_szegedy(qsa::bm_states, qsa::bm_szegedy,(double)(s+1)*beta_i,move);
-        DEBUG_CALL(cout<<"After PE szegedy: "<<endl);
-        DEBUG_READ_STATE();
+                DEBUG_CALL(cout<<"After PE szegedy: "<<endl);
+                DEBUG_READ_STATE();
 
 				suqa::measure_qbits(qsa::bm_szegedy, c_Ene_test, qsa::extract_rands(qsa::szegedy_qbits));
-        DEBUG_CALL(cout<<"After measure: "<<endl);
-        DEBUG_READ_STATE();
+                DEBUG_CALL(cout<<"After measure: "<<endl);
+                DEBUG_READ_STATE();
+
+#ifdef GATECOUNT
+        gctr_annstep.deactivate();
+#endif
 
 				if(qsa::creg_to_uint(c_Ene_test)!=0U  ) {
 					control2=1;
 					rejection1++;
 					printf("break after %d steps   eigenvalue:%d   \n",s, qsa::creg_to_uint(c_Ene_test));
 
-				break;
+                    break;
 				}
-
 			}
-
 
 			if (control2==0) control=1;
 		}
         DEBUG_CALL(cout<<"CETS: "<<endl);
         DEBUG_READ_STATE();
+
+#ifdef GATECOUNT
+        gctr_annealing.deactivate();
+#endif
 
 //FINDING W EIGENVALUE
 /*
@@ -217,6 +235,9 @@ save_measures(outfilename,0);
 		if(c_ac==0U){
 //apply_phase_estimation_tracing(qsa::bm_states,qsa::bm_enes,  qsa::t_phase_estimation, qsa::n_phase_estimation);
 //	suqa::measure_qbits(qsa::bm_enes, c_meas, qsa::extract_rands(qsa::ene_qbits));
+#ifdef GATECOUNT
+            gctr_measure.new_record();
+#endif
 
 			qsa::apply_phase_estimation_measure(qsa::bm_states,qsa::bm_szegedy, qsa::t_phase_estimation_szegedy, qsa::n_phase_estimation);
             DEBUG_CALL(cout<<"after apply_phase_estimation_measure()"<<endl);
@@ -240,9 +261,13 @@ save_measures(outfilename,0);
 
             cout<<"iteration: "<<iiii+1<<"/"<<sampling<<endl;
             save_measures(outfilename,rejection1);
+
+#ifdef GATECOUNT
+            gctr_measure.deactivate();
+#endif
+            ++iiii;
         }
         else rejection++;
-
 	}
 	printf("n of rejection step cause by acceptance qubit= %d\n", rejection);
 	printf("n of rejection step cause by energy qubits= %d\n", rejection1);
