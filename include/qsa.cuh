@@ -67,21 +67,33 @@ void activate_gc_mask_szegedy(const bmReg& q_controls){
         qsa::gc_mask_szegedy |= 1U << q;
     }
 	suqa::gc_mask=qsa::gc_mask_szegedy;
+#ifdef GATECOUNT
+    suqa::gatecounters.update_cmask_setbits(suqa::gc_mask);
+#endif
 }
 
 void deactivate_gc_mask_szegedy(){
     qsa::gc_mask_szegedy=0U;
     suqa::gc_mask=0U;
+#ifdef GATECOUNT
+    suqa::gatecounters.update_cmask_setbits(suqa::gc_mask);
+#endif
 }
 
 void activate_gc_mask_into_szegedy(const bmReg& q_controls){
    //suqa::gc_mask=suqa::gc_mask_szegedy;
     for(const auto& q : q_controls)
         suqa::gc_mask |= 1U << q;
+#ifdef GATECOUNT
+    suqa::gatecounters.update_cmask_setbits(suqa::gc_mask);
+#endif
 }
 
 void deactivate_gc_mask_into_szegedy(){
     suqa::gc_mask=qsa::gc_mask_szegedy;
+#ifdef GATECOUNT
+    suqa::gatecounters.update_cmask_setbits(suqa::gc_mask);
+#endif
 }
 
 // bitmap
