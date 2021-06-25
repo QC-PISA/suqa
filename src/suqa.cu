@@ -705,9 +705,9 @@ void suqa::deallocate_state(){
 #ifdef GPU
         HANDLE_CUDACALL(cudaFree(state.data));
 #else
-        delete[] state.data;
-        state.data = nullptr;
+        delete [] state.data;
 #endif
+        state.data = nullptr;
     }
     state.vecsize=0U;
 }
