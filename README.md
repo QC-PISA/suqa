@@ -28,7 +28,7 @@ Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/10
 │   ├── pcg32.h
 │   ├── suqa.cuh            (prototypes of the suqa library)
 │   ├── qms.cuh             (core of the qms algorithm)  
-│   ├── qsa.cu              (core of the qsa algorithm)
+│   ├── qsa.cuh             (core of the qsa algorithm)
 │   ├── Rand.hpp
 │   ├── suqa\_cpu.hpp       (suqa cpu core functions)
 │   ├── suqa\_kernels.cuh   (suqa gpu core functions)
@@ -37,6 +37,7 @@ Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/10
 │   ├── io.cpp              (input/output facilities)
 │   ├── qms.cu              (runs the qms algorithm)
 │   ├── qsa.cu              (runs the qsa algorithm)
+│   ├── qoxo.cu             (runs the qoxo game)
 │   ├── Rand.cpp            (pseudorandom number generators)
 │   ├── suqa.cu             (core engine)
 │   ├── system.cu           (system-specific structures and functions)
