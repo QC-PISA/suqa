@@ -16,6 +16,124 @@
 #include "suqa.cuh"
 //#include "system.cuh"
 #include "Rand.hpp"
+#include <sys/ioctl.h> //ioctl() and TIOCGWINSZ
+#include <unistd.h> // for STDOUT_FILENO
+
+#define ARED     "\x1b[31m"
+#define AGREEN   "\x1b[32m"
+#define AYELLOW  "\x1b[33m"
+#define ABLUE    "\x1b[34m"
+#define AMAGENTA "\x1b[35m"
+#define ACYAN    "\x1b[36m"
+#define ARESET   "\x1b[0m"
+
+const char qoxocharmap[3] = {' ','O','X'};
+
+#ifdef SPARSE
+void qoxo_print(double *v_re, double *v_im, std::vector<uint> actives){
+#else
+void qoxo_print(double *v_re, double *v_im, uint vecsize){
+#endif
+
+
+    struct winsize wsize;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &wsize);
+
+    /* size.ws_row is the number of rows, size.ws_col is the number of columns. */
+
+
+    // for non-contiguous even-odd entries corresponding to real and imag parts
+    using  uintdoub = std::pair<uint,double>;
+    std::vector<uintdoub> state_norm;
+#ifdef SPARSE
+    for(const uint& i : actives){
+#else
+    for(uint i=0; i<vecsize; ++i){
+#endif
+       std::complex<double> var(v_re[i],v_im[i]);
+       if(norm(var)>1e-8){
+           state_norm.push_back(std::make_pair(i,norm(var)));
+       }
+    }
+    std::sort(state_norm.begin(),state_norm.end(),[](const uintdoub &a, const uintdoub &b){return a.second > b.second;});
+
+    std::vector<std::vector<char>> gms(state_norm.size(),std::vector<char>(9));    
+    for(size_t idx = 0; idx< state_norm.size(); ++idx){
+        auto uid = state_norm[idx];
+        uint game_stidx = uid.first;
+        for(uint i=0U; i<9U; ++i){
+            gms[idx][i] = qoxocharmap[(game_stidx & 3U)]; // 0 -> empty, 1-> first pl, 2-> second pl, 3-> inactive
+            game_stidx>>=2U;
+        }
+    }
+
+    printf("\n");
+    size_t max_ngxrow = wsize.ws_col/12;
+    size_t max_ngxcol = (state_norm.size()+max_ngxrow-1)/max_ngxrow;
+    for(size_t Row = 0; Row<max_ngxcol;++Row){
+        size_t ngxrow = (Row==max_ngxcol-1)?(state_norm.size()%max_ngxrow):max_ngxrow;
+
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("------------");
+        printf("\n");
+
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|   %c|%c|%c  |",gms[idx][0],gms[idx][1],gms[idx][2]);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("|   _____  |");
+        printf("\n");
+
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|   %c|%c|%c  |",gms[idx][3],gms[idx][4],gms[idx][5]);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("|   _____  |");
+        printf("\n");
+
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|   %c|%c|%c  |",gms[idx][6],gms[idx][7],gms[idx][8]);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col){
+            size_t idx = Row*max_ngxrow+Col;
+            printf("|  " ACYAN "%5.1f%%" ARESET "  |",state_norm[idx].second*100);
+        }
+        printf("\n");
+        for(size_t Col=0; Col<ngxrow; ++Col) printf("------------");
+        printf("\n");
+        
+    }
+    std::cout<<std::endl;
+}
+
+#ifdef GPU
+#if !defined(NDEBUG) 
+extern double *host_state_re, *host_state_im;
+#define DEBUG_READ_STATE_QOXO() {\
+    cudaMemcpyAsync(host_state_re,state.data_re,suqa::state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream1); \
+    cudaMemcpyAsync(host_state_im,state.data_im,suqa::state.size()*sizeof(double),cudaMemcpyDeviceToHost,suqa::stream2); \
+    cudaDeviceSynchronize(); \
+    qoxo_print((double*)host_state_re,(double*)host_state_im, suqa::state.size()); \
+} 
+#else  // NDEBUG
+#define DEBUG_READ_STATE_QOXO()
+#endif
+
+#else // CPU
+#ifdef SPARSE
+#define DEBUG_READ_STATE_QOXO() {\
+    qoxo_print((double*)suqa::state.data_re,(double*)suqa::state.data_im,suqa::actives); \
+}
+//    printf("vnorm = %.12lg\n",suqa::vnorm());
+#else // NON SPARSE
+#define DEBUG_READ_STATE_QOXO() {\
+    qoxo_print((double*)suqa::state.data_re,(double*)suqa::state.data_im, suqa::state.size()); \
+}
+#endif // end SPARSE
+#endif // end GPU
 
 
 using namespace std;
@@ -181,7 +299,7 @@ bool double_turn(int pl) {
     bool win = check_win(pl);
 
     if(!win){
-        DEBUG_READ_STATE();
+        DEBUG_READ_STATE_QOXO();
     }
 
     return win;
@@ -196,7 +314,7 @@ bool double_turn(int pl) {
 
 void game() {
 //    suqa::init_state();
-	DEBUG_READ_STATE();
+	DEBUG_READ_STATE_QOXO();
 
 
     bool win = false;
