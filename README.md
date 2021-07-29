@@ -1,5 +1,5 @@
 # Simulator for Universal Quantum Algorithms (SUQA)
-version 1.8 (03/2021)
+version 1.8 (07/2021)
 
 General purpose runtime library for implementing runtime quantum algorithms and hybrids quantum-classical algorithms.
 
@@ -86,11 +86,6 @@ to build one of them, right-click on the project name on 'Solution Explorer', an
 then select the mode of compilation 'Release' or 'Debug' on the upper bar, and right-click again on the project name selecting 'Build'.  
 The executable will be created in the folder 'vs/x64/Release' or 'vs/x64/Debug' depending on the compilation mode.  
 To run it, e.g., you can click on 'Tools/Command Line/Developer PowerShell' on the upper bar to open a shell.  
-
-## In progress
-* Find a more elegant way to manage many different systems in the same branch;
-* Implement gate counters.
-
 
 ## Collaborators (in chronological order)
 Giuseppe Clemente (giuseppe.clemente93@gmail.com)  
