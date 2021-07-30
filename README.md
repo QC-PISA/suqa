@@ -37,7 +37,7 @@ Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/10
 │   ├── io.cpp              (input/output facilities)
 │   ├── qms.cu              (runs the qms algorithm)
 │   ├── qsa.cu              (runs the qsa algorithm)
-│   ├── qoxo.cu             (runs the qoxo game)
+│   ├── qxq.cu              (runs the qxq game)
 │   ├── Rand.cpp            (pseudorandom number generators)
 │   ├── suqa.cu             (core engine)
 │   ├── system.cu           (system-specific structures and functions)

@@ -28,7 +28,7 @@ help:
 	@echo "\ttest_evolution\t\t- compile executable for the evolution operator written of the 'system'"
 	@echo "\tqms\t\t\t- compile executable for the quantum metropolis sampling applied to 'system'"
 	@echo "\tqsa\t\t\t- compile executable for the quantum-quantum sampling algorithm applied to 'system'"
-	@echo "\tqoxo\t\t\t- compile executable for a quantum version of the OXO game (a.k.a. tic-tac-toe)"
+	@echo "\tqxq\t\t\t- compile executable for a quantum version of the OXO game (a.k.a. tic-tac-toe)"
 	@echo "\tclean\t\t\t- clean executables and objects"
 
 setvars:
@@ -86,9 +86,9 @@ qms: $(OBJDIR)/qms.cu.o $(SUQAOBJS) setvars
 qsa: $(OBJDIR)/qsa.cu.o $(SUQAOBJS) setvars
 	$(NVCC) $< $(SUQAOBJS) -o $@
 
-qoxo: $(OBJDIR)/qoxo.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o 
+qxq: $(OBJDIR)/qxq.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o 
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 clean:
-	rm -rf test_suqa test_evolution qms qsa qoxo obj
+	rm -rf test_suqa test_evolution qms qsa qxq obj
 
