@@ -81,13 +81,13 @@ test_evolution: $(OBJDIR)/test_evolution.cu.o $(SUQAOBJS) setvars
 	$(COMPILE) $< $(SUQAOBJS) -o $@
 
 qms: $(OBJDIR)/qms.cu.o $(SUQAOBJS) setvars
-	$(NVCC) $< $(SUQAOBJS) -o $@
+	$(COMPILE) $< $(SUQAOBJS) -o $@
 
 qsa: $(OBJDIR)/qsa.cu.o $(SUQAOBJS) setvars
-	$(NVCC) $< $(SUQAOBJS) -o $@
+	$(COMPILE) $< $(SUQAOBJS) -o $@
 
 qxq: $(OBJDIR)/qxq.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o 
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(COMPILE) $^ -o $@
 
 clean:
 	rm -rf test_suqa test_evolution qms qsa qxq obj
