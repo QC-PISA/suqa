@@ -14,7 +14,9 @@
 //const bmReg bm_qaux   =  {9, 10, 11};
 //const bmReg bm_qlink1 =  {12, 13, 14};
 
-const bmReg bm_spin={0,1,2};
+const int syst_qbits = 3;      // number of system's qubit 
+
+const bmReg bm_spin={0,1,2};    
 //extern double g_beta;
 
 

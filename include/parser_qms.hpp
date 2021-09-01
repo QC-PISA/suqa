@@ -10,7 +10,6 @@ struct arg_list{
     double beta = 0.0;
     int metro_steps = 0;
     int reset_each = 0;
-    int syst_qbits = 0;
     int ene_qbits = 0;
     string outfile = "";
     int max_reverse_attempts = 100;
@@ -28,7 +27,6 @@ ostream& operator<<(ostream& o, const arg_list& al){
     o<<"beta: "<<al.beta<<endl;
     o<<"metro steps: "<<al.metro_steps<<endl;
     o<<"reset each: "<<al.reset_each<<endl;
-    o<<"num syst qbits "<<al.syst_qbits<<endl;
     o<<"num E qbits "<<al.ene_qbits<<endl;
     o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
     o<<"seed: "<<al.seed<<endl;
@@ -42,7 +40,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
 }
 
 void parse_arguments(arg_list& args, int argc, char** argv){
-    int fixed_args = 6;
+    int fixed_args = 5;
     map<string,int> argmap;
     map<int,string> argmap_inv;
     char *end;
@@ -52,9 +50,8 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     args.beta = stod(argv[1],NULL);
     args.metro_steps = atoi(argv[2]);
     args.reset_each = atoi(argv[3]);
-    args.syst_qbits = atoi(argv[4]);
-    args.ene_qbits = atoi(argv[5]);
-    args.outfile = argv[6];
+    args.ene_qbits = atoi(argv[4]);
+    args.outfile = argv[5];
 
     // floating arguments
     for(int i = fixed_args+1; i < argc; ++i){
@@ -143,10 +140,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <reset each> non positive";
     }
     
-    if(args.syst_qbits <=0){
-        throw "ERROR: argument <num syst qbits> non positive";
-    }
-
     if(args.ene_qbits <=0){
         throw "ERROR: argument <num ene qbits> non positive";
     }

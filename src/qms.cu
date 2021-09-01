@@ -26,7 +26,7 @@ using namespace std;
 
 
 // simulation parameters
-double beta;
+double therm_beta;
 double h;
 int thermalization;
 
@@ -54,19 +54,18 @@ void save_measures(string outfilename){
 }
 
 int main(int argc, char** argv){
-    if(argc < 7){
-        printf("usage: %s <beta> <metro steps> <reset each> <num syst qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
+    if(argc < 6){
+        printf("usage: %s <beta> <metro steps> <reset each> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
     parse_arguments(args, argc, argv);
 
-    beta = args.beta;
+    therm_beta = args.beta;
 //    g_beta = args.g_beta; // defined as extern in system.cuh
     thermalization = args.thermalization;
     qms::metro_steps = (uint)args.metro_steps;
     qms::reset_each = (uint)args.reset_each;
-    qms::syst_qbits = (uint)args.syst_qbits;
     qms::ene_qbits = (uint)args.ene_qbits;
     string outfilename(args.outfile);
     qms::max_reverse_attempts = (uint)args.max_reverse_attempts;
@@ -78,6 +77,7 @@ int main(int argc, char** argv){
     
     qms::iseed = qms::rangen.get_seed();
 
+    qms::syst_qbits = (uint)syst_qbits;
     qms::nqubits = qms::syst_qbits + 2*qms::ene_qbits + 1;
     qms::Dim = (1U << qms::nqubits);
     qms::ene_levels = (1U << qms::ene_qbits);
@@ -96,7 +96,7 @@ int main(int argc, char** argv){
 
     // Initialization of utilities
     suqa::setup(qms::nqubits);
-    qms::setup(beta);
+    qms::setup(therm_beta);
 
 #ifdef GATECOUNT
     suqa::gatecounters.add_counter(&gctr_global);

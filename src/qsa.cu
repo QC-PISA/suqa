@@ -81,14 +81,13 @@ void apply_phase_estimation_tracing(const std::vector<uint>& q_state, const std:
 int main(int argc, char** argv){
 
 	if(argc < 6){
-		printf("usage: %s <beta> <sampling> <num state qbits> <num ene qbits> <num szegedy qbits> <output file path>  [--seed <seed> (random)] [--annealing_sequences (100)]\n", argv[0]);
+		printf("usage: %s <beta> <sampling> <num ene qbits> <num szegedy qbits> <output file path>  [--seed <seed> (random)] [--annealing_sequences (100)]\n", argv[0]);
 		exit(1);
 	}
 
 	parse_arguments(args, argc, argv);
 
 	qsa::beta = args.beta;
-	qsa::syst_qbits = (uint)args.syst_qbits;
 	qsa::ene_qbits = (uint)args.ene_qbits;
 	qsa::szegedy_qbits= (uint)args.szegedy_qbits;
 	string outfilename(args.outfile);
@@ -104,6 +103,7 @@ int main(int argc, char** argv){
 
 	qsa::iseed = qsa::rangen.get_seed();
 
+	qsa::syst_qbits = (uint)syst_qbits;
 	qsa::nqubits = qsa::syst_qbits + qsa::ene_qbits + qsa::szegedy_qbits + 1;
 	qsa::Dim = (1U << qsa::nqubits);
 	qsa::ene_levels = (1U << qsa::ene_qbits);

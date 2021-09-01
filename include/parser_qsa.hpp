@@ -8,7 +8,6 @@ using namespace std;
 
 struct arg_list{
     double beta = 0.25;
-    int syst_qbits = 0;
     int ene_qbits = 0;
     int szegedy_qbits=0;
     string outfile = "";
@@ -28,7 +27,6 @@ struct arg_list{
 
 ostream& operator<<(ostream& o, const arg_list& al){
     o<<"beta: "<<al.beta<<endl;
-    o<<"num syst qbits: "<<al.syst_qbits<<endl;
     o<<"num E qbits: "<<al.ene_qbits<<endl;
     o<<"num Szegedy qbits: "<<al.szegedy_qbits<<endl;
     o<<"seed: "<<al.seed<<endl;
@@ -46,7 +44,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
 }
 
 void parse_arguments(arg_list& args, int argc, char** argv){
-    int fixed_args = 6;
+    int fixed_args = 5;
     map<string,int> argmap;
     map<int,string> argmap_inv;
     char *end;
@@ -55,10 +53,9 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     // fixed arguments
     args.beta = stod(argv[1],NULL);
     args.sampling = atoi(argv[2]);
-    args.syst_qbits = atoi(argv[3]);
-    args.ene_qbits = atoi(argv[4]);
-    args.szegedy_qbits= atoi(argv[5]);
-    args.outfile = argv[6];
+    args.ene_qbits = atoi(argv[3]);
+    args.szegedy_qbits= atoi(argv[4]);
+    args.outfile = argv[5];
 
     // floating arguments
     for(int i = fixed_args+1; i < argc; ++i){
@@ -160,12 +157,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     }
 
 
-
-
-    if(args.syst_qbits <=0){
-        throw "ERROR: argument <num syst qbits> non positive";
-    }
-
     if(args.ene_qbits <=0){
         throw "ERROR: argument <num ene qbits> non positive";
     }
@@ -176,7 +167,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
     if(args.outfile == ""){
         throw "ERROR: argument <output file path> empty";
     }
-
 
     if(args.pe_steps <=0){
         throw "ERROR: argument <steps of PE evolution> non positive";

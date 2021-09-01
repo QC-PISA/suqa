@@ -41,7 +41,7 @@ Implementation of the QQSA algorithm from paper: https://www.pnas.org/content/10
 │   ├── Rand.cpp            (pseudorandom number generators)
 │   ├── suqa.cu             (core engine)
 │   ├── system.cu           (system-specific structures and functions)
-│   ├── test\_evolution.cu  (tests the system's evolution operator)
+│   ├── evo.cu  (tests the system's evolution operator)
 │   └── test\_suqa.cu       (tests the suqa functions and structures)
 └── vs      (visual studio solution and project folders)  
     ├── qms  

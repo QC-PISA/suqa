@@ -25,7 +25,7 @@ help:
 	@echo "available rules:"
 	@echo "\thelp\t\t\t- print this text"
 	@echo "\ttest_suqa\t\t- some tests for the suqa gates and structures"
-	@echo "\ttest_evolution\t\t- compile executable for the evolution operator written of the 'system'"
+	@echo "\tevo\t\t\t- compile executable for the evolution operator written of the 'system'"
 	@echo "\tqms\t\t\t- compile executable for the quantum metropolis sampling applied to 'system'"
 	@echo "\tqsa\t\t\t- compile executable for the quantum-quantum sampling algorithm applied to 'system'"
 	@echo "\tqxq\t\t\t- compile executable for a quantum version of the OXO game (a.k.a. tic-tac-toe)"
@@ -77,7 +77,7 @@ endif
 test_suqa: $(OBJDIR)/test_suqa.cu.o $(SUQAOBJS) setvars
 	$(COMPILE) $< $(SUQAOBJS) -o $@
 
-test_evolution: $(OBJDIR)/test_evolution.cu.o $(SUQAOBJS) setvars
+evo: $(OBJDIR)/evo.cu.o $(SUQAOBJS) setvars
 	$(COMPILE) $< $(SUQAOBJS) -o $@
 
 qms: $(OBJDIR)/qms.cu.o $(SUQAOBJS) setvars
@@ -90,5 +90,5 @@ qxq: $(OBJDIR)/qxq.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cp
 	$(COMPILE) $^ -o $@
 
 clean:
-	rm -rf test_suqa test_evolution qms qsa qxq obj
+	rm -rf test_suqa evo qms qsa qxq obj
 
