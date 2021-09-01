@@ -1,40 +1,94 @@
-.PHONY: release debug profile clean 
+.PHONY: help setvars clean 
+
+
+SETVARS = 0
 
 CXX = g++
 NVCC = nvcc
-CXXFLAGS = -Wall -Wextra -std=c++11 -I./include -I.
-NVCCFLAGS = -std=c++11 -I. -I./include -lcudart
+CXXFLAGS = -Wall -Wextra -std=c++11 -I./include -I. -O3
+NVCCFLAGS = -ccbin g++ -std=c++11 -I. -I./include -lcudart -O3
 INCLUDES = $(wildcard include/*)
+
+DEVICE ?= cpu
+MODE ?= release
+ACCESS ?= dense
+GATECOUNT ?= no
 
 SRC = src
 OBJDIR = obj
+COMPILE = $(CXX) $(CXXFLAGS)
+SUQAOBJS = $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
 
-## default rule
-release: NVCCFLAGS += -O3 -DNDEBUG
-release: qms
+help:
+	@echo "usage (the first option for each flag is the default one):"
+	@echo "make <rule> [DEVICE=cpu/gpu] [MODE=release/debug/profile] [ACCESS=dense/sparse] [GATECOUNT=no/yes]\n"
+	@echo "available rules:"
+	@echo "\thelp\t\t\t- print this text"
+	@echo "\ttest_suqa\t\t- some tests for the suqa gates and structures"
+	@echo "\tevo\t\t\t- compile executable for the evolution operator written of the 'system'"
+	@echo "\tqms\t\t\t- compile executable for the quantum metropolis sampling applied to 'system'"
+	@echo "\tqsa\t\t\t- compile executable for the quantum-quantum sampling algorithm applied to 'system'"
+	@echo "\tqxq\t\t\t- compile executable for a quantum version of the OXO game (a.k.a. tic-tac-toe)"
+	@echo "\tclean\t\t\t- clean executables and objects"
 
-debug: NVCCFLAGS += -O3
-debug: qms
+setvars:
+ifeq ($(SETVARS),0)
+# no support for sparse gpu access yet!
+ifeq ($(DEVICE),gpu)
+NVCCFLAGS += -DGPU
+COMPILE = $(NVCC) $(NVCCFLAGS)
+else
+ifeq ($(ACCESS),sparse)
+CXXFLAGS += -DSPARSE
+endif
+endif
+ifeq ($(MODE),release)
+CXXFLAGS += -DNDEBUG
+NVCCFLAGS += -DNDEBUG
+endif
+ifeq ($(MODE),profile)
+CXXFLAGS += -DNDEBUG -g 
+NVCCFLAGS += -DNDEBUG -m64 -G -g
+endif
+ifeq ($(GATECOUNT),yes)
+CXXFLAGS += -DGATECOUNT
+NVCCFLAGS += -DGATECOUNT
+endif
+SETVARS = 1
+endif
 
-profile: NVCCFLAGS += -m64 -O3 -G -g -DNDEBUG
-profile: qms
 
 $(OBJDIR):
 	mkdir -p $@
 
-$(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES) $(OBJDIR)
-	$(CXX) $(CXXFLAGS) -o $@ -c $< 
+$(OBJDIR)/%.cpp.o: $(SRC)/%.cpp $(INCLUDES) $(OBJDIR) setvars
+	$(COMPILE) -o $@ -c $< 
 
-$(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR)
-	$(NVCC) $(NVCCFLAGS) -o $@ -c $< 
-	
-qms: $(OBJDIR)/qms.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o
-	$(NVCC) $^ -o $@
+$(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR) setvars
+# need this temporary file because g++ isn't flexible and changes mode depending on the file suffix
+ifeq ($(DEVICE),gpu)
+	$(COMPILE) -o $@ -c $<
+else
+	cp $< $<_temp.cpp
+	$(COMPILE) -o $@ -c $<_temp.cpp
+	rm $<_temp.cpp
+endif
 
-test_evolution: NVCCFLAGS += -DNDEBUG
-test_evolution: $(OBJDIR)/test_evolution.cu.o $(OBJDIR)/system.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/io.cpp.o
-	$(NVCC) $^ -o $@
+test_suqa: $(OBJDIR)/test_suqa.cu.o $(SUQAOBJS) setvars
+	$(COMPILE) $< $(SUQAOBJS) -o $@
+
+evo: $(OBJDIR)/evo.cu.o $(SUQAOBJS) setvars
+	$(COMPILE) $< $(SUQAOBJS) -o $@
+
+qms: $(OBJDIR)/qms.cu.o $(SUQAOBJS) setvars
+	$(COMPILE) $< $(SUQAOBJS) -o $@
+
+qsa: $(OBJDIR)/qsa.cu.o $(SUQAOBJS) setvars
+	$(COMPILE) $< $(SUQAOBJS) -o $@
+
+qxq: $(OBJDIR)/qxq.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cpp.o 
+	$(COMPILE) $^ -o $@
 
 clean:
-	rm -rf qms test_evolution $(OBJDIR) 
+	rm -rf test_suqa evo qms qsa qxq obj
 

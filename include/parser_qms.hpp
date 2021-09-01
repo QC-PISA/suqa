@@ -8,10 +8,8 @@ using namespace std;
 
 struct arg_list{
     double beta = 0.0;
-    double g_beta = 0.0;
     int metro_steps = 0;
     int reset_each = 0;
-    int state_qbits = 0;
     int ene_qbits = 0;
     string outfile = "";
     int max_reverse_attempts = 100;
@@ -27,10 +25,8 @@ struct arg_list{
 
 ostream& operator<<(ostream& o, const arg_list& al){
     o<<"beta: "<<al.beta<<endl;
-    o<<"g_beta: "<<al.g_beta<<endl;
     o<<"metro steps: "<<al.metro_steps<<endl;
     o<<"reset each: "<<al.reset_each<<endl;
-    o<<"num state qbits "<<al.state_qbits<<endl;
     o<<"num E qbits "<<al.ene_qbits<<endl;
     o<<"max reverse attempts: "<<al.max_reverse_attempts<<endl;
     o<<"seed: "<<al.seed<<endl;
@@ -44,7 +40,7 @@ ostream& operator<<(ostream& o, const arg_list& al){
 }
 
 void parse_arguments(arg_list& args, int argc, char** argv){
-    int fixed_args = 7;
+    int fixed_args = 5;
     map<string,int> argmap;
     map<int,string> argmap_inv;
     char *end;
@@ -52,12 +48,10 @@ void parse_arguments(arg_list& args, int argc, char** argv){
 
     // fixed arguments
     args.beta = stod(argv[1],NULL);
-    args.g_beta = stod(argv[2],NULL);
-    args.metro_steps = atoi(argv[3]);
-    args.reset_each = atoi(argv[4]);
-    args.state_qbits = atoi(argv[5]);
-    args.ene_qbits = atoi(argv[6]);
-    args.outfile = argv[7];
+    args.metro_steps = atoi(argv[2]);
+    args.reset_each = atoi(argv[3]);
+    args.ene_qbits = atoi(argv[4]);
+    args.outfile = argv[5];
 
     // floating arguments
     for(int i = fixed_args+1; i < argc; ++i){
@@ -138,10 +132,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <beta> invalid";
     }
 
-    if(args.g_beta <= 0.0){
-        throw "ERROR: argument <g_beta> invalid";
-    }
-
     if(args.metro_steps <= 0){
         throw "ERROR: argument <metro steps> invalid";
     }
@@ -150,10 +140,6 @@ void parse_arguments(arg_list& args, int argc, char** argv){
         throw "ERROR: argument <reset each> non positive";
     }
     
-    if(args.state_qbits <=0){
-        throw "ERROR: argument <num state qbits> non positive";
-    }
-
     if(args.ene_qbits <=0){
         throw "ERROR: argument <num ene qbits> non positive";
     }

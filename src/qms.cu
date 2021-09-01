@@ -10,11 +10,13 @@
 #include <cassert>
 #include "Rand.hpp"
 #include <chrono>
+#ifdef GPU
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <cuda_device_runtime_api.h>
+#endif
 #include "io.hpp"
-#include "parser.hpp"
+#include "parser_qms.hpp"
 #include "suqa.cuh"
 #include "system.cuh"
 #include "qms.cuh"
@@ -23,24 +25,23 @@ using namespace std;
 
 
 
-
-
-#define NUM_THREADS 128
-#define MAXBLOCKS 65535
-uint suqa::threads;
-uint suqa::blocks;
-cudaStream_t suqa::stream1, suqa::stream2;
-
-
 // simulation parameters
-double beta;
+double therm_beta;
 double h;
 int thermalization;
 
 // defined in src/system.cu
-void init_state(ComplexVec& state, uint Dim);
+void init_state();
 
 arg_list args;
+
+#ifdef GATECOUNT
+GateCounter gctr_global("global");
+GateCounter gctr_metrostep("metro step");
+GateCounter gctr_sample("sample");
+GateCounter gctr_measure("measure");
+GateCounter gctr_reverse("reverse");
+#endif
 
 void save_measures(string outfilename){
     FILE * fil = fopen(outfilename.c_str(), "a");
@@ -52,40 +53,19 @@ void save_measures(string outfilename){
     qms::X_measures.clear();
 }
 
-void deallocate_state(ComplexVec& state){
-    if(state.data!=nullptr){
-        HANDLE_CUDACALL(cudaFree(state.data));
-    }
-    state.vecsize=0U;
-}
-
-void allocate_state(ComplexVec& state, uint Dim){
-    if(state.data!=nullptr or Dim!=state.vecsize)
-        deallocate_state(state);
-
-
-    state.vecsize = Dim; 
-    HANDLE_CUDACALL(cudaMalloc((void**)&(state.data), 2*state.vecsize*sizeof(double)));
-    // allocate both using re as offset, and im as access pointer.
-    state.data_re = state.data;
-    state.data_im = state.data_re + state.vecsize;
-}
-
-
 int main(int argc, char** argv){
-    if(argc < 8){
-        printf("usage: %s <beta> <g_beta> <metro steps> <reset each> <num state qbits> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
+    if(argc < 6){
+        printf("usage: %s <beta> <metro steps> <reset each> <num ene qbits> <output file path> [--max-reverse <max reverse attempts> (20)] [--seed <seed> (random)] [--ene-min <min energy> (0.0)] [--ene-max <max energy> (1.0)] [--PE-steps <steps of PE evolution> (10)] [--thermalization <steps> (100)] [--record-reverse]\n", argv[0]);
         exit(1);
     }
 
     parse_arguments(args, argc, argv);
 
-    beta = args.beta;
-    g_beta = args.g_beta; // defined as extern in system.cuh
+    therm_beta = args.beta;
+//    g_beta = args.g_beta; // defined as extern in system.cuh
     thermalization = args.thermalization;
     qms::metro_steps = (uint)args.metro_steps;
     qms::reset_each = (uint)args.reset_each;
-    qms::state_qbits = (uint)args.state_qbits;
     qms::ene_qbits = (uint)args.ene_qbits;
     string outfilename(args.outfile);
     qms::max_reverse_attempts = (uint)args.max_reverse_attempts;
@@ -97,18 +77,15 @@ int main(int argc, char** argv){
     
     qms::iseed = qms::rangen.get_seed();
 
-    qms::nqubits = qms::state_qbits + 2*qms::ene_qbits + 1;
+    qms::syst_qbits = (uint)syst_qbits;
+    qms::nqubits = qms::syst_qbits + 2*qms::ene_qbits + 1;
     qms::Dim = (1U << qms::nqubits);
     qms::ene_levels = (1U << qms::ene_qbits);
-    qms::state_levels = (1U << qms::state_qbits);
+    qms::syst_levels = (1U << qms::syst_qbits);
 
     qms::t_PE_shift = args.ene_min;
     qms::t_PE_factor = (qms::ene_levels-1)/(double)(qms::ene_levels*(args.ene_max-args.ene_min)); 
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
-
-    suqa::threads = NUM_THREADS;
-    suqa::blocks = (qms::Dim+suqa::threads-1)/suqa::threads;
-    if(suqa::blocks>MAXBLOCKS) suqa::blocks=MAXBLOCKS;
 
     
     // Banner
@@ -118,15 +95,29 @@ int main(int argc, char** argv){
     auto t_start = std::chrono::high_resolution_clock::now();
 
     // Initialization of utilities
-    suqa::setup(qms::Dim);
-    qms::setup(beta);
+    suqa::setup(qms::nqubits);
+    qms::setup(therm_beta);
+
+#ifdef GATECOUNT
+    suqa::gatecounters.add_counter(&gctr_global);
+    suqa::gatecounters.add_counter(&gctr_metrostep);
+    suqa::gatecounters.add_counter(&gctr_sample);
+    suqa::gatecounters.add_counter(&gctr_measure);
+    suqa::gatecounters.add_counter(&gctr_reverse);
+
+    gctr_global.new_record();
+    gctr_sample.new_record();
+#endif
+
 
     // Initialization:
     // known eigenstate of the system (see src/system.cu)
     
-    allocate_state(qms::gState, qms::Dim);
-    init_state(qms::gState,qms::Dim);
-
+    DEBUG_CALL(cout<<"Preinitial state: "<<endl);
+    DEBUG_READ_STATE();
+    init_state();
+    DEBUG_CALL(cout<<"Initial state: "<<endl);
+    DEBUG_READ_STATE();
 
 
     //TODO: make it an args option?
@@ -141,13 +132,14 @@ int main(int argc, char** argv){
 
     bool take_measure;
     uint s0 = 0U;
+    //TODO: change metro_steps into actual measures sampled?
     for(uint s = 0U; s < qms::metro_steps; ++s){
         DEBUG_CALL(cout<<"metro step: "<<s<<endl);
         take_measure = (s>s0+(uint)thermalization and (s-s0)%qms::reset_each ==0U);
         int ret = qms::metro_step(take_measure);
 
         if(ret<0){ // failed rethermalization, reinitialize state
-            init_state(qms::gState, qms::Dim);
+            init_state();
             //ensure new rethermalization
             s0 = s+1; 
         }
@@ -164,7 +156,6 @@ int main(int argc, char** argv){
     printf("\n\tacceptance: %3.2lg%%\n",(count_accepted/static_cast<double>(qms::metro_steps))*100.0);
 
 
-    deallocate_state(qms::gState);
     qms::clear();
     suqa::clear();
 
