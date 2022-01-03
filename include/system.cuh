@@ -8,7 +8,6 @@
 #include "Rand.hpp"
 
 
-
 //const bmReg bm_qlink0 =  {0,  1, 2};
 //const bmReg bm_qlink2 =  {3,  4, 5};
 //const bmReg bm_qlink3 =  {6,  7, 8};
@@ -20,7 +19,9 @@ const bmReg bm_qlink0 =  {0,  1, 2};
 const bmReg bm_qlink1 =  {3,  4, 5};
 const bmReg bm_qlink2 =  {6,  7, 8};
 const bmReg bm_qlink3 =  {9, 10, 11};
-const bmReg bm_qaux   =  {12};
+const bmReg bm_qlinks[4]={bm_qlink0,bm_qlink1,bm_qlink2,bm_qlink3};
+const bmReg bm_qaux   =  {12}; 
+//TODO: remove ancillary qubit using mcu1 in system.cu
 
 extern double g_beta;
 
@@ -28,8 +29,9 @@ void init_state();
 
 void evolution(const double& t, const int& n);
 
-void apply_C(const uint &Ci);
-void apply_C_inverse(const uint &Ci);
+#define DEFAULT_THETA (1./sqrt(2))
+void apply_C(const uint &Ci, double rot_angle=DEFAULT_THETA);
+void apply_C_inverse(const uint &Ci, double rot_angle=-DEFAULT_THETA);
 
 std::vector<double> get_C_weigthsums();
 

@@ -38,6 +38,8 @@ void inversion(const bmReg& q){
 }
 
 void left_multiplication(const bmReg& qr1, const bmReg& qr2){
+    // applies group element from register qr1 to register qr2
+    // |...,U_{qr1},...,U_{qr2},...> -> |...,U_{qr1},...,U_{qr1}U_{qr2},...>
     suqa::apply_cx(qr1[1], qr2[1]);
     suqa::apply_mcx({qr1[0], qr2[0]}, qr2[1]);
     suqa::apply_cx(qr1[0], qr2[0]);
@@ -46,6 +48,12 @@ void left_multiplication(const bmReg& qr1, const bmReg& qr2){
 }
 
 void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
+    // applies the following operation in the computational basis
+    // |...,U_{qr0}...,U_{qr1}...,U_{qr2},...,U_{qr3},...> -> 
+    //                      .
+    //                      .
+    //                      V
+    // |...,U_{qr3}U'_{qr2}U'_{qr1}U_{qr0}...,U_{qr1}...,U_{qr2},...,U_{qr3},...>
     inversion(qr1);
     left_multiplication(qr1, qr0);
     inversion(qr1);
@@ -56,6 +64,7 @@ void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const 
 }
 
 void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
+    // inverse operation of self_plaquette
     inversion(qr3);
     left_multiplication(qr3, qr0);
     inversion(qr3);
@@ -64,6 +73,7 @@ void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2
 }
 
 void cphases(uint qaux, uint q0b, double alpha1, double alpha2){
+    // eigenvalues of the trace operator
     suqa::apply_cx(qaux, q0b);
     suqa::apply_cu1(q0b, qaux, alpha1, 1U);
     suqa::apply_cx(qaux, q0b);
@@ -74,6 +84,12 @@ void self_trace_operator(const bmReg& qr, const uint& qaux, double th){
     suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qaux); 
     cphases(qaux, qr[1], th, -th);
     suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qaux); 
+
+    // Alternative implementation
+//    suqa::apply_mcu1({qr[0],qr[2]}, {0U,0U}, qr[1],th);  // u1(θ) = [[1,0],[0,e^{iθ}]]
+//    suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qr[1]);  
+//    suqa::apply_mcu1({qr[0],qr[2]}, {0U,0U}, qr[1],-th);
+//    suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qr[1]);
 }
 
 void fourier_transf_d4(const bmReg& qr){
@@ -124,20 +140,27 @@ void momentum_phase(const bmReg& qr, const uint& qaux, double th1, double th2){
     suqa::apply_cx(qaux, qr[2]);
     DEBUG_CALL(printf("\tafter suqa::apply_cu1(qaux, qr[2], th1, 0U)\n"));
     DEBUG_READ_STATE();
-    suqa::apply_u1(qr[2], th2);
-    DEBUG_CALL(printf("\tafter suqa::apply_u1(qr[2], th2)\n"));
-    DEBUG_READ_STATE();
     suqa::apply_mcx(qr, {0U,0U,0U}, qaux);
     DEBUG_CALL(printf("\tafter suqa::apply_mcx(qr, {0U,0U,0U}, qaux)\n"));
+    DEBUG_READ_STATE();
+
+
+    // Alternative implementation without qaux
+//    suqa::apply_mcx(qr, {0U,0U,0U}, qr[2]);
+//    suqa::apply_mcu1(qr, {0U,0U,0U}, qr[2],th1);
+//    suqa::apply_mcx(qr, {0U,0U,0U}, qr[2]);
+
+    suqa::apply_u1(qr[2], th2);
+    DEBUG_CALL(printf("\tafter suqa::apply_u1(qr[2], th2)\n"));
     DEBUG_READ_STATE();
 }
 
 void evolution(const double& t, const int& n){
     const double dt = t/(double)n;
 
-    const double theta1 = dt*f1(g_beta);
+    const double theta1 = dt*f1(g_beta);    // eigenvalues of kinetic hamiltonian on single gauge variable
     const double theta2 = dt*f2(g_beta);
-    const double theta = 2*dt*g_beta;
+    const double theta = 2*dt*g_beta;       // see Lamm's paper (the factor 2 is included here)
 //    printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta);
 
     for(uint ti=0; ti<(uint)n; ++ti){
@@ -303,15 +326,56 @@ double measure_X(pcg& rgen){
 
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
-void apply_C(const uint &Ci){
+// square operation in the group
+// 000 -> 000
+// 001 -> 010
+// 010 -> 000
+// 011 -> 010
+// 100 -> 000
+// 101 -> 010
+// 110 -> 000
+// 111 -> 010
+
+void apply_C(const uint &Ci,double rot_angle){
     (void)Ci;
+
+    // move 0 -> Ci=0, inverse move 0 -> Ci=10
+    bool is_inverse = Ci>=10;
+    double actual_angle = (is_inverse)? -rot_angle : rot_angle;
+    if(Ci%10<4){
+        // eigenvalues of kinetic hamiltonian on single gauge variable
+        const double theta1 = actual_angle*f1(g_beta);    
+        const double theta2 = actual_angle*f2(g_beta);
+        fourier_transf_d4(bm_qlinks[Ci%10]);
+        momentum_phase(bm_qlinks[Ci%10], bm_qaux[0], theta1, theta2);
+        inverse_fourier_transf_d4(bm_qlinks[Ci%10]);
+    }else if(Ci%10==4){ // left plaquette
+        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        self_trace_operator(bm_qlink1, bm_qaux[0], actual_angle);
+        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+    }else if(Ci%10==5){
+        // rotate using trace of U_1^2
+
+        // applies rot_angle if XY1 ([[1,0],[0,e^{iθ}]])
+        suqa::apply_u1(bm_qlink1[2],rot_angle);
+
+        // applies -rot_angle if XY0 ([[e^{iθ},0],[0,1]])
+        suqa::apply_x(bm_qlink1[2]);
+        suqa::apply_u1(bm_qlink1[2],-rot_angle);
+        suqa::apply_x(bm_qlink1[2]);
+
+    }else if(Ci%10>5){
     //TODO: implement
+    }
+
+
+
     throw std::runtime_error("ERROR: apply_C() unimplemented!\n");
 }
 
-void apply_C_inverse(const uint &Ci){
+void apply_C_inverse(const uint &Ci,double rot_angle){
     (void)Ci;
-    //TODO: implement
+    apply_C(Ci,rot_angle);
     throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
 }
 
