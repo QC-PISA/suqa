@@ -1,8 +1,3 @@
-#ifdef GPU
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <cuda_device_runtime_api.h>
-#endif
 #include <iostream>
 #include <vector>
 #include <complex>

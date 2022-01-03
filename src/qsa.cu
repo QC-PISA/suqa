@@ -10,9 +10,6 @@
 #include <cassert>
 #include "Rand.hpp"
 #include <chrono>
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include <cuda_device_runtime_api.h>
 #include "io.hpp"
 #include "parser_qsa.hpp"
 #include "suqa.cuh"
