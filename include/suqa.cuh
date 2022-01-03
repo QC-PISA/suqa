@@ -84,6 +84,8 @@ extern cudaStream_t stream1, stream2;
 extern uint gc_mask;
 extern uint nq;
 
+std::vector<double> rphase_m; // for the QFT
+
 #ifdef GATECOUNT
 extern GateCounterList gatecounters;
 #endif
@@ -157,6 +159,9 @@ void apply_phase_list(uint q0, uint q_size, const std::vector<double>& phases);
 
 // rotation by phase in the direction of a pauli tensor product
 void apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>& pauli_TPconst, double phase);
+
+void apply_qft(const std::vector<uint>& qact);
+void apply_qft_inverse(const std::vector<uint>& qact);
 
 /* SUQA utils */
 void measure_qbit(uint q, uint& c, double rdoub);

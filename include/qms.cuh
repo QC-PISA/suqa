@@ -55,32 +55,34 @@ pcg rangen;
 std::vector<double> X_measures;
 std::vector<double> E_measures;
 
-std::vector<double> rphase_m;
+//std::vector<double> rphase_m;
 double c_factor;
 
-void fill_rphase(const uint& nqubits){
-    rphase_m.resize(nqubits);
-    uint c=1;
-    for(uint i=0; i<nqubits; ++i){
-        rphase_m[i] = (2.0*M_PI/(double)c);
-        c<<=1;
-    }
-} 
+//void fill_rphase(const uint& nqubits){
+//    rphase_m.resize(nqubits);
+//    uint c=1;
+//    for(uint i=0; i<nqubits; ++i){
+//        rphase_m[i] = (2.0*M_PI/(double)c);
+//        c<<=1;
+//    }
+//} 
 
 // bitmap
 std::vector<uint> bm_syst;
-std::vector<uint> bm_enes_old;
+//std::vector<uint> bm_enes_old;
 std::vector<uint> bm_enes_new;
 uint bm_acc;
 
+uint   curr_E_old;   // same as the following, but as an integer between 0 and 2^{ene_qbits}-1
+double curr_E_old_d; // stores the current value of the energy measurement at each node of the markov chain
 
 void fill_bitmap(){
     bm_syst.resize(syst_qbits);
-    bm_enes_old.resize(ene_qbits);
+//    bm_enes_old.resize(ene_qbits);
     bm_enes_new.resize(ene_qbits);
     uint c=0;
     for(uint i=0; i< syst_qbits; ++i)  bm_syst[i] = c++;
-    for(uint i=0; i< ene_qbits; ++i)    bm_enes_old[i] = c++;
+//    for(uint i=0; i< ene_qbits; ++i)    bm_enes_old[i] = c++;
     for(uint i=0; i< ene_qbits; ++i)    bm_enes_new[i] = c++;
     bm_acc = c;
 }
@@ -132,11 +134,11 @@ void reset_non_syst_qbits(){
     DEBUG_READ_STATE();
     std::vector<double> rgenerates(ene_qbits);
 
-    for(auto& el : rgenerates) el = rangen.doub();
-    suqa::apply_reset(bm_enes_old, rgenerates);
-
-    DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
-    DEBUG_READ_STATE();
+//    for(auto& el : rgenerates) el = rangen.doub();
+//    suqa::apply_reset(bm_enes_old, rgenerates);
+//
+//    DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
+//    DEBUG_READ_STATE();
 
     for(auto& el : rgenerates) el = rangen.doub();
     suqa::apply_reset(bm_enes_new, rgenerates);
@@ -147,45 +149,6 @@ void reset_non_syst_qbits(){
     suqa::apply_reset(bm_acc, rangen.doub());
     DEBUG_CALL(std::cout<<"\n\nAfter reset"<<std::endl);
     DEBUG_READ_STATE();
-}
-
-void qms_crm(const uint& q_control, const uint& q_target, const int& m){
-    double rphase = (m>0) ? rphase_m[m] : rphase_m[-m];
-    if(m<=0) rphase*=-1;
-
-    DEBUG_CALL(std::cout<<"crm phase: m="<<m<<", rphase="<<rphase/M_PI<<" pi"<<std::endl);
-
-    suqa::apply_cu1(q_control, q_target, rphase);
-}
-
-//TODO: put in suqa
-void qms_qft(const std::vector<uint>& qact){
-    int qsize = qact.size();
-    for(int outer_i=qsize-1; outer_i>=0; outer_i--){
-            suqa::apply_h(qact[outer_i]);
-            DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
-            DEBUG_READ_STATE();
-        for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
-            qms_crm(qact[inner_i], qact[outer_i], +1+(outer_i-inner_i));
-            DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
-            DEBUG_READ_STATE();
-        }
-    }
-}
-
-//TODO: put in suqa
-void qms_qft_inverse(const std::vector<uint>& qact){
-    int qsize = qact.size();
-    for(int outer_i=0; outer_i<qsize; outer_i++){
-        for(int inner_i=0; inner_i<outer_i; inner_i++){
-            qms_crm(qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
-            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
-            DEBUG_READ_STATE();
-        }
-        suqa::apply_h(qact[outer_i]);
-        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
-        DEBUG_READ_STATE();
-    }
 }
 
 //TODO: put in suqa
@@ -210,7 +173,7 @@ void apply_phase_estimation(const std::vector<uint>& q_syst, const std::vector<u
     DEBUG_READ_STATE();
     
     // apply QFT^{-1}
-    qms_qft_inverse(q_target); 
+    suqa::apply_qft_inverse(q_target); 
 
 }
 
@@ -219,7 +182,7 @@ void apply_phase_estimation_inverse(const std::vector<uint>& q_syst, const std::
     DEBUG_CALL(std::cout<<"apply_phase_estimation_inverse()"<<std::endl);
 
     // apply QFT
-    qms_qft(q_target); 
+    suqa::apply_qft(q_target); 
     DEBUG_CALL(std::cout<<"\nafter qft"<<std::endl);
     DEBUG_READ_STATE();
 
@@ -237,8 +200,8 @@ void apply_phase_estimation_inverse(const std::vector<uint>& q_syst, const std::
 }
 
 
-void apply_Phi_old(){ apply_phase_estimation(bm_syst, bm_enes_old, t_phase_estimation, n_phase_estimation); }
-void apply_Phi_old_inverse(){ apply_phase_estimation_inverse(bm_syst, bm_enes_old, t_phase_estimation, n_phase_estimation); }
+//void apply_Phi_old(){ apply_phase_estimation(bm_syst, bm_enes_old, t_phase_estimation, n_phase_estimation); }
+//void apply_Phi_old_inverse(){ apply_phase_estimation_inverse(bm_syst, bm_enes_old, t_phase_estimation, n_phase_estimation); }
 void apply_Phi(){ apply_phase_estimation(bm_syst, bm_enes_new, t_phase_estimation, n_phase_estimation); }
 void apply_Phi_inverse(){ apply_phase_estimation_inverse(bm_syst, bm_enes_new, t_phase_estimation, n_phase_estimation); }
 
@@ -407,6 +370,7 @@ std::vector<double> extract_rands(uint n){
 }
 
 
+
 int metro_step(bool take_measure){
 #ifdef GATECOUNT
         gctr_metrostep.new_record();
@@ -426,20 +390,26 @@ int metro_step(bool take_measure){
     reset_non_syst_qbits();
     DEBUG_CALL(std::cout<<"state after reset"<<std::endl);
     DEBUG_READ_STATE();
-    apply_Phi_old();
+    apply_Phi();
     DEBUG_CALL(std::cout<<"\n\nAfter first phase estimation"<<std::endl);
     DEBUG_READ_STATE();
     std::vector<uint> c_E_news(ene_qbits,0), c_E_olds(ene_qbits,0);
-    suqa::measure_qbits(bm_enes_old, c_E_olds, extract_rands(ene_qbits));
+    uint Enew_meas;
+    suqa::measure_qbits(bm_enes_new, c_E_olds, extract_rands(ene_qbits));
     DEBUG_CALL(std::cout<<"\n\nAfter measure on bm_enes_old"<<std::endl);
     DEBUG_READ_STATE();
-    DEBUG_CALL(double tmp_E=t_PE_shift+creg_to_uint(c_E_olds)/(double)(t_PE_factor*ene_levels));
-    DEBUG_CALL(std::cout<<"  energy measure: "<<tmp_E<<std::endl); 
+
+    curr_E_old=creg_to_uint(c_E_olds);
+    curr_E_old_d = t_PE_shift+curr_E_old/(double)(t_PE_factor*ene_levels);
+    DEBUG_CALL(std::cout<<"  energy measure: "<<curr_E_old<<std::endl); 
+    for(uint ei=0U; ei<ene_qbits; ++ei){ // reset the energy register after having stored the Eold as a classical value
+        if(c_E_olds[ei]) suqa::apply_x(bm_enes_new[ei]);
+    }
+
 
     gCi = draw_C();
     DEBUG_CALL(std::cout<<"\n\ndrawn C = "<<gCi<<std::endl);
     apply_U();
-
 
     suqa::measure_qbit(bm_acc, c_acc, rangen.doub());
 
@@ -460,14 +430,13 @@ int metro_step(bool take_measure){
             Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels); // -1 + 3/(3/4)= -1 + 4
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
-                suqa::apply_reset(bm_enes_new[ei],rangen.doub());
+                if(c_E_news[ei]) suqa::apply_x(bm_enes_new[ei]);
             }
             X_measures.push_back(measure_X(rangen));
             DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
             DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
             DEBUG_READ_STATE();
             DEBUG_CALL(std::cout<<"  X measure : "<<X_measures.back()<<std::endl); 
-////           reset_non_syst_qbits();
             for(uint ei=0U; ei<ene_qbits; ++ei)
                 suqa::apply_reset(bm_enes_new[ei],rangen.doub());
             apply_Phi();
@@ -499,25 +468,30 @@ int metro_step(bool take_measure){
 #endif
     while(iters < max_reverse_attempts){
         apply_Phi();
-        uint Eold_meas, Enew_meas;
-        double Eold_meas_d;
-        std::vector<uint> c_E_olds(ene_qbits,0), c_E_news(ene_qbits,0);
-        suqa::measure_qbits(bm_enes_old, c_E_olds, extract_rands(ene_qbits));
-        Eold_meas = creg_to_uint(c_E_olds);
-        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels);
+//        std::vector<uint> c_E_news(ene_qbits,0);
+//        suqa::measure_qbits(bm_enes_new, c_E_olds, extract_rands(ene_qbits));
+//        for(uint ei=0U; ei<ene_qbits; ++ei){ // flip back the register
+//            if(c_E_olds[ei]) suqa::apply_x(bm_enes_new[ei]);
+//        }
+
+//        for(uint ei=0U; ei<ene_qbits; ++ei) // readout the Eold value, now 
+//        suqa::apply_reset(bm_enes_new[ei],rangen.doub());
+//        Eold_meas = creg_to_uint(c_E_olds);
+//        Eold_meas_d = t_PE_shift+Eold_meas/(double)(t_PE_factor*ene_levels);
         suqa::measure_qbits(bm_enes_new, c_E_news, extract_rands(ene_qbits));
         Enew_meas = creg_to_uint(c_E_news);
         apply_Phi_inverse();
         
-        if(Eold_meas == Enew_meas){
+        if(curr_E_old == Enew_meas){
             DEBUG_CALL(std::cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<std::endl); 
             if(take_measure){
-                E_measures.push_back(Eold_meas_d);
-                DEBUG_CALL(std::cout<<"  energy measure : "<<Eold_meas_d<<std::endl); 
+                E_measures.push_back(curr_E_old);
+                DEBUG_CALL(std::cout<<"  energy measure : "<<curr_E_old_d<<std::endl); 
                 DEBUG_CALL(std::cout<<"\n\nBefore X measure"<<std::endl);
                 DEBUG_READ_STATE();
-                for(uint ei=0U; ei<ene_qbits; ++ei)
-                    suqa::apply_reset(bm_enes_new[ei],rangen.doub());
+                //XXX why the following two lines?!?
+//                for(uint ei=0U; ei<ene_qbits; ++ei)
+//                    suqa::apply_reset(bm_enes_new[ei],rangen.doub());
 
                 X_measures.push_back(measure_X(rangen));
                 DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
@@ -566,7 +540,7 @@ int metro_step(bool take_measure){
 }
 
 void setup(double beta){
-    qms::fill_rphase(qms::ene_qbits+1);
+//    qms::fill_rphase(qms::ene_qbits+1);
     qms::fill_bitmap();
     qms::fill_W_utils(beta, qms::t_PE_factor);
 
