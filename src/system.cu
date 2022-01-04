@@ -356,16 +356,65 @@ void apply_C(const uint &Ci,double rot_angle){
     }else if(Ci%10==5){
         // rotate using trace of U_1^2
 
-        // applies rot_angle if XY1 ([[1,0],[0,e^{iθ}]])
-        suqa::apply_u1(bm_qlink1[2],rot_angle);
+        // applies rot_angle if 0Y1 ([[1,0],[0,e^{iθ}]])  suqa::apply_u1(bm_qlink1[2],rot_angle);
 
-        // applies -rot_angle if XY0 ([[e^{iθ},0],[0,1]])
-        suqa::apply_x(bm_qlink1[2]);
-        suqa::apply_u1(bm_qlink1[2],-rot_angle);
-        suqa::apply_x(bm_qlink1[2]);
+        suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,1U}, bm_qlink1[2], actual_angle)
+       
+        // applies -rot_angle if 0Y0 ([[e^{iθ},0],[0,1]])  suqa::apply_x(bm_qlink1[2]); suqa::apply_u1(bm_qlink1[2],-rot_angle);suqa::apply_x(bm_qlink1[2]);
+        suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,0U}, bm_qlink1[2], -actual_angle)
 
-    }else if(Ci%10>5){
-    //TODO: implement
+        // applies -rot_angle if 1YZ 
+        suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], -actual_angle)
+
+     }else if(Ci%10==6){
+        // rotate using trace of U_1
+        
+        // applies -rot_angle if 000
+        suqa::apply_mcu1(bm_qlink1, {0U,0U,0U}, bm_qlink1[2], -actual_angle)
+        //applies rot_angle if 010
+        suqa::apply_mcu1(bm_qlink1, {0U,1U,0U}, bm_qlink1[2], actual_angle)
+    
+    }else if(Ci%10==7){
+        // rotate using trace of U_0*U_3
+
+        left_multiplication(bm_qlink3, bm_qlink0)
+        self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle)
+
+        inverse(bm_qlink3)
+        left_multiplication(bm_qlink3, bm_qlink0)
+        inverse(bm_qlink3)
+
+    }else if(Ci%10==8){
+        // rotate using trace of U_1^-1*U_0*U_3
+
+        left_multiplication(bm_qlink0, bm_qlink3)
+        inverse(bm_qlink1)
+        left_multiplication(bm_qlink1, bm_qlink3)
+        inverse(bm_qlink1)
+        self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle)
+
+        left_multiplication(bm_qlink1, bm_qlink3)
+        inverse(bm_qlink0)
+        left_multiplication(bm_qlink0, bm_qlink3)
+        inverse(bm_qlink0)
+
+    }else if(Ci%10==9){
+        // rotate using trace of U_1^-1*U_0*U_2*U_3
+        
+        left_multiplication(bm_qlink2, bm_qlink3)
+        left_multiplication(bm_qlink0, bm_qlink3)
+        inverse(bm_qlink1)
+        left_multiplication(bm_qlink1, bm_qlink3)
+        inverse(bm_qlink1)
+        self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle)
+
+        left_multiplication(bm_qlink1, bm_qlink3)
+        inverse(bm_qlink0)
+        left_multiplication(bm_qlink0, bm_qlink3)
+        inverse(bm_qlink0)
+        inverse(bm_qlink2)
+        left_multiplication(bm_qlink2, bm_qlink3)
+        inverse(bm_qlink2)
     }
 
 
