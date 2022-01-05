@@ -358,21 +358,31 @@ void apply_C(const uint &Ci,double rot_angle){
 
         // applies rot_angle if 0Y1 ([[1,0],[0,e^{iθ}]])  suqa::apply_u1(bm_qlink1[2],rot_angle);
 
-        suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,1U}, bm_qlink1[2], actual_angle)
+        /* suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,1U}, bm_qlink1[1], actual_angle) */
+
+        suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], actual_angle, 0U)
        
         // applies -rot_angle if 0Y0 ([[e^{iθ},0],[0,1]])  suqa::apply_x(bm_qlink1[2]); suqa::apply_u1(bm_qlink1[2],-rot_angle);suqa::apply_x(bm_qlink1[2]);
-        suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,0U}, bm_qlink1[2], -actual_angle)
-
+        /* suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle) */
+        
+        apply_x(bm_qlink1[2]);
+        suqa::apply_cu1(bm_qlink1[0],bm_qlink1[2],-actual_angle, 0U);
+        apply_x(bm_qlink1[2]);
+        
         // applies -rot_angle if 1YZ 
-        suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], -actual_angle)
+        suqa::apply_u1(bm_qlink1[0], -actual_angle)
 
      }else if(Ci%10==6){
         // rotate using trace of U_1
         
         // applies -rot_angle if 000
-        suqa::apply_mcu1(bm_qlink1, {0U,0U,0U}, bm_qlink1[2], -actual_angle)
+        /*suqa::apply_mcu1(bm_qlink1, {0U,0U,0U}, bm_qlink1[2], -actual_angle)*/
+        apply_x(bm_qlink1[1]);
+        suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle)
+        apply_x(bm_qlink1[1]);
+
         //applies rot_angle if 010
-        suqa::apply_mcu1(bm_qlink1, {0U,1U,0U}, bm_qlink1[2], actual_angle)
+        suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], actual_angle)
     
     }else if(Ci%10==7){
         // rotate using trace of U_0*U_3
