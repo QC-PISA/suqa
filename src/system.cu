@@ -362,8 +362,6 @@ std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
 
 void apply_C(const uint &Ci,double rot_angle){
-    (void)Ci;
-
     // move 0 -> Ci=0, inverse move 0 -> Ci=10
     bool is_inverse = Ci>=10;
     double actual_angle = (is_inverse)? -rot_angle : rot_angle;
@@ -472,16 +470,16 @@ void apply_C(const uint &Ci,double rot_angle){
             inversion(bm_qlink2);
             break;
         }
+        default:
+            throw std::runtime_error("ERROR: apply_C() unimplemented!\n");
     }
 
 
-    throw std::runtime_error("ERROR: apply_C() unimplemented!\n");
 }
 
 void apply_C_inverse(const uint &Ci,double rot_angle){
-    (void)Ci;
     apply_C(Ci,rot_angle);
-    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
+//    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
 }
 
 void qsa_apply_C(const uint &Ci){
