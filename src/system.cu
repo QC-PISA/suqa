@@ -2,11 +2,45 @@
 
 /* d4 gauge theory - two plaquettes
  
-   link state 3 qubits
-   system state: 4 links -> 12 qubits
-   +1 ancillary qubit
+    link state 3 qubits
+    system state: 4 links -> 12 qubits
+    +1 ancillary qubit
+
+    .   .   .
+    1   2
+    o 0 o 3 .
+
+    operation table for the D4 group:
+
+    [abc -> a*4+b*2+c]
+
+    representation: ρ_{abc} = (-1)^b [[0,1],[1,0]]^a [[i, 0],[0,-i]]^c
+
+    ρ_{a'b'c'}ρ_{abc} = (-1)^{b'+b} 
+
+     
+          0   1   2   3   4   5   6   7
+        ________________________________
+       |
+    0  |  0   1   2   3   4   5   6   7
+       |
+    1  |  1   2   3   0   7   4   5   6 
+       | 
+    2  |  2   3   0   1   6   7   4   5
+       |
+    3  |  3   0   1   2   5   6   7   4
+       |
+    4  |  4   7   6   5   0   1   2   3
+       |
+    5  |  5   4   7   6   1   0   1   2
+       |
+    6  |  6   5   4   7   2   1   0   1
+       |
+    7  |  7   6   5   4   3   2   1   0
 
  */
+
+
 
 double g_beta;
 
@@ -326,15 +360,6 @@ double measure_X(pcg& rgen){
 
 std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
 
-// square operation in the group
-// 000 -> 000
-// 001 -> 010
-// 010 -> 000
-// 011 -> 010
-// 100 -> 000
-// 101 -> 010
-// 110 -> 000
-// 111 -> 010
 
 void apply_C(const uint &Ci,double rot_angle){
     (void)Ci;
@@ -342,91 +367,112 @@ void apply_C(const uint &Ci,double rot_angle){
     // move 0 -> Ci=0, inverse move 0 -> Ci=10
     bool is_inverse = Ci>=10;
     double actual_angle = (is_inverse)? -rot_angle : rot_angle;
-    if(Ci%10<4){
-        // eigenvalues of kinetic hamiltonian on single gauge variable
-        const double theta1 = actual_angle*f1(g_beta);    
-        const double theta2 = actual_angle*f2(g_beta);
-        fourier_transf_d4(bm_qlinks[Ci%10]);
-        momentum_phase(bm_qlinks[Ci%10], bm_qaux[0], theta1, theta2);
-        inverse_fourier_transf_d4(bm_qlinks[Ci%10]);
-    }else if(Ci%10==4){ // left plaquette
-        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        self_trace_operator(bm_qlink1, bm_qaux[0], actual_angle);
-        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-    }else if(Ci%10==5){
-        // rotate using trace of U_1^2
+    switch (Ci%10){
+        case 0:
+        case 1:
+        case 2:
+        case 3: // eigenvalues of kinetic hamiltonian on single gauge variable
+        {
+            const double theta1 = actual_angle*f1(g_beta);    
+            const double theta2 = actual_angle*f2(g_beta);
+            fourier_transf_d4(bm_qlinks[Ci%10]);
+            momentum_phase(bm_qlinks[Ci%10], bm_qaux[0], theta1, theta2);
+            inverse_fourier_transf_d4(bm_qlinks[Ci%10]);
+            break;
+        }
+        case 4: // left plaquette
+        {
+            self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+            self_trace_operator(bm_qlink1, bm_qaux[0], actual_angle);
+            inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+            break;
+        }
+        case 5: // rotate using trace of U_1^2
+        {
+            // square in the group:
+            // 010 (tr=-1) U_1=001 or 011; 000 (tr=+1) all the other cases 
+            // the global phase for all the other cases can be factored out
 
-        // applies rot_angle if 0Y1 ([[1,0],[0,e^{iθ}]])  suqa::apply_u1(bm_qlink1[2],rot_angle);
+            // applies rot_angle if 0Y1 ([[1,0],[0,e^{iθ}]])  
+            suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], actual_angle, 0U);
+           
+            // applies -rot_angle if 0Y0 ([[e^{iθ},0],[0,1]])  suqa::apply_x(bm_qlink1[2]); suqa::apply_u1(bm_qlink1[2],-rot_angle);suqa::apply_x(bm_qlink1[2]);
+            /* suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle) */
+            
+    //        suqa::apply_x(bm_qlink1[2]);
+    //        suqa::apply_cu1(bm_qlink1[0],bm_qlink1[2],-actual_angle, 0U);
+    //        suqa::apply_x(bm_qlink1[2]);
+    //        
+    //        // applies -rot_angle if 1YZ 
+    //        suqa::apply_u1(bm_qlink1[0], -actual_angle);
 
-        /* suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,1U}, bm_qlink1[1], actual_angle) */
+            break;
+            
+        }
+        case 6: // rotate using trace of U_1
+        {
+            
+            // applies -rot_angle if 000
+            /*suqa::apply_mcu1(bm_qlink1, {0U,0U,0U}, bm_qlink1[2], -actual_angle)*/
+            suqa::apply_x(bm_qlink1[1]);
+            suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle);
+            suqa::apply_x(bm_qlink1[1]);
 
-        suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], actual_angle, 0U);
-       
-        // applies -rot_angle if 0Y0 ([[e^{iθ},0],[0,1]])  suqa::apply_x(bm_qlink1[2]); suqa::apply_u1(bm_qlink1[2],-rot_angle);suqa::apply_x(bm_qlink1[2]);
-        /* suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle) */
-        
-        suqa::apply_x(bm_qlink1[2]);
-        suqa::apply_cu1(bm_qlink1[0],bm_qlink1[2],-actual_angle, 0U);
-        suqa::apply_x(bm_qlink1[2]);
-        
-        // applies -rot_angle if 1YZ 
-        suqa::apply_u1(bm_qlink1[0], -actual_angle);
-
-     }else if(Ci%10==6){
-        // rotate using trace of U_1
-        
-        // applies -rot_angle if 000
-        /*suqa::apply_mcu1(bm_qlink1, {0U,0U,0U}, bm_qlink1[2], -actual_angle)*/
-        suqa::apply_x(bm_qlink1[1]);
-        suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle);
-        suqa::apply_x(bm_qlink1[1]);
-
-        //applies rot_angle if 010
-        suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], actual_angle);
+            //applies rot_angle if 010
+            suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], actual_angle);
     
-    }else if(Ci%10==7){
-        // rotate using trace of U_0*U_3
+            break;
+        }
+        case 7: // rotate using trace of U_3*U_0
+        {
 
-        left_multiplication(bm_qlink3, bm_qlink0);
-        self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle);
+            left_multiplication(bm_qlink3, bm_qlink0);
+            self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle);
 
-        inversion(bm_qlink3);
-        left_multiplication(bm_qlink3, bm_qlink0);
-        inversion(bm_qlink3);
+            inversion(bm_qlink3);
+            left_multiplication(bm_qlink3, bm_qlink0);
+            inversion(bm_qlink3);
 
-    }else if(Ci%10==8){
-        // rotate using trace of U_1^-1*U_0*U_3
+            break;
+        }
+        case 8: // rotate using trace of U_1^-1*U_0*U_3
+        {
 
-        left_multiplication(bm_qlink0, bm_qlink3);
-        inversion(bm_qlink1);
-        left_multiplication(bm_qlink1, bm_qlink3);
-        inversion(bm_qlink1);
-        self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle);
+            left_multiplication(bm_qlink0, bm_qlink3);
+            inversion(bm_qlink1);
+            left_multiplication(bm_qlink1, bm_qlink3);
+            inversion(bm_qlink1);
 
-        left_multiplication(bm_qlink1, bm_qlink3);
-        inversion(bm_qlink0);
-        left_multiplication(bm_qlink0, bm_qlink3);
-        inversion(bm_qlink0);
+            self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle);
 
-    }else if(Ci%10==9){
-        // rotate using trace of U_1^-1*U_0*U_2*U_3
-        
-        left_multiplication(bm_qlink2, bm_qlink3);
-        left_multiplication(bm_qlink0, bm_qlink3);
-        inversion(bm_qlink1);
-        left_multiplication(bm_qlink1, bm_qlink3);
-        inversion(bm_qlink1);
-        self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle);
+            left_multiplication(bm_qlink1, bm_qlink3);
+            inversion(bm_qlink0);
+            left_multiplication(bm_qlink0, bm_qlink3);
+            inversion(bm_qlink0);
 
-        left_multiplication(bm_qlink1, bm_qlink3);
-        inversion(bm_qlink0);
-        left_multiplication(bm_qlink0, bm_qlink3);
-        inversion(bm_qlink0);
-        inversion(bm_qlink2);
-        left_multiplication(bm_qlink2, bm_qlink3);
-        inversion(bm_qlink2);
+            break;
+        }
+        case 9:
+        {
+            // rotate using trace of U_1^-1*U_0*U_2*U_3
+            
+            left_multiplication(bm_qlink2, bm_qlink3);
+            left_multiplication(bm_qlink0, bm_qlink3);
+            inversion(bm_qlink1);
+            left_multiplication(bm_qlink1, bm_qlink3);
+            inversion(bm_qlink1);
+            self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle);
+
+            left_multiplication(bm_qlink1, bm_qlink3);
+            inversion(bm_qlink0);
+            left_multiplication(bm_qlink0, bm_qlink3);
+            inversion(bm_qlink0);
+            inversion(bm_qlink2);
+            left_multiplication(bm_qlink2, bm_qlink3);
+            inversion(bm_qlink2);
+            break;
+        }
     }
-
 
 
     throw std::runtime_error("ERROR: apply_C() unimplemented!\n");
