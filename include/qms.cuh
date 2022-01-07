@@ -131,8 +131,8 @@ void reset_non_syst_qbits(){
     std::vector<double> rgenerates(ene_qbits);
 
 
-    //XXX: debug only (comparison with 2enereg), remove me
-    for(auto& el : rgenerates) el = rangen.doub();
+//    //XX: debug only (comparison with 2enereg), remove me
+//    for(auto& el : rgenerates) el = rangen.doub();
 //    suqa::apply_reset(bm_enes_old, rgenerates);
 //
     DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
@@ -364,8 +364,6 @@ std::vector<double> extract_rands(uint n){
     std::vector<double> ret(n);
     for(auto& el : ret){
         el = rangen.doub();
-        //XXX: debug only (comparison with 2enereg), remove me
-        DEBUG_CALL(std::cout<<"extracted: "<<el<<std::endl);
     }
     return ret;
 }
@@ -432,8 +430,8 @@ int metro_step(bool take_measure){
             Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels); // -1 + 3/(3/4)= -1 + 4
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
-                //XXX: debug only (comparison with 2enereg), remove me
-                suqa::apply_reset(bm_enes_new[ei],rangen.doub());
+//                //XX: debug only (comparison with 2enereg), remove me
+//                suqa::apply_reset(bm_enes_new[ei],rangen.doub());
                 if(c_E_news[ei]) suqa::apply_x(bm_enes_new[ei]);
             }
             X_measures.push_back(measure_X(rangen));
@@ -478,8 +476,8 @@ int metro_step(bool take_measure){
 //            if(c_E_olds[ei]) suqa::apply_x(bm_enes_new[ei]);
 //        }
 
-        //XXX: debug only (comparison with 2enereg), remove me
-        extract_rands(ene_qbits);
+//        //XX: debug only (comparison with 2enereg), remove me
+//        extract_rands(ene_qbits);
 
 //        for(uint ei=0U; ei<ene_qbits; ++ei) // readout the Eold value, now 
 //        suqa::apply_reset(bm_enes_new[ei],rangen.doub());
