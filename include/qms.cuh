@@ -227,7 +227,7 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        double dE = (Enew-curr_E_old)*c;
+        double dE = (Enew*c-curr_E_old*c);
         if(dE>0){
             fs1 = exp(-dE/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
@@ -255,7 +255,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
             if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
                 //extract energies from other registers
                 uint Enew = (i_0 & dev_W_mask_Enew) >> dev_bm_enes_new;
-                double dE = (Enew-curr_E_old)*c;
+                double dE = (Enew*c-curr_E_old*c);
                 if(dE>0){
                     fs1 = exp(-dE/2.0);
                     fs2 = sqrt(1.0 - fs1*fs1);
@@ -289,7 +289,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        double dE = (Enew-curr_E_old)*c;
+        double dE = (Enew*c-curr_E_old*c);
         DEBUG_CALL(std::cout<<"dE: "<<dE<<std::endl);
         if(dE>0){
             fs1 = exp(-dE/2.0);
