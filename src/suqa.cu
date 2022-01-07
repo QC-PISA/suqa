@@ -19,6 +19,8 @@ ComplexVec suqa::state;
 std::vector<uint> suqa::actives;
 #endif
 
+std::vector<double> suqa::rphase_m; // for the QFT
+
 #ifdef GATECOUNT
 GateCounterList suqa::gatecounters;
 #endif

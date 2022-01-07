@@ -84,7 +84,7 @@ extern cudaStream_t stream1, stream2;
 extern uint gc_mask;
 extern uint nq;
 
-std::vector<double> rphase_m; // for the QFT
+extern std::vector<double> rphase_m; // for the QFT
 
 #ifdef GATECOUNT
 extern GateCounterList gatecounters;

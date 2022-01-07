@@ -90,18 +90,15 @@ void fill_bitmap(){
 // these are masks and precomputed values for apply_W
 // on device they can be allocated in constant memory to speed accesses, but only if the qubits are few
 uint W_mask;
-uint W_mask_Eold;
 uint W_mask_Enew;
 //double *W_fs1, *W_fs2; // holds fs1 = exp(-b dE/2) and fs2 = sqrt(1-fs1^2)
 
 void fill_W_utils(double beta, double t_PE_factor){
     c_factor = beta/(t_PE_factor*ene_levels);
-    W_mask=0U;
+    W_mask_Enew = 0U;
     W_mask = (1U << bm_acc);
-    W_mask_Eold = 0U;
     for(uint i=0; i<ene_qbits; ++i){
-        W_mask |= (1U << bm_enes_old[i]) | (1U << bm_enes_new[i]);
-        W_mask_Eold |= (1U << bm_enes_old[i]);
+        W_mask |= (1U << bm_enes_new[i]);
         W_mask_Enew |= (1U << bm_enes_new[i]);
     }
 }
@@ -221,17 +218,16 @@ uint draw_C(){
 //TODO: put generic oracle builder in suqa
 #ifdef GPU
 __global__
-void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
+void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
     //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
     int i = blockDim.x*blockIdx.x + threadIdx.x+len/2;    
     double fs1, fs2;
     while(i<len){
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
-        uint Eold = (i & dev_W_mask_Eold) >> dev_bm_enes_old;
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        if(Enew>Eold){
-            fs1 = exp(-((Enew-Eold)*c)/2.0);
+        if(Enew*c>curr_E_old_d){
+            fs1 = exp(-(Enew*c-curr_E_old_d)/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
         }else{
             fs1 = 1.0;
@@ -244,7 +240,7 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
     }
 }
 #else // CPU
-void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
+void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
     double fs1, fs2;
 #ifdef SPARSE
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
@@ -256,10 +252,9 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, ui
             uint i_1 = i_0 | (1U << q_acc);
             if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
                 //extract energies from other registers
-                uint Eold = (i_0 & dev_W_mask_Eold) >> dev_bm_enes_old;
                 uint Enew = (i_0 & dev_W_mask_Enew) >> dev_bm_enes_new;
-                if(Enew>Eold){
-                    fs1 = exp(-((Enew-Eold)*c)/2.0);
+                if(Enew*c>curr_E_old_d){
+                    fs1 = exp(-(Enew*c-curr_E_old_d)/2.0);
                     fs2 = sqrt(1.0 - fs1*fs1);
                 }else{
                     fs1 = 1.0;
@@ -290,10 +285,9 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Eold, uint dev_bm_enes_old, ui
     for (uint i = suqa::state.size()/2; i < suqa::state.size(); ++i) {
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
-        uint Eold = (i & dev_W_mask_Eold) >> dev_bm_enes_old;
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        if(Enew>Eold){
-            fs1 = exp(-((Enew-Eold)*c)/2.0);
+        if(Enew*c>curr_E_old_d){
+            fs1 = exp(-(Enew*c-curr_E_old_d)/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
         }else{
             fs1 = 1.0;
@@ -318,7 +312,7 @@ void apply_W(){
     qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
     cudaDeviceSynchronize();
 #else
-    qms::func_qms_apply_W(bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
+    qms::func_qms_apply_W(bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
 #endif
 
 #ifdef GATECOUNT
@@ -485,7 +479,7 @@ int metro_step(bool take_measure){
         if(curr_E_old == Enew_meas){
             DEBUG_CALL(std::cout<<"  accepted restoration ("<<max_reverse_attempts-iters<<"/"<<max_reverse_attempts<<")"<<std::endl); 
             if(take_measure){
-                E_measures.push_back(curr_E_old);
+                E_measures.push_back(curr_E_old_d);
                 DEBUG_CALL(std::cout<<"  energy measure : "<<curr_E_old_d<<std::endl); 
                 DEBUG_CALL(std::cout<<"\n\nBefore X measure"<<std::endl);
                 DEBUG_READ_STATE();
