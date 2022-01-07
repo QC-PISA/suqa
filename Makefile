@@ -90,5 +90,5 @@ qxq: $(OBJDIR)/qxq.cu.o $(OBJDIR)/suqa.cu.o $(OBJDIR)/Rand.cpp.o $(OBJDIR)/io.cp
 	$(COMPILE) $^ -o $@
 
 clean:
-	rm -rf test_suqa evo qms qsa qxq obj
+	rm -rf test_suqa evo qms qsa qxq obj 
 

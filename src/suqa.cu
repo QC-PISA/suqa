@@ -19,6 +19,8 @@ ComplexVec suqa::state;
 std::vector<uint> suqa::actives;
 #endif
 
+std::vector<double> suqa::rphase_m; // for the QFT
+
 #ifdef GATECOUNT
 GateCounterList suqa::gatecounters;
 #endif
@@ -603,6 +605,61 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
 
 
 /* End of Pauli Tensor Product rotations */
+
+// Quantum Fourier Transform
+
+void fill_rphase(const uint& nqubits){
+    suqa::rphase_m.resize(nqubits+1);
+    uint c=1;
+    for(uint i=0; i<nqubits+1; ++i){
+        suqa::rphase_m[i] = (2.0*M_PI/(double)c);
+        c<<=1;
+    }
+} 
+
+void qft_crm(const uint& q_control, const uint& q_target, const int& m, const int& nqubits){
+    static bool activated=false;
+    if(not activated){
+        fill_rphase(nqubits);
+        activated=true;
+    }
+
+    double rphase = (m>0) ? suqa::rphase_m[m] : suqa::rphase_m[-m];
+    if(m<=0) rphase*=-1;
+
+    DEBUG_CALL(std::cout<<"crm phase: m="<<m<<", rphase="<<rphase/M_PI<<" pi"<<std::endl);
+
+    suqa::apply_cu1(q_control, q_target, rphase);
+}
+
+void suqa::apply_qft(const std::vector<uint>& qact){
+    int qsize = qact.size();
+    for(int outer_i=qsize-1; outer_i>=0; outer_i--){
+            suqa::apply_h(qact[outer_i]);
+            DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
+            DEBUG_READ_STATE();
+        for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
+            qft_crm(qact[inner_i], qact[outer_i], +1+(outer_i-inner_i),qsize);
+            DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+            DEBUG_READ_STATE();
+        }
+    }
+}
+
+void suqa::apply_qft_inverse(const std::vector<uint>& qact){
+    int qsize = qact.size();
+    for(int outer_i=0; outer_i<qsize; outer_i++){
+        for(int inner_i=0; inner_i<outer_i; inner_i++){
+            qft_crm(qact[inner_i], qact[outer_i], -1-(outer_i-inner_i),qsize);
+            DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
+            DEBUG_READ_STATE();
+        }
+        suqa::apply_h(qact[outer_i]);
+        DEBUG_CALL(std::cout<<"In qms_qft_inverse() after apply_h: outer_i = "<<outer_i<<std::endl);
+        DEBUG_READ_STATE();
+    }
+}
+
 
 void set_ampl_to_zero(const uint& q, const uint& val){
 #ifdef GPU
