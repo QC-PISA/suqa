@@ -609,18 +609,18 @@ void suqa::apply_pauli_TP_rotation(const bmReg& q_apply, const std::vector<uint>
 // Quantum Fourier Transform
 
 void fill_rphase(const uint& nqubits){
-    suqa::rphase_m.resize(nqubits);
+    suqa::rphase_m.resize(nqubits+1);
     uint c=1;
-    for(uint i=0; i<nqubits; ++i){
+    for(uint i=0; i<nqubits+1; ++i){
         suqa::rphase_m[i] = (2.0*M_PI/(double)c);
         c<<=1;
     }
 } 
 
-void qft_crm(const uint& q_control, const uint& q_target, const int& m){
+void qft_crm(const uint& q_control, const uint& q_target, const int& m, const int& nqubits){
     static bool activated=false;
     if(not activated){
-        fill_rphase(suqa::nq);
+        fill_rphase(nqubits);
         activated=true;
     }
 
@@ -639,7 +639,7 @@ void suqa::apply_qft(const std::vector<uint>& qact){
             DEBUG_CALL(std::cout<<"In qms_qft() after apply_h: outer_i = "<<outer_i<<std::endl);
             DEBUG_READ_STATE();
         for(int inner_i=outer_i-1; inner_i>=0; inner_i--){
-            qft_crm(qact[inner_i], qact[outer_i], +1+(outer_i-inner_i));
+            qft_crm(qact[inner_i], qact[outer_i], +1+(outer_i-inner_i),qsize);
             DEBUG_CALL(std::cout<<"In qms_qft() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
             DEBUG_READ_STATE();
         }
@@ -650,7 +650,7 @@ void suqa::apply_qft_inverse(const std::vector<uint>& qact){
     int qsize = qact.size();
     for(int outer_i=0; outer_i<qsize; outer_i++){
         for(int inner_i=0; inner_i<outer_i; inner_i++){
-            qft_crm(qact[inner_i], qact[outer_i], -1-(outer_i-inner_i));
+            qft_crm(qact[inner_i], qact[outer_i], -1-(outer_i-inner_i),qsize);
             DEBUG_CALL(std::cout<<"In qms_qft_inverse() after crm: outer_i = "<<outer_i<<", inner_i = "<<inner_i<<std::endl);
             DEBUG_READ_STATE();
         }

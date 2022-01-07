@@ -74,6 +74,7 @@ int main(int argc, char** argv){
 
     qms::syst_qbits = (uint)syst_qbits;
     qms::nqubits = qms::syst_qbits + qms::ene_qbits + 1;
+    std::cout<<qms::nqubits<<std::endl;
     qms::Dim = (1U << qms::nqubits);
     qms::ene_levels = (1U << qms::ene_qbits);
     qms::syst_levels = (1U << qms::syst_qbits);

@@ -96,11 +96,10 @@ uint W_mask_Enew;
 void fill_W_utils(double beta, double t_PE_factor){
     c_factor = beta/(t_PE_factor*ene_levels);
     W_mask_Enew = 0U;
-    W_mask = (1U << bm_acc);
     for(uint i=0; i<ene_qbits; ++i){
-        W_mask |= (1U << bm_enes_new[i]);
         W_mask_Enew |= (1U << bm_enes_new[i]);
     }
+    W_mask = (1U << bm_acc) | W_mask_Enew;
 }
 
 
@@ -226,8 +225,9 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        if(Enew*c>curr_E_old_d){
-            fs1 = exp(-(Enew*c-curr_E_old_d)/2.0);
+        double dE = Enew*c-curr_E_old_d;
+        if(dE>0){
+            fs1 = exp(-dE/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
         }else{
             fs1 = 1.0;
@@ -253,8 +253,9 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
             if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
                 //extract energies from other registers
                 uint Enew = (i_0 & dev_W_mask_Enew) >> dev_bm_enes_new;
-                if(Enew*c>curr_E_old_d){
-                    fs1 = exp(-(Enew*c-curr_E_old_d)/2.0);
+                double dE = Enew*c-curr_E_old_d;
+                if(dE>0){
+                    fs1 = exp(-dE/2.0);
                     fs2 = sqrt(1.0 - fs1*fs1);
                 }else{
                     fs1 = 1.0;
@@ -286,8 +287,9 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        if(Enew*c>curr_E_old_d){
-            fs1 = exp(-(Enew*c-curr_E_old_d)/2.0);
+        double dE = Enew*c-curr_E_old_d;
+        if(dE>0){
+            fs1 = exp(-dE/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
         }else{
             fs1 = 1.0;
@@ -308,8 +310,8 @@ void apply_W(){
     DEBUG_CALL(std::cout<<"\n\nApply W"<<std::endl);
 
 #ifdef GPU
-    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(suqa::state.data_re, suqa::state.size(), bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
-    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc, W_mask_Eold, bm_enes_old[0], W_mask_Enew, bm_enes_new[0], c_factor);
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(suqa::state.data_re, suqa::state.size(), bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
     cudaDeviceSynchronize();
 #else
     qms::func_qms_apply_W(bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
