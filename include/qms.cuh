@@ -130,11 +130,13 @@ void reset_non_syst_qbits(){
     DEBUG_READ_STATE();
     std::vector<double> rgenerates(ene_qbits);
 
-//    for(auto& el : rgenerates) el = rangen.doub();
+
+    //XXX: debug only (comparison with 2enereg), remove me
+    for(auto& el : rgenerates) el = rangen.doub();
 //    suqa::apply_reset(bm_enes_old, rgenerates);
 //
-//    DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
-//    DEBUG_READ_STATE();
+    DEBUG_CALL(std::cout<<"\n\nafter enes_old reset"<<std::endl);
+    DEBUG_READ_STATE();
 
     for(auto& el : rgenerates) el = rangen.doub();
     suqa::apply_reset(bm_enes_new, rgenerates);
@@ -225,7 +227,7 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        double dE = Enew*c-curr_E_old_d;
+        double dE = (Enew-curr_E_old)*c;
         if(dE>0){
             fs1 = exp(-dE/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
@@ -253,7 +255,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
             if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
                 //extract energies from other registers
                 uint Enew = (i_0 & dev_W_mask_Enew) >> dev_bm_enes_new;
-                double dE = Enew*c-curr_E_old_d;
+                double dE = (Enew-curr_E_old)*c;
                 if(dE>0){
                     fs1 = exp(-dE/2.0);
                     fs2 = sqrt(1.0 - fs1*fs1);
@@ -287,7 +289,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        double dE = Enew*c-curr_E_old_d;
+        double dE = (Enew-curr_E_old)*c;
         if(dE>0){
             fs1 = exp(-dE/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
@@ -361,6 +363,8 @@ std::vector<double> extract_rands(uint n){
     std::vector<double> ret(n);
     for(auto& el : ret){
         el = rangen.doub();
+        //XXX: debug only (comparison with 2enereg), remove me
+        DEBUG_CALL(std::cout<<"extracted: "<<el<<std::endl);
     }
     return ret;
 }
@@ -395,9 +399,10 @@ int metro_step(bool take_measure){
     DEBUG_CALL(std::cout<<"\n\nAfter measure on bm_enes_old"<<std::endl);
     DEBUG_READ_STATE();
 
+
     curr_E_old=creg_to_uint(c_E_olds);
     curr_E_old_d = t_PE_shift+curr_E_old/(double)(t_PE_factor*ene_levels);
-    DEBUG_CALL(std::cout<<"  energy measure: "<<curr_E_old<<std::endl); 
+    DEBUG_CALL(std::cout<<"  energy measure: "<<curr_E_old_d<<std::endl); 
     for(uint ei=0U; ei<ene_qbits; ++ei){ // reset the energy register after having stored the Eold as a classical value
         if(c_E_olds[ei]) suqa::apply_x(bm_enes_new[ei]);
     }
@@ -426,6 +431,8 @@ int metro_step(bool take_measure){
             Enew_meas_d = t_PE_shift+creg_to_uint(c_E_news)/(double)(t_PE_factor*ene_levels); // -1 + 3/(3/4)= -1 + 4
             E_measures.push_back(Enew_meas_d);
             for(uint ei=0U; ei<ene_qbits; ++ei){
+                //XXX: debug only (comparison with 2enereg), remove me
+                suqa::apply_reset(bm_enes_new[ei],rangen.doub());
                 if(c_E_news[ei]) suqa::apply_x(bm_enes_new[ei]);
             }
             X_measures.push_back(measure_X(rangen));
@@ -470,6 +477,9 @@ int metro_step(bool take_measure){
 //            if(c_E_olds[ei]) suqa::apply_x(bm_enes_new[ei]);
 //        }
 
+        //XXX: debug only (comparison with 2enereg), remove me
+        extract_rands(ene_qbits);
+
 //        for(uint ei=0U; ei<ene_qbits; ++ei) // readout the Eold value, now 
 //        suqa::apply_reset(bm_enes_new[ei],rangen.doub());
 //        Eold_meas = creg_to_uint(c_E_olds);
@@ -485,9 +495,9 @@ int metro_step(bool take_measure){
                 DEBUG_CALL(std::cout<<"  energy measure : "<<curr_E_old_d<<std::endl); 
                 DEBUG_CALL(std::cout<<"\n\nBefore X measure"<<std::endl);
                 DEBUG_READ_STATE();
-                //XXX why the following two lines?!?
-//                for(uint ei=0U; ei<ene_qbits; ++ei)
-//                    suqa::apply_reset(bm_enes_new[ei],rangen.doub());
+
+                for(uint ei=0U; ei<ene_qbits; ++ei)
+                    suqa::apply_reset(bm_enes_new[ei],rangen.doub());
 
                 X_measures.push_back(measure_X(rangen));
                 DEBUG_CALL(std::cout<<"\n\nAfter X measure"<<std::endl);
