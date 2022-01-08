@@ -8,7 +8,7 @@
 
     .   .   .
     1   2
-    o 0 o 3 .
+    o 0 o I .
 
     operation table for the D4 group:
 
@@ -106,6 +106,23 @@ void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2
     left_multiplication(qr1, qr0);
 }
 
+
+void self_plaquette1(){
+    self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+}
+void inverse_self_plaquette1(){
+    inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+}
+
+
+void self_plaquette2(){
+    inversion(bm_qlink1);
+    left_multiplication(bm_qlink1,bm_qlink2);
+    inversion(bm_qlink1);
+}
+void inverse_self_plaquette2(){
+}
+
 void cphases(uint qaux, uint q0b, double alpha1, double alpha2){
     // eigenvalues of the trace operator
     suqa::apply_cx(qaux, q0b);
@@ -198,24 +215,24 @@ void evolution(const double& t, const int& n){
 //    printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta);
 
     for(uint ti=0; ti<(uint)n; ++ti){
-        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        DEBUG_CALL(printf("after self_plaquette()\n"));
+        self_plaquette1();
+        DEBUG_CALL(printf("after self_plaquette1()\n"));
         DEBUG_READ_STATE();
         self_trace_operator(bm_qlink1, bm_qaux[0], theta);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
-        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
+        inverse_self_plaquette1();
+        DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
         DEBUG_READ_STATE();
 
-        self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after self_plaquette()\n"));
+        self_plaquette2();
+        DEBUG_CALL(printf("after self_plaquette2()\n"));
         DEBUG_READ_STATE();
         self_trace_operator(bm_qlink2, bm_qaux[0], theta);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
-        inverse_self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
+        inverse_self_plaquette2();
+        DEBUG_CALL(printf("after inverse_self_plaquette2()\n"));
         DEBUG_READ_STATE();
 
         fourier_transf_d4(bm_qlink0);
@@ -227,9 +244,6 @@ void evolution(const double& t, const int& n){
         fourier_transf_d4(bm_qlink2);
         DEBUG_CALL(printf("after fourier_transf_d4(bm_qlink2)\n"));
         DEBUG_READ_STATE();
-        fourier_transf_d4(bm_qlink3);
-        DEBUG_CALL(printf("after fourier_transf_d4(bm_qlink3)\n"));
-        DEBUG_READ_STATE();
 
         momentum_phase(bm_qlink0, bm_qaux[0], theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(bm_qlink0, bm_qaux[0], theta1, theta2)\n"));
@@ -240,14 +254,8 @@ void evolution(const double& t, const int& n){
         momentum_phase(bm_qlink2, bm_qaux[0], theta1, theta2);
         DEBUG_CALL(printf("after momentum_phase(bm_qlink2, bm_qaux[0], theta1, theta2)\n"));
         DEBUG_READ_STATE();
-        momentum_phase(bm_qlink3, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink3, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE();
 
 
-        inverse_fourier_transf_d4(bm_qlink3);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(bm_qlink3)\n"));
-        DEBUG_READ_STATE();
         inverse_fourier_transf_d4(bm_qlink2);
         DEBUG_CALL(printf("after inverse_fourier_transf_d4(bm_qlink2)\n"));
         DEBUG_READ_STATE();
