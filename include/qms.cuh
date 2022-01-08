@@ -10,9 +10,9 @@ void evolution(const double& t, const int& n);
 
 double measure_X(pcg& rgen);
 
-void apply_C(const uint &Ci);
+void apply_C(const uint &Ci, double rot_angle);
 
-void apply_C_inverse(const uint &Ci);
+void apply_C_inverse(const uint &Ci, double rot_angle);
 
 std::vector<double> get_C_weigthsums();
 // end defs
