@@ -429,53 +429,46 @@ void apply_C(const uint &Ci,double rot_angle){
     
             break;
         }
-        case 7: // rotate using trace of U_3*U_0
+        case 7: // rotate using trace of U_3*U_0, U_3 is identity
         {
 
-            left_multiplication(bm_qlink3, bm_qlink0);
+            //left_multiplication(bm_qlink3, bm_qlink0);
             self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle);
 
-            inversion(bm_qlink3);
-            left_multiplication(bm_qlink3, bm_qlink0);
-            inversion(bm_qlink3);
+            //inversion(bm_qlink3);
+            //left_multiplication(bm_qlink3, bm_qlink0);
+            //inversion(bm_qlink3);
 
             break;
         }
-        case 8: // rotate using trace of U_1^-1*U_0*U_3
+        case 8: // rotate using trace of U_1^-1*U_0*U_3, U_3 is identity
         {
 
-            left_multiplication(bm_qlink0, bm_qlink3);
             inversion(bm_qlink1);
-            left_multiplication(bm_qlink1, bm_qlink3);
+            left_multiplication(bm_qlink1, bm_qlink0);
             inversion(bm_qlink1);
 
-            self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle);
+            self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle);
 
-            left_multiplication(bm_qlink1, bm_qlink3);
-            inversion(bm_qlink0);
-            left_multiplication(bm_qlink0, bm_qlink3);
-            inversion(bm_qlink0);
+            left_multiplication(bm_qlink1, bm_qlink0);
 
             break;
         }
         case 9:
         {
-            // rotate using trace of U_1^-1*U_0*U_2*U_3
+            // rotate using trace of U_1^-1*U_0*U_2*U_3, , U_3 is identity
             
-            left_multiplication(bm_qlink2, bm_qlink3);
-            left_multiplication(bm_qlink0, bm_qlink3);
+            left_multiplication(bm_qlink0, bm_qlink2);
             inversion(bm_qlink1);
-            left_multiplication(bm_qlink1, bm_qlink3);
+            left_multiplication(bm_qlink1, bm_qlink2);
             inversion(bm_qlink1);
-            self_trace_operator(bm_qlink3, bm_qaux[0], actual_angle);
+            self_trace_operator(bm_qlink2, bm_qaux[0], actual_angle);
 
-            left_multiplication(bm_qlink1, bm_qlink3);
+            left_multiplication(bm_qlink1, bm_qlink2);
             inversion(bm_qlink0);
-            left_multiplication(bm_qlink0, bm_qlink3);
+            left_multiplication(bm_qlink0, bm_qlink2);
             inversion(bm_qlink0);
-            inversion(bm_qlink2);
-            left_multiplication(bm_qlink2, bm_qlink3);
-            inversion(bm_qlink2);
+            
             break;
         }
         default:
