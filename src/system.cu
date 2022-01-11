@@ -387,7 +387,7 @@ double measure_X(pcg& rgen){
 /* Moves facilities */
 #define NMoves 18
 
-std::vector<double> C_weigthsums(NMoves);
+std::vector<double> C_weightsums(NMoves);
 //
 //= {1./18., 2./18., 3./18., 4./18., 5./18., 
 //    6./18., 7./18., 8./18., 9./18., 10./18., 11./18., 12./18., 
@@ -516,14 +516,14 @@ void qsa_apply_C_inverse(const uint &Ci){
 //  suqa::apply_h(bm_spin_tilde[Ci]);
 }
 
-std::vector<double> get_C_weigthsums(){ 
+std::vector<double> get_C_weightsums(){ 
     static bool init_done=false;
     // first initialization
     if(not init_done){
         for(int i=1; i<=NMoves; ++i){
-            C_weigthsums[i-1]=i/(double)NMoves;
+            C_weightsums[i-1]=i/(double)NMoves;
         }
         init_done=true;
     }
-    return C_weigthsums; }
+    return C_weightsums; }
 

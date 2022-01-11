@@ -16,7 +16,7 @@ void apply_C(const uint &Ci, double rot_angle);
 
 void apply_C_inverse(const uint &Ci, double rot_angle);
 
-std::vector<double> get_C_weigthsums();
+std::vector<double> get_C_weightsums();
 // end defs
 
 
@@ -207,14 +207,14 @@ void apply_Phi_inverse(){ apply_phase_estimation_inverse(bm_syst, bm_enes_new, t
 
 
 uint draw_C(){
-    std::vector<double> C_weigthsums = get_C_weigthsums();
+    std::vector<double> C_weightsums = get_C_weightsums();
     double extract = rangen.doub();
-    for(uint Ci =0U; Ci < C_weigthsums.size(); ++Ci){
-        if(extract<C_weigthsums[Ci]){
+    for(uint Ci =0U; Ci < C_weightsums.size(); ++Ci){
+        if(extract<C_weightsums[Ci]){
             return Ci;
         }
     }
-    return C_weigthsums.size();
+    return C_weightsums.size();
 }
 
 
