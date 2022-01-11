@@ -20,7 +20,7 @@ const bmReg bm_qlink1 =  {3,  4, 5};
 const bmReg bm_qlink2 =  {6,  7, 8};
 const bmReg bm_qlinks[3]={bm_qlink0,bm_qlink1,bm_qlink2};
 const bmReg bm_qaux   =  {9}; 
-//TODO: remove ancillary qubit using mcu1 in system.cu
+//TODO: remove ancillary qubit
 
 extern double g_beta;
 
@@ -30,7 +30,7 @@ void evolution(const double& t, const int& n);
 
 #define DEFAULT_THETA (1./sqrt(2))
 void apply_C(const uint &Ci, double rot_angle=DEFAULT_THETA);
-void apply_C_inverse(const uint &Ci, double rot_angle=-DEFAULT_THETA);
+void apply_C_inverse(const uint &Ci, double rot_angle=DEFAULT_THETA);
 
 std::vector<double> get_C_weigthsums();
 

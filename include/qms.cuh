@@ -3,9 +3,11 @@
 #include "io.hpp"
 #include "suqa.cuh"
 #include "complex_defines.cuh"
+#include "system.cuh"
 
 
 // defined in src/system.cu
+#define DEFAULT_THETA (1./sqrt(2))
 void evolution(const double& t, const int& n);
 
 double measure_X(pcg& rgen);

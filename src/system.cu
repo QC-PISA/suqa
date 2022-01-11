@@ -55,13 +55,33 @@ __inline__ double f2(double b){
 void init_state(){
     suqa::init_state();
 
-    suqa::apply_h(bm_qlink0[0]);
-    suqa::apply_cx(bm_qlink0[0], bm_qlink3[0]);
-    suqa::apply_h(bm_qlink0[1]);
-    suqa::apply_cx(bm_qlink0[1], bm_qlink3[1]);
-    suqa::apply_h(bm_qlink0[2]);
-    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
-    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
+//    suqa::apply_h(bm_qlink0[0]);
+//    suqa::apply_cx(bm_qlink0[0], bm_qlink3[0]);
+//    suqa::apply_h(bm_qlink0[1]);
+//    suqa::apply_cx(bm_qlink0[1], bm_qlink3[1]);
+//    suqa::apply_h(bm_qlink0[2]);
+//    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
+//    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
+
+// automatically gauge-invariant initialization
+/*    .   .   .
+ *    1   2
+ *    o 0 o I .
+ *   g1  g2
+ *  
+ *  U0 -> g2 U0 g1'
+ *  U1 -> g1 U1 g1'
+ *  U2 -> g2 U2 g2'
+ *  U3 -> g1 U3 g2'
+ *
+ *  GF: g2=g1 U3
+ *  
+ *  U0 -> g1 U3U0 g1'
+ *  U1 -> g1 U1 g1'
+ *  U2 -> g1 U3 U2 U3' g1'
+ *  U3 -> I 
+ */
+
 }
 
 
@@ -365,61 +385,53 @@ double measure_X(pcg& rgen){
 }
 
 /* Moves facilities */
+#define NMoves 18
 
-std::vector<double> C_weigthsums = {1./3, 2./3, 1.0};
+std::vector<double> C_weigthsums(NMoves);
+//
+//= {1./18., 2./18., 3./18., 4./18., 5./18., 
+//    6./18., 7./18., 8./18., 9./18., 10./18., 11./18., 12./18., 
+//    13./18., 14./18., 15./18., 16./18., 17./18., 1.0};
+#define HNMoves (NMoves>>1)
 
 
 void apply_C(const uint &Ci,double rot_angle){
-    // move 0 -> Ci=0, inverse move 0 -> Ci=10
-    bool is_inverse = Ci>=10;
+    // move 0 -> Ci=0, inverse move 0 -> Ci=9
+    bool is_inverse = Ci>=HNMoves;
     double actual_angle = (is_inverse)? -rot_angle : rot_angle;
-    switch (Ci%10){
+    switch (Ci%HNMoves){
         case 0:
         case 1:
-        case 2:
-        case 3: // eigenvalues of kinetic hamiltonian on single gauge variable
+        case 2: // eigenvalues of kinetic hamiltonian on single gauge variable
         {
             const double theta1 = actual_angle*f1(g_beta);    
             const double theta2 = actual_angle*f2(g_beta);
-            fourier_transf_d4(bm_qlinks[Ci%10]);
-            momentum_phase(bm_qlinks[Ci%10], bm_qaux[0], theta1, theta2);
-            inverse_fourier_transf_d4(bm_qlinks[Ci%10]);
+            fourier_transf_d4(bm_qlinks[Ci%HNMoves]);
+            momentum_phase(bm_qlinks[Ci%HNMoves], bm_qaux[0], theta1, theta2);
+            inverse_fourier_transf_d4(bm_qlinks[Ci%HNMoves]);
             break;
         }
-        case 4: // left plaquette
+        case 3: // left plaquette
         {
             self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
             self_trace_operator(bm_qlink1, bm_qaux[0], actual_angle);
             inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
             break;
         }
-        case 5: // rotate using trace of U_1^2
+        case 4: // rotate using trace of U_1^2
         {
             // square in the group:
             // 010 (tr=-1) U_1=001 or 011; 000 (tr=+1) all the other cases 
             // the global phase for all the other cases can be factored out
 
-            // applies rot_angle if 0Y1 ([[1,0],[0,e^{iθ}]])  
             suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], actual_angle, 0U);
-           
-            // applies -rot_angle if 0Y0 ([[e^{iθ},0],[0,1]])  suqa::apply_x(bm_qlink1[2]); suqa::apply_u1(bm_qlink1[2],-rot_angle);suqa::apply_x(bm_qlink1[2]);
-            /* suqa::apply_mcu1({bm_qlink1[0], bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle) */
-            
-    //        suqa::apply_x(bm_qlink1[2]);
-    //        suqa::apply_cu1(bm_qlink1[0],bm_qlink1[2],-actual_angle, 0U);
-    //        suqa::apply_x(bm_qlink1[2]);
-    //        
-    //        // applies -rot_angle if 1YZ 
-    //        suqa::apply_u1(bm_qlink1[0], -actual_angle);
-
             break;
             
         }
-        case 6: // rotate using trace of U_1
+        case 5: // rotate using trace of U_1
         {
             
             // applies -rot_angle if 000
-            /*suqa::apply_mcu1(bm_qlink1, {0U,0U,0U}, bm_qlink1[2], -actual_angle)*/
             suqa::apply_x(bm_qlink1[1]);
             suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle);
             suqa::apply_x(bm_qlink1[1]);
@@ -429,7 +441,7 @@ void apply_C(const uint &Ci,double rot_angle){
     
             break;
         }
-        case 7: // rotate using trace of U_3*U_0, U_3 is identity
+        case 6: // rotate using trace of U_3*U_0, U_3 is identity
         {
 
             //left_multiplication(bm_qlink3, bm_qlink0);
@@ -441,7 +453,7 @@ void apply_C(const uint &Ci,double rot_angle){
 
             break;
         }
-        case 8: // rotate using trace of U_1^-1*U_0*U_3, U_3 is identity
+        case 7: // rotate using trace of U_1^-1*U_0*U_3, U_3 is identity
         {
 
             inversion(bm_qlink1);
@@ -454,7 +466,7 @@ void apply_C(const uint &Ci,double rot_angle){
 
             break;
         }
-        case 9:
+        case 8:
         {
             // rotate using trace of U_1^-1*U_0*U_2*U_3, , U_3 is identity
             
@@ -479,7 +491,7 @@ void apply_C(const uint &Ci,double rot_angle){
 }
 
 void apply_C_inverse(const uint &Ci,double rot_angle){
-    apply_C(Ci,rot_angle);
+    apply_C(Ci,-rot_angle);
 //    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
 }
 
@@ -504,5 +516,14 @@ void qsa_apply_C_inverse(const uint &Ci){
 //  suqa::apply_h(bm_spin_tilde[Ci]);
 }
 
-std::vector<double> get_C_weigthsums(){ return C_weigthsums; }
+std::vector<double> get_C_weigthsums(){ 
+    static bool init_done=false;
+    // first initialization
+    if(not init_done){
+        for(int i=1; i<=NMoves; ++i){
+            C_weigthsums[i-1]=i/(double)NMoves;
+        }
+        init_done=true;
+    }
+    return C_weigthsums; }
 
