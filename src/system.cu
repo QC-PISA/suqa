@@ -491,7 +491,7 @@ void apply_C(const uint &Ci,double rot_angle){
 }
 
 void apply_C_inverse(const uint &Ci,double rot_angle){
-    apply_C(Ci,-rot_angle);
+    apply_C(Ci,rot_angle);
 //    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
 }
 
