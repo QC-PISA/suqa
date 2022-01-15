@@ -6,8 +6,9 @@
 #include "system.cuh"
 
 
-// defined in src/system.cu
-#define DEFAULT_THETA (1./sqrt(2))
+// already defined in include/system.cuh
+//#define DEFAULT_THETA 0.01 
+//(1./sqrt(2))
 void evolution(const double& t, const int& n);
 
 double measure_X(pcg& rgen);
@@ -221,7 +222,7 @@ uint draw_C(){
 //TODO: put generic oracle builder in suqa
 #ifdef GPU
 __global__
-void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
+void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, uint Eold, double c){
     //XXX: since q_acc is the most significative qubit, we split the cycle beforehand
     int i = blockDim.x*blockIdx.x + threadIdx.x+len/2;    
     double fs1, fs2;
@@ -229,7 +230,7 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        double dE = (Enew*c-curr_E_old*c);
+        double dE = (Enew*c-Eold*c);
         if(dE>0){
             fs1 = exp(-dE/2.0);
             fs2 = sqrt(1.0 - fs1*fs1);
@@ -244,7 +245,7 @@ void kernel_qms_apply_W(double *const state_comp, uint len, uint q_acc, uint dev
     }
 }
 #else // CPU
-void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, double c){
+void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, uint Eold, double c){
     double fs1, fs2;
 #ifdef SPARSE
     std::vector<uint> new_actives; // instead of removing from suqa::actives, replace with new actives
@@ -257,7 +258,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
             if (std::find(visited.begin(), visited.end(), i_0) == visited.end()) { // apply only once
                 //extract energies from other registers
                 uint Enew = (i_0 & dev_W_mask_Enew) >> dev_bm_enes_new;
-                double dE = (Enew*c-curr_E_old*c);
+                double dE = (Enew*c-Eold*c);
                 if(dE>0){
                     fs1 = exp(-dE/2.0);
                     fs2 = sqrt(1.0 - fs1*fs1);
@@ -291,7 +292,7 @@ void func_qms_apply_W(uint q_acc, uint dev_W_mask_Enew, uint dev_bm_enes_new, do
         // extract dE reading Eold and Enew
         uint j = i & ~(1U << q_acc);
         uint Enew = (i & dev_W_mask_Enew) >> dev_bm_enes_new;
-        double dE = (Enew*c-curr_E_old*c);
+        double dE = (Enew*c-Eold*c);
         DEBUG_CALL(std::cout<<"dE: "<<dE<<std::endl);
         if(dE>0){
             fs1 = exp(-dE/2.0);
@@ -315,11 +316,11 @@ void apply_W(){
     DEBUG_CALL(std::cout<<"\n\nApply W"<<std::endl);
 
 #ifdef GPU
-    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(suqa::state.data_re, suqa::state.size(), bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
-    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream1>>>(suqa::state.data_re, suqa::state.size(), bm_acc, W_mask_Enew, bm_enes_new[0], curr_E_old, c_factor);
+    qms::kernel_qms_apply_W<<<suqa::blocks,suqa::threads, 0, suqa::stream2>>>(suqa::state.data_im, suqa::state.size(), bm_acc, W_mask_Enew, bm_enes_new[0], curr_E_old, c_factor);
     cudaDeviceSynchronize();
 #else
-    qms::func_qms_apply_W(bm_acc, W_mask_Enew, bm_enes_new[0], c_factor);
+    qms::func_qms_apply_W(bm_acc, W_mask_Enew, bm_enes_new[0], curr_E_old, c_factor);
 #endif
 
 #ifdef GATECOUNT
@@ -336,7 +337,7 @@ void apply_W_inverse(){
 
 void apply_U(){
     DEBUG_CALL(std::cout<<"\n\nApply U"<<std::endl);
-    apply_C(gCi, DEFAULT_THETA);
+    apply_C(gCi);
     DEBUG_CALL(std::cout<<"\n\nAfter apply C = "<<gCi<<std::endl);
     DEBUG_READ_STATE();
 
@@ -356,7 +357,7 @@ void apply_U_inverse(){
     apply_Phi_inverse();
     DEBUG_CALL(std::cout<<"\n\nAfter inverse second phase estimation"<<std::endl);
     DEBUG_READ_STATE();
-    apply_C_inverse(gCi + 10, DEFAULT_THETA);
+    apply_C_inverse(gCi);
     DEBUG_CALL(std::cout<<"\n\nAfter apply C inverse = "<<gCi<<std::endl);
     DEBUG_READ_STATE();
 }

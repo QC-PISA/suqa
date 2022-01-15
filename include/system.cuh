@@ -28,7 +28,8 @@ void init_state();
 
 void evolution(const double& t, const int& n);
 
-#define DEFAULT_THETA (1./sqrt(2))
+#define DEFAULT_THETA 0.01 
+//(1./sqrt(2))
 void apply_C(const uint &Ci, double rot_angle=DEFAULT_THETA);
 void apply_C_inverse(const uint &Ci, double rot_angle=DEFAULT_THETA);
 

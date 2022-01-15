@@ -69,17 +69,20 @@ void init_state(){
  *    o 0 o I .
  *   g1  g2
  *  
- *  U0 -> g2 U0 g1'
- *  U1 -> g1 U1 g1'
- *  U2 -> g2 U2 g2'
- *  U3 -> g1 U3 g2'
+ *  U0 -> g2 U0 g1' -> g
+ *  U1 -> g1 U1 g1' -> I
+ *  U2 -> g2 U2 g2' -> I
+ *  U3 -> g1 U3 g2' -> g'
+ *
+ *  g=g2 g1', sum over g
  *
  *  GF: g2=g1 U3
  *  
- *  U0 -> g1 U3U0 g1'
- *  U1 -> g1 U1 g1'
- *  U2 -> g1 U3 U2 U3' g1'
- *  U3 -> I 
+ *  U0 -> U0n = g1 U3 U0 g1'     -> I
+ *  U1 -> U1n = g1 U1 g1'        -> I
+ *  U2 -> U2n = g1 U3 U2 U3' g1' -> I
+ *  U3 -> U3n = I                -> I
+ *
  */
 
 }
@@ -207,9 +210,13 @@ void momentum_phase(const bmReg& qr, const uint& qaux, double th1, double th2){
     DEBUG_CALL(printf("\tafter suqa::apply_mcx(qr, {0U,0U,0U}, qaux)\n"));
     DEBUG_READ_STATE();
     suqa::apply_cx(qaux, qr[2]);
+    DEBUG_CALL(printf("\tafter suqa::apply_cx(qaux=%u, qr[2]=%u)\n",qaux,qr[2]));
+    DEBUG_READ_STATE();
     suqa::apply_cu1(qaux, qr[2], th1);
+    DEBUG_CALL(printf("\tafter suqa::apply_cu1(qaux, qr[2],%lg)\n",th1));
+    DEBUG_READ_STATE();
     suqa::apply_cx(qaux, qr[2]);
-    DEBUG_CALL(printf("\tafter suqa::apply_cu1(qaux, qr[2], th1, 0U)\n"));
+    DEBUG_CALL(printf("\tafter suqa::apply_cu1(qaux, qr[2], th1)\n"));
     DEBUG_READ_STATE();
     suqa::apply_mcx(qr, {0U,0U,0U}, qaux);
     DEBUG_CALL(printf("\tafter suqa::apply_mcx(qr, {0U,0U,0U}, qaux)\n"));
@@ -232,7 +239,7 @@ void evolution(const double& t, const int& n){
     const double theta1 = dt*f1(g_beta);    // eigenvalues of kinetic hamiltonian on single gauge variable
     const double theta2 = dt*f2(g_beta);
     const double theta = 2*dt*g_beta;       // see Lamm's paper (the factor 2 is included here)
-//    printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta);
+    DEBUG_CALL(printf("Evolution parameters:\ng_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta));
 
     for(uint ti=0; ti<(uint)n; ++ti){
         self_plaquette1();
@@ -406,6 +413,7 @@ void apply_C(const uint &Ci,double rot_angle){
         {
             const double theta1 = actual_angle*f1(g_beta);    
             const double theta2 = actual_angle*f2(g_beta);
+            DEBUG_CALL(printf("actual_angle = %lg; g_beta = %lg; f1 = %lg; f2 = %lg\n",actual_angle,g_beta,f1(g_beta), f2(g_beta)));
             fourier_transf_d4(bm_qlinks[Ci%HNMoves]);
             momentum_phase(bm_qlinks[Ci%HNMoves], bm_qaux[0], theta1, theta2);
             inverse_fourier_transf_d4(bm_qlinks[Ci%HNMoves]);
@@ -491,7 +499,9 @@ void apply_C(const uint &Ci,double rot_angle){
 }
 
 void apply_C_inverse(const uint &Ci,double rot_angle){
-    apply_C(Ci,rot_angle);
+    apply_C(Ci,-rot_angle);
+    // or, equivalent:
+//    apply_C((Ci+HNMoves)%NMoves,rot_angle);
 //    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
 }
 
