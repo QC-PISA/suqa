@@ -1,42 +1,43 @@
 #include "system.cuh"
 
-/* d4 gauge theory - two plaquettes
+/* z2 gauge theory - two plaquettes
  
     link state 3 qubits
-    system state: 4 links -> 12 qubits
-    +1 ancillary qubit
+    system state: 3 links -> 3 qubits
 
     .   .   .
     1   2
     o 0 o I .
 
-    operation table for the D4 group:
-
-    [abc -> a*4+b*2+c]
-
-    representation: ρ_{abc} = (-1)^b [[0,1],[1,0]]^a [[i, 0],[0,-i]]^c
-
-    ρ_{a'b'c'}ρ_{abc} = (-1)^{b'+b} 
-
-     
-          0   1   2   3   4   5   6   7
-        ________________________________
-       |
-    0  |  0   1   2   3   4   5   6   7
-       |
-    1  |  1   2   3   0   7   4   5   6 
-       | 
-    2  |  2   3   0   1   6   7   4   5
-       |
-    3  |  3   0   1   2   5   6   7   4
-       |
-    4  |  4   7   6   5   0   1   2   3
-       |
-    5  |  5   4   7   6   1   0   1   2
-       |
-    6  |  6   5   4   7   2   1   0   1
-       |
-    7  |  7   6   5   4   3   2   1   0
+TODO: update for Z2 instead of D4
+XXX
+XXX    operation table for the D4 group:
+XXX
+XXX    [abc -> a*4+b*2+c]
+XXX
+XXX    representation: ρ_{abc} = (-1)^b [[0,1],[1,0]]^a [[i, 0],[0,-i]]^c
+XXX
+XXX    ρ_{a'b'c'}ρ_{abc} = (-1)^{b'+b} 
+XXX
+XXX     
+XXX          0   1   2   3   4   5   6   7
+XXX        ________________________________
+XXX       |
+XXX    0  |  0   1   2   3   4   5   6   7
+XXX       |
+XXX    1  |  1   2   3   0   7   4   5   6 
+XXX       | 
+XXX    2  |  2   3   0   1   6   7   4   5
+XXX       |
+XXX    3  |  3   0   1   2   5   6   7   4
+XXX       |
+XXX    4  |  4   7   6   5   0   1   2   3
+XXX       |
+XXX    5  |  5   4   7   6   1   0   1   2
+XXX       |
+XXX    6  |  6   5   4   7   2   1   0   1
+XXX       |
+XXX    7  |  7   6   5   4   3   2   1   0
 
  */
 
@@ -44,24 +45,25 @@
 
 double g_beta;
 
-__inline__ double f1(double b){
-    return log((3+cosh(2.*b))/(2*sinh(b)*sinh(b)));
+/* eigenvalues of T_{U_1,U_2} = (exp(β tr(\rho{U_1}^\prime \rho{U_2})))_{U_1,U_2}
+    
+   \rho{0} = Id, \rho{1} = X
+   T = [[e^{2β}, 1], [1, e^{2β}]]
+   
+   λ_\pm = e^{2β} +- 1 
+
+ */
+__inline__ double fp(double b){
+  return log(exp(2*b)+1);
 }
 
-__inline__ double f2(double b){
-    return -log(tanh(b));
+__inline__ double fm(double b){
+  if (b<0) std::runtime_error("ERROR: fm(b) failed because of b<0");
+  return log(exp(2*b)-1);
 }
 
 void init_state(){
     suqa::init_state();
-
-//    suqa::apply_h(bm_qlink0[0]);
-//    suqa::apply_cx(bm_qlink0[0], bm_qlink3[0]);
-//    suqa::apply_h(bm_qlink0[1]);
-//    suqa::apply_cx(bm_qlink0[1], bm_qlink3[1]);
-//    suqa::apply_h(bm_qlink0[2]);
-//    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
-//    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
 
 // automatically gauge-invariant initialization
 /*    .   .   .
@@ -90,154 +92,65 @@ void init_state(){
 
 /* Quantum evolutor of the state */
 
-void inversion(const bmReg& q){
-    suqa::apply_mcx({q[0],q[2]},{1U,0U},q[1]); 
-}
+//void inversion(const bmReg& q){
+//}
 
 void left_multiplication(const bmReg& qr1, const bmReg& qr2){
-    // applies group element from register qr1 to register qr2
-    // |...,U_{qr1},...,U_{qr2},...> -> |...,U_{qr1},...,U_{qr1}U_{qr2},...>
-    suqa::apply_cx(qr1[1], qr2[1]);
-    suqa::apply_mcx({qr1[0], qr2[0]}, qr2[1]);
     suqa::apply_cx(qr1[0], qr2[0]);
-    suqa::apply_mcx({qr1[0], qr2[2]}, qr2[1]);
-    suqa::apply_cx(qr1[2], qr2[2]);
 }
 
-void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
-    // applies the following operation in the computational basis
-    // |...,U_{qr0}...,U_{qr1}...,U_{qr2},...,U_{qr3},...> -> 
-    //                      .
-    //                      .
-    //                      V
-    // |...,U_{qr3}U'_{qr2}U'_{qr1}U_{qr0}...,U_{qr1}...,U_{qr2},...,U_{qr3},...>
-    inversion(qr1);
-    left_multiplication(qr1, qr0);
-    inversion(qr1);
-    inversion(qr2);
+void self_plaquette(const bmReg& qr0, const bmReg& qr2){
     left_multiplication(qr2, qr0);
-    inversion(qr2);
-    left_multiplication(qr3, qr0);
 }
 
-void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
+void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr2){
     // inverse operation of self_plaquette
-    inversion(qr3);
-    left_multiplication(qr3, qr0);
-    inversion(qr3);
-    left_multiplication(qr2, qr0);
-    left_multiplication(qr1, qr0);
+    self_plaquette(qr0, qr2);
 }
 
 
 void self_plaquette1(){
-    self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+    self_plaquette(bm_qlink1, bm_qlink2);
 }
 void inverse_self_plaquette1(){
-    inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+    inverse_self_plaquette(bm_qlink1, bm_qlink2);
 }
 
 
-void self_plaquette2(){
-    inversion(bm_qlink1);
-    left_multiplication(bm_qlink1,bm_qlink2);
-    inversion(bm_qlink1);
-}
-void inverse_self_plaquette2(){
-}
 
-void cphases(uint qaux, uint q0b, double alpha1, double alpha2){
-    // eigenvalues of the trace operator
-    suqa::apply_cx(qaux, q0b);
-    suqa::apply_cu1(q0b, qaux, alpha1, 1U);
-    suqa::apply_cx(qaux, q0b);
-    suqa::apply_cu1(q0b, qaux, alpha2, 1U);
+void self_trace_operator(const bmReg& qr, double th){
+  suqa::apply_u1(qr[0], 0U, th);
+  DEBUG_CALL(printf("\tafter self_trace_operator(qr, th1, th2)\n"));
+  DEBUG_READ_STATE();
 }
 
-void self_trace_operator(const bmReg& qr, const uint& qaux, double th){
-    suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qaux); 
-    cphases(qaux, qr[1], th, -th);
-    suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qaux); 
-
-    // Alternative implementation
-//    suqa::apply_mcu1({qr[0],qr[2]}, {0U,0U}, qr[1],th);  // u1(θ) = [[1,0],[0,e^{iθ}]]
-//    suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qr[1]);  
-//    suqa::apply_mcu1({qr[0],qr[2]}, {0U,0U}, qr[1],-th);
-//    suqa::apply_mcx({qr[0],qr[2]}, {0U,0U}, qr[1]);
-}
-
-void fourier_transf_d4(const bmReg& qr){
-    suqa::apply_cx(qr[2], qr[0]);
-    suqa::apply_cx(qr[0], qr[2]);
-    suqa::apply_tdg(qr[2]);
-    suqa::apply_tdg(qr[2]);
-    suqa::apply_cx(qr[1], qr[2]);
+void fourier_transf_z2(const bmReg& qr){
     suqa::apply_h(qr[0]);
-    suqa::apply_h(qr[1]);
-    suqa::apply_h(qr[2]);
-    suqa::apply_t(qr[1]);
-    suqa::apply_tdg(qr[2]);
-    suqa::apply_cx(qr[1], qr[2]);
-    suqa::apply_cx(qr[0], qr[1]);
-    suqa::apply_h(qr[1]);
-    suqa::apply_t(qr[1]);
-    suqa::apply_t(qr[1]);
-    suqa::apply_h(qr[1]);
+    DEBUG_CALL(printf("\tafter fourier_transf_z2(qr, th1, th2)\n"));
+    DEBUG_READ_STATE();    
 }
 
 
-void inverse_fourier_transf_d4(const bmReg& qr){
-    suqa::apply_h(qr[1]);
-    suqa::apply_tdg(qr[1]);
-    suqa::apply_tdg(qr[1]);
-    suqa::apply_h(qr[1]);
-    suqa::apply_cx(qr[0], qr[1]);
-    suqa::apply_cx(qr[1], qr[2]);
-    suqa::apply_t(qr[2]);
-    suqa::apply_tdg(qr[1]);
-    suqa::apply_h(qr[0]);
-    suqa::apply_h(qr[1]);
-    suqa::apply_h(qr[2]);
-    suqa::apply_cx(qr[1], qr[2]);
-    suqa::apply_t(qr[2]);
-    suqa::apply_t(qr[2]);
-    suqa::apply_cx(qr[0], qr[2]);
-    suqa::apply_cx(qr[2], qr[0]);
+void inverse_fourier_transf_z2(const bmReg& qr){
+    fourier_transf_z2(qr);
+    DEBUG_CALL(printf("\tafter inverse_fourier_transf_z2(qr, th1, th2)\n"));
+    DEBUG_READ_STATE();    
 }
 
-void momentum_phase(const bmReg& qr, const uint& qaux, double th1, double th2){
-    suqa::apply_mcx(qr, {0U,0U,0U}, qaux);
-    DEBUG_CALL(printf("\tafter suqa::apply_mcx(qr, {0U,0U,0U}, qaux)\n"));
+void momentum_phase(const bmReg& qr, double th1, double th2){
+    suqa::apply_u1(qr[0],th2);
+    suqa::apply_u1(qr[0],0U, th1);
+    DEBUG_CALL(printf("\tafter momentum_phase(qr, th1, th2)\n"));
     DEBUG_READ_STATE();
-    suqa::apply_cx(qaux, qr[2]);
-    DEBUG_CALL(printf("\tafter suqa::apply_cx(qaux=%u, qr[2]=%u)\n",qaux,qr[2]));
-    DEBUG_READ_STATE();
-    suqa::apply_cu1(qaux, qr[2], th1);
-    DEBUG_CALL(printf("\tafter suqa::apply_cu1(qaux, qr[2],%lg)\n",th1));
-    DEBUG_READ_STATE();
-    suqa::apply_cx(qaux, qr[2]);
-    DEBUG_CALL(printf("\tafter suqa::apply_cu1(qaux, qr[2], th1)\n"));
-    DEBUG_READ_STATE();
-    suqa::apply_mcx(qr, {0U,0U,0U}, qaux);
-    DEBUG_CALL(printf("\tafter suqa::apply_mcx(qr, {0U,0U,0U}, qaux)\n"));
-    DEBUG_READ_STATE();
-
-
-    // Alternative implementation without qaux
-//    suqa::apply_mcx(qr, {0U,0U,0U}, qr[2]);
-//    suqa::apply_mcu1(qr, {0U,0U,0U}, qr[2],th1);
-//    suqa::apply_mcx(qr, {0U,0U,0U}, qr[2]);
-
-    suqa::apply_u1(qr[2], th2);
     DEBUG_CALL(printf("\tafter suqa::apply_u1(qr[2], th2)\n"));
     DEBUG_READ_STATE();
 }
 
 void evolution(const double& t, const int& n){
-    const double dt = t/(double)n;
+    const double dt = -t/(double)n;
 
-    const double theta1 = dt*f1(g_beta);    // eigenvalues of kinetic hamiltonian on single gauge variable
-    const double theta2 = dt*f2(g_beta);
+    const double theta1 = dt*fp(g_beta);    // eigenvalues of kinetic hamiltonian on single gauge variable
+    const double theta2 = dt*fm(g_beta);
     const double theta = 2*dt*g_beta;       // see Lamm's paper (the factor 2 is included here)
     DEBUG_CALL(printf("Evolution parameters:\ng_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta));
 
@@ -245,53 +158,57 @@ void evolution(const double& t, const int& n){
         self_plaquette1();
         DEBUG_CALL(printf("after self_plaquette1()\n"));
         DEBUG_READ_STATE();
-        self_trace_operator(bm_qlink1, bm_qaux[0], theta);
+        self_trace_operator(bm_qlink1, theta*2*((ti==0)?0.5:1.0)); // factor 2 because plaquette2 has the same value of plaquette 1; factor 0.5 because of Trotter
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
         inverse_self_plaquette1();
         DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
         DEBUG_READ_STATE();
 
-        self_plaquette2();
-        DEBUG_CALL(printf("after self_plaquette2()\n"));
+//        self_plaquette2(); automatically satisfied by plaquette1 rotation
+
+        fourier_transf_z2(bm_qlink0);
+        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink0)\n"));
         DEBUG_READ_STATE();
-        self_trace_operator(bm_qlink2, bm_qaux[0], theta);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
+        fourier_transf_z2(bm_qlink1);
+        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink1)\n"));
         DEBUG_READ_STATE();
-        inverse_self_plaquette2();
-        DEBUG_CALL(printf("after inverse_self_plaquette2()\n"));
+        fourier_transf_z2(bm_qlink2);
+        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink2)\n"));
         DEBUG_READ_STATE();
 
-        fourier_transf_d4(bm_qlink0);
-        DEBUG_CALL(printf("after fourier_transf_d4(bm_qlink0)\n"));
+        momentum_phase(bm_qlink0, theta1, theta2);
+        DEBUG_CALL(printf("after momentum_phase(bm_qlink0, theta1, theta2)\n"));
         DEBUG_READ_STATE();
-        fourier_transf_d4(bm_qlink1);
-        DEBUG_CALL(printf("after fourier_transf_d4(bm_qlink1)\n"));
+        momentum_phase(bm_qlink1, theta1, theta2);
+        DEBUG_CALL(printf("after momentum_phase(bm_qlink1, theta1, theta2)\n"));
         DEBUG_READ_STATE();
-        fourier_transf_d4(bm_qlink2);
-        DEBUG_CALL(printf("after fourier_transf_d4(bm_qlink2)\n"));
-        DEBUG_READ_STATE();
-
-        momentum_phase(bm_qlink0, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink0, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE();
-        momentum_phase(bm_qlink1, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink1, bm_qaux[0], theta1, theta2)\n"));
-        DEBUG_READ_STATE();
-        momentum_phase(bm_qlink2, bm_qaux[0], theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink2, bm_qaux[0], theta1, theta2)\n"));
+        momentum_phase(bm_qlink2, theta1, theta2);
+        DEBUG_CALL(printf("after momentum_phase(bm_qlink2, theta1, theta2)\n"));
         DEBUG_READ_STATE();
 
 
-        inverse_fourier_transf_d4(bm_qlink2);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(bm_qlink2)\n"));
+        inverse_fourier_transf_z2(bm_qlink2);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink2)\n"));
         DEBUG_READ_STATE();
-        inverse_fourier_transf_d4(bm_qlink1);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(bm_qlink1)\n"));
+        inverse_fourier_transf_z2(bm_qlink1);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink1)\n"));
         DEBUG_READ_STATE();
-        inverse_fourier_transf_d4(bm_qlink0);
-        DEBUG_CALL(printf("after inverse_fourier_transf_d4(bm_qlink0)\n"));
+        inverse_fourier_transf_z2(bm_qlink0);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink0)\n"));
         DEBUG_READ_STATE();
+
+        if(ti==(uint)(n-1)){
+            self_plaquette1();
+            DEBUG_CALL(printf("after self_plaquette1()\n"));
+            DEBUG_READ_STATE();
+            self_trace_operator(bm_qlink1, theta*2*0.5); // factor 2 because plaquette2 has the same value of plaquette 1 ; 0.5 because of Trotter
+            DEBUG_CALL(printf("after self_trace_operator()\n"));
+            DEBUG_READ_STATE();
+            inverse_self_plaquette1();
+            DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
+            DEBUG_READ_STATE();
+        }
     }
 }
 
@@ -346,19 +263,20 @@ void evolution_tracing(const double& t, const int& n){
 }
 
 /* Measure facilities */
-const uint op_bits = 3; // 2^op_bits is the number of eigenvalues for the observable
+const uint op_bits = 1; // 2^op_bits is the number of eigenvalues for the observable
 const bmReg bm_op = bm_qlink1; // where the measure has to be taken
-const std::vector<double> op_vals = {2.0,0.0,-2.0, 0.0,0.0,0.0,0.0,0.0}; // eigvals
+const std::vector<double> op_vals = {2.0,0.0}; // eigvals
 
  
 // change basis to the observable basis somewhere in the system registers
 void apply_measure_rotation(){
-    self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+    self_plaquette1();
 }
 
 // inverse of the above function
 void apply_measure_antirotation(){
-    inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+    inverse_self_plaquette1();
+    
 }
 
 // map the classical measure recorded in creg_vals
@@ -392,114 +310,90 @@ double measure_X(pcg& rgen){
 }
 
 /* Moves facilities */
-#define NMoves 18
+#define NMoves 12
 
 std::vector<double> C_weightsums(NMoves);
-//
-//= {1./18., 2./18., 3./18., 4./18., 5./18., 
-//    6./18., 7./18., 8./18., 9./18., 10./18., 11./18., 12./18., 
-//    13./18., 14./18., 15./18., 16./18., 17./18., 1.0};
-#define HNMoves (NMoves>>1)
-
 
 void apply_C(const uint &Ci,double rot_angle){
-    // move 0 -> Ci=0, inverse move 0 -> Ci=9
-    bool is_inverse = Ci>=HNMoves;
-    double actual_angle = (is_inverse)? -rot_angle : rot_angle;
-    switch (Ci%HNMoves){
-        case 0:
-        case 1:
-        case 2: // eigenvalues of kinetic hamiltonian on single gauge variable
-        {
-            const double theta1 = actual_angle*f1(g_beta);    
-            const double theta2 = actual_angle*f2(g_beta);
-            DEBUG_CALL(printf("actual_angle = %lg; g_beta = %lg; f1 = %lg; f2 = %lg\n",actual_angle,g_beta,f1(g_beta), f2(g_beta)));
-            fourier_transf_d4(bm_qlinks[Ci%HNMoves]);
-            momentum_phase(bm_qlinks[Ci%HNMoves], bm_qaux[0], theta1, theta2);
-            inverse_fourier_transf_d4(bm_qlinks[Ci%HNMoves]);
-            break;
-        }
-        case 3: // left plaquette
-        {
-            self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-            self_trace_operator(bm_qlink1, bm_qaux[0], actual_angle);
-            inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-            break;
-        }
-        case 4: // rotate using trace of U_1^2
-        {
-            // square in the group:
-            // 010 (tr=-1) U_1=001 or 011; 000 (tr=+1) all the other cases 
-            // the global phase for all the other cases can be factored out
-
-            suqa::apply_cu1(bm_qlink1[0], bm_qlink1[2], actual_angle, 0U);
-            break;
-            
-        }
-        case 5: // rotate using trace of U_1
-        {
-            
-            // applies -rot_angle if 000
-            suqa::apply_x(bm_qlink1[1]);
-            suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], -actual_angle);
-            suqa::apply_x(bm_qlink1[1]);
-
-            //applies rot_angle if 010
-            suqa::apply_mcu1({bm_qlink1[0],bm_qlink1[2]}, {0U,0U}, bm_qlink1[1], actual_angle);
+    (void)rot_angle;
+  switch(Ci){
+  case 0U:
+    suqa::apply_z(bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_z(bm_qlink1[0])\n"));
+    DEBUG_READ_STATE();
+    break;
+  case 1U:
+    suqa::apply_z(bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_z(bm_qlink2[0])\n"));
+    DEBUG_READ_STATE();
+    break;
+  case 2U:
+    suqa::apply_z(bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_z(bm_qlink0[0])\n"));
+   DEBUG_READ_STATE();
+    // suqa::apply_z(bm_qlink3[0]);
+    // DEBUG_CALL(printf("after apply_z(bm_qlink3[0])\n"));
+    // DEBUG_READ_STATE();
+    break;
+  case 3U:
+    suqa::apply_y(bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink0[0])\n"));
+    DEBUG_READ_STATE();
+   // suqa::apply_y(bm_qlink3[0]);
+    // DEBUG_CALL(printf("after apply_y(bm_qlink3[0])\n"));
+    // DEBUG_READ_STATE();
+   break;
+  case 4U:
+    suqa::apply_y(bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink1[0])\n"));
+    DEBUG_READ_STATE();
+    break;
+  case 5U:
+    suqa::apply_y(bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+   DEBUG_READ_STATE();
+    break;
+  case 6U:
+    suqa::apply_x(bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink0[0])\n"));
+    DEBUG_READ_STATE();
+    // suqa::apply_y(bm_qlink3[0]);
+    // DEBUG_CALL(printf("after apply_y(bm_qlink3[0])\n"));
+    // DEBUG_READ_STATE();
+    break;
+  case 7U:
+    suqa::apply_x(bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink1[0])\n"));
+    DEBUG_READ_STATE();
+    break;
+  case 8U:
+    suqa::apply_x(bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+    DEBUG_READ_STATE();
+    break;
+  case 9U:
+    suqa::apply_h(bm_qlink0[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+   DEBUG_READ_STATE();
+    break;
+  case 10U:
+    suqa::apply_h(bm_qlink1[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+    DEBUG_READ_STATE();
+    break;
+  case 11U:
+    suqa::apply_h(bm_qlink2[0]);
+    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+    DEBUG_READ_STATE();
+    break;
     
-            break;
-        }
-        case 6: // rotate using trace of U_3*U_0, U_3 is identity
-        {
-
-            //left_multiplication(bm_qlink3, bm_qlink0);
-            self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle);
-
-            //inversion(bm_qlink3);
-            //left_multiplication(bm_qlink3, bm_qlink0);
-            //inversion(bm_qlink3);
-
-            break;
-        }
-        case 7: // rotate using trace of U_1^-1*U_0*U_3, U_3 is identity
-        {
-
-            inversion(bm_qlink1);
-            left_multiplication(bm_qlink1, bm_qlink0);
-            inversion(bm_qlink1);
-
-            self_trace_operator(bm_qlink0, bm_qaux[0], actual_angle);
-
-            left_multiplication(bm_qlink1, bm_qlink0);
-
-            break;
-        }
-        case 8:
-        {
-            // rotate using trace of U_1^-1*U_0*U_2*U_3, , U_3 is identity
-            
-            left_multiplication(bm_qlink0, bm_qlink2);
-            inversion(bm_qlink1);
-            left_multiplication(bm_qlink1, bm_qlink2);
-            inversion(bm_qlink1);
-            self_trace_operator(bm_qlink2, bm_qaux[0], actual_angle);
-
-            left_multiplication(bm_qlink1, bm_qlink2);
-            inversion(bm_qlink0);
-            left_multiplication(bm_qlink0, bm_qlink2);
-            inversion(bm_qlink0);
-            
-            break;
-        }
-        default:
-            throw std::runtime_error("ERROR: apply_C() unimplemented!\n");
-    }
-
-
+  default:
+    throw std::runtime_error("ERROR: wrong move selection");
+  }
 }
 
 void apply_C_inverse(const uint &Ci,double rot_angle){
-    apply_C(Ci,-rot_angle);
+    apply_C(Ci,rot_angle);
     // or, equivalent:
 //    apply_C((Ci+HNMoves)%NMoves,rot_angle);
 //    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
