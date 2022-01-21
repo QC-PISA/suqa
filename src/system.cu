@@ -2,8 +2,8 @@
 
 /* z2 gauge theory - two plaquettes
  
-    link state 3 qubits
-    system state: 3 links -> 3 qubits
+    link state 1 qubit
+    system state: 4 links -> 4 qubits
 
     .   .   .
     1   2
@@ -38,6 +38,36 @@ XXX       |
 XXX    6  |  6   5   4   7   2   1   0   1
 XXX       |
 XXX    7  |  7   6   5   4   3   2   1   0
+=======
+    //TODO: adapt from z2
+//XXX    operation table for the D4 group:
+//XXX
+//XXX    [abc -> a*4+b*2+c]
+//XXX
+//XXX    representation: ρ_{abc} = (-1)^b [[0,1],[1,0]]^a [[i, 0],[0,-i]]^c
+//XXX
+//XXX    ρ_{a'b'c'}ρ_{abc} = (-1)^{b'+b} 
+//XXX
+//XXX     
+//XXX          0   1   2   3   4   5   6   7
+//XXX        ________________________________
+//XXX       |
+//XXX    0  |  0   1   2   3   4   5   6   7
+//XXX       |
+//XXX    1  |  1   2   3   0   7   4   5   6 
+//XXX       | 
+//XXX    2  |  2   3   0   1   6   7   4   5
+//XXX       |
+//XXX    3  |  3   0   1   2   5   6   7   4
+//XXX       |
+//XXX    4  |  4   7   6   5   0   1   2   3
+//XXX       |
+//XXX    5  |  5   4   7   6   1   0   1   2
+//XXX       |
+//XXX    6  |  6   5   4   7   2   1   0   1
+//XXX       |
+//XXX    7  |  7   6   5   4   3   2   1   0
+>>>>>>> z2-gauge_transplant
 
  */
 
@@ -45,6 +75,7 @@ XXX    7  |  7   6   5   4   3   2   1   0
 
 double g_beta;
 
+<<<<<<< HEAD
 /* eigenvalues of T_{U_1,U_2} = (exp(β tr(\rho{U_1}^\prime \rho{U_2})))_{U_1,U_2}
     
    \rho{0} = Id, \rho{1} = X
@@ -53,6 +84,8 @@ double g_beta;
    λ_\pm = e^{2β} +- 1 
 
  */
+=======
+>>>>>>> z2-gauge_transplant
 __inline__ double fp(double b){
   return log(exp(2*b)+1);
 }
@@ -65,6 +98,20 @@ __inline__ double fm(double b){
 void init_state(){
     suqa::init_state();
 
+<<<<<<< HEAD
+=======
+    suqa::apply_h(bm_qlink0[0]);
+    suqa::apply_h(bm_qlink1[0]);
+    suqa::apply_h(bm_qlink2[0]);
+//    suqa::apply_h(bm_qlink0[0]);
+//    suqa::apply_cx(bm_qlink0[0], bm_qlink3[0]);
+//    suqa::apply_h(bm_qlink0[1]);
+//    suqa::apply_cx(bm_qlink0[1], bm_qlink3[1]);
+//    suqa::apply_h(bm_qlink0[2]);
+//    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
+//    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
+
+>>>>>>> z2-gauge_transplant
 // automatically gauge-invariant initialization
 /*    .   .   .
  *    1   2
@@ -93,6 +140,7 @@ void init_state(){
 /* Quantum evolutor of the state */
 
 //void inversion(const bmReg& q){
+<<<<<<< HEAD
 //}
 
 void left_multiplication(const bmReg& qr1, const bmReg& qr2){
@@ -101,10 +149,41 @@ void left_multiplication(const bmReg& qr1, const bmReg& qr2){
 
 void self_plaquette(const bmReg& qr0, const bmReg& qr2){
     left_multiplication(qr2, qr0);
+=======
+////    suqa::apply_mcx({q[0],q[2]},{1U,0U},q[1]); 
+//}
+
+void left_multiplication(const bmReg& qr1, const bmReg& qr2){
+    // applies group element from register qr1 to register qr2
+    // |...,U_{qr1},...,U_{qr2},...> -> |...,U_{qr1},...,U_{qr1}U_{qr2},...>
+    suqa::apply_cx(qr1[0], qr2[0]);
+//    suqa::apply_cx(qr1[1], qr2[1]);
+//    suqa::apply_mcx({qr1[0], qr2[0]}, qr2[1]);
+//    suqa::apply_cx(qr1[0], qr2[0]);
+//    suqa::apply_mcx({qr1[0], qr2[2]}, qr2[1]);
+//    suqa::apply_cx(qr1[2], qr2[2]);
+}
+
+void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
+    // applies the following operation in the computational basis
+    // |...,U_{qr0}...,U_{qr1}...,U_{qr2},...,U_{qr3},...> -> 
+    //                      .
+    //                      .
+    //                      V
+    // |...,U_{qr3}U'_{qr2}U'_{qr1}U_{qr0}...,U_{qr1}...,U_{qr2},...,U_{qr3},...>
+//    inversion(qr1);
+    left_multiplication(qr1, qr0);
+//    inversion(qr1);
+//    inversion(qr2);
+    left_multiplication(qr2, qr0);
+//    inversion(qr2);
+    left_multiplication(qr3, qr0);
+>>>>>>> z2-gauge_transplant
 }
 
 void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr2){
     // inverse operation of self_plaquette
+<<<<<<< HEAD
     self_plaquette(qr0, qr2);
 }
 
@@ -117,6 +196,38 @@ void inverse_self_plaquette1(){
 }
 
 
+=======
+//    inversion(qr3);
+    left_multiplication(qr3, qr0);
+//    inversion(qr3);
+    left_multiplication(qr2, qr0);
+    left_multiplication(qr1, qr0);
+}
+
+
+//void self_plaquette1(){
+//    self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+//}
+//void inverse_self_plaquette1(){
+//    inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+//}
+//
+//void self_plaquette2(){
+//    inversion(bm_qlink1);
+//    left_multiplication(bm_qlink1,bm_qlink2);
+//    inversion(bm_qlink1);
+//}
+//void inverse_self_plaquette2(){
+//}
+
+//void cphases(uint qaux, uint q0b, double alpha1, double alpha2){
+//    // eigenvalues of the trace operator
+//    suqa::apply_cx(qaux, q0b);
+//    suqa::apply_cu1(q0b, qaux, alpha1, 1U);
+//    suqa::apply_cx(qaux, q0b);
+//    suqa::apply_cu1(q0b, qaux, alpha2, 1U);
+//}
+>>>>>>> z2-gauge_transplant
 
 void self_trace_operator(const bmReg& qr, double th){
   suqa::apply_u1(qr[0], 0U, th);
@@ -141,30 +252,49 @@ void momentum_phase(const bmReg& qr, double th1, double th2){
     suqa::apply_u1(qr[0],th2);
     suqa::apply_u1(qr[0],0U, th1);
     DEBUG_CALL(printf("\tafter momentum_phase(qr, th1, th2)\n"));
+<<<<<<< HEAD
     DEBUG_READ_STATE();
     DEBUG_CALL(printf("\tafter suqa::apply_u1(qr[2], th2)\n"));
+=======
+>>>>>>> z2-gauge_transplant
     DEBUG_READ_STATE();
 }
 
 void evolution(const double& t, const int& n){
+<<<<<<< HEAD
     const double dt = -t/(double)n;
 
     const double theta1 = dt*fp(g_beta);    // eigenvalues of kinetic hamiltonian on single gauge variable
     const double theta2 = dt*fm(g_beta);
     const double theta = 2*dt*g_beta;       // see Lamm's paper (the factor 2 is included here)
     DEBUG_CALL(printf("Evolution parameters:\ng_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta));
+=======
+
+    const double dt = -t/(double)n;
+
+    const double theta1 = dt*fp(g_beta);
+    const double theta2 = dt*fm(g_beta);
+    const double theta = 4*dt*g_beta;
+
+    DEBUG_CALL(if(n>0) printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg\n", g_beta, dt, theta1, theta));
+>>>>>>> z2-gauge_transplant
 
     for(uint ti=0; ti<(uint)n; ++ti){
-        self_plaquette1();
-        DEBUG_CALL(printf("after self_plaquette1()\n"));
+        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        DEBUG_CALL(printf("after self_plaquette()\n"));
         DEBUG_READ_STATE();
+<<<<<<< HEAD
         self_trace_operator(bm_qlink1, theta*2*((ti==0)?0.5:1.0)); // factor 2 because plaquette2 has the same value of plaquette 1; factor 0.5 because of Trotter
+=======
+        self_trace_operator(bm_qlink1, theta*0.5);
+>>>>>>> z2-gauge_transplant
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
-        inverse_self_plaquette1();
-        DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
+        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE();
 
+<<<<<<< HEAD
 //        self_plaquette2(); automatically satisfied by plaquette1 rotation
 
         fourier_transf_z2(bm_qlink0);
@@ -196,6 +326,56 @@ void evolution(const double& t, const int& n){
         DEBUG_READ_STATE();
         inverse_fourier_transf_z2(bm_qlink0);
         DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink0)\n"));
+=======
+        fourier_transf_z2(bm_qlink0);
+        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink0)\n"));
+        DEBUG_READ_STATE();
+        fourier_transf_z2(bm_qlink1);
+        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink1)\n"));
+        DEBUG_READ_STATE();
+        fourier_transf_z2(bm_qlink2);
+        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink2)\n"));
+        DEBUG_READ_STATE();
+        // fourier_transf_z2(bm_qlink3);
+        // DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink3)\n"));
+        // DEBUG_READ_STATE();
+
+        momentum_phase(bm_qlink0, 2*theta1, 2*theta2);
+        DEBUG_CALL(printf("after momentum_phase(bm_qlink0, theta1, theta2)\n"));
+        DEBUG_READ_STATE();
+        momentum_phase(bm_qlink1, theta1, theta2);
+        DEBUG_CALL(printf("after momentum_phase(bm_qlink1, theta1, theta2)\n"));
+        DEBUG_READ_STATE();
+        momentum_phase(bm_qlink2, theta1, theta2);
+        DEBUG_CALL(printf("after momentum_phase(bm_qlink2, theta1, theta2)\n"));
+        DEBUG_READ_STATE();
+        // momentum_phase(bm_qlink3, theta1, theta2);
+        // DEBUG_CALL(printf("after momentum_phase(bm_qlink3, theta1, theta2)\n"));
+        // DEBUG_READ_STATE();
+	
+
+        // inverse_fourier_transf_z2(bm_qlink3);
+        // DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink3)\n"));
+        // DEBUG_READ_STATE();
+        inverse_fourier_transf_z2(bm_qlink2);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink2)\n"));
+        DEBUG_READ_STATE();
+        inverse_fourier_transf_z2(bm_qlink1);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink1)\n"));
+        DEBUG_READ_STATE();
+        inverse_fourier_transf_z2(bm_qlink0);
+        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink0)\n"));
+        DEBUG_READ_STATE();
+
+        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        DEBUG_CALL(printf("after self_plaquette()\n"));
+        DEBUG_READ_STATE();
+        self_trace_operator(bm_qlink1, theta*0.5);
+        DEBUG_CALL(printf("after self_trace_operator()\n"));
+        DEBUG_READ_STATE();
+        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+        DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
+>>>>>>> z2-gauge_transplant
         DEBUG_READ_STATE();
 
         if(ti==(uint)(n-1)){
@@ -278,7 +458,6 @@ void apply_measure_antirotation(){
     inverse_self_plaquette1();
     
 }
-
 // map the classical measure recorded in creg_vals
 // to the corresponding value of the observable;
 // there is no need to change it
@@ -310,12 +489,15 @@ double measure_X(pcg& rgen){
 }
 
 /* Moves facilities */
-#define NMoves 12
+#define NMoves 11
 
-std::vector<double> C_weightsums(NMoves);
+//std::vector<double> C_weightsums(NMoves);
+std::vector<double> C_weightsums = {1./11, 2./11, 3./11, 4./11, 5./11, 6./11, 7./11, 8./11, 9./11, 10./11, 1.};
+//#define HNMoves (NMoves>>1)
 
-void apply_C(const uint &Ci,double rot_angle){
-    (void)rot_angle;
+
+void apply_C(const uint &Ci, double rot_angle){
+(void)rot_angle;
   switch(Ci){
   case 0U:
     suqa::apply_z(bm_qlink1[0]);
@@ -391,23 +573,20 @@ void apply_C(const uint &Ci,double rot_angle){
     throw std::runtime_error("ERROR: wrong move selection");
   }
 }
-
 void apply_C_inverse(const uint &Ci,double rot_angle){
-    apply_C(Ci,rot_angle);
-    // or, equivalent:
-//    apply_C((Ci+HNMoves)%NMoves,rot_angle);
-//    throw std::runtime_error("ERROR: apply_C_inverse() unimplemented!\n");
+  apply_C(Ci,rot_angle);
 }
+
 
 void qsa_apply_C(const uint &Ci){
     (void)Ci;
     //TODO: implement
     throw std::runtime_error("ERROR: qsa_apply_C() unimplemented!\n");
 //  suqa::apply_h(bm_spin_tilde[Ci]);
-// suqa::apply_h(state,bm_spin_tilde[(Ci+1)%3]);
+// suqa::apply_h(,bm_spin_tilde[(Ci+1)%3]);
 
 
-  // suqa::apply_h(state,bm_spin_tilde);
+  // suqa::apply_h(,bm_spin_tilde);
 }
 
 void qsa_apply_C_inverse(const uint &Ci){
@@ -415,19 +594,21 @@ void qsa_apply_C_inverse(const uint &Ci){
     //TODO: implement
     throw std::runtime_error("ERROR: qsa_apply_C() unimplemented!\n");
 //  if(Ci>2) throw std::runtime_error("ERROR: wrong move selection");
-//  //suqa::apply_h(state,bm_spin_tilde);
-//  //suqa::apply_h(state,bm_spin_tilde[(Ci+1)%3]);
+//  //suqa::apply_h(,bm_spin_tilde);
+//  //suqa::apply_h(,bm_spin_tilde[(Ci+1)%3]);
 //  suqa::apply_h(bm_spin_tilde[Ci]);
 }
 
-std::vector<double> get_C_weightsums(){ 
-    static bool init_done=false;
-    // first initialization
-    if(not init_done){
-        for(int i=1; i<=NMoves; ++i){
-            C_weightsums[i-1]=i/(double)NMoves;
-        }
-        init_done=true;
-    }
-    return C_weightsums; }
+std::vector<double> get_C_weightsums(){ return C_weightsums; }
 
+//std::vector<double> get_C_weightsums(){ 
+//    static bool init_done=false;
+//    // first initialization
+//    if(not init_done){
+//        for(int i=1; i<=NMoves; ++i){
+//            C_weightsums[i-1]=i/(double)NMoves;
+//        }
+//        init_done=true;
+//    }
+//    return C_weightsums; }
+//
