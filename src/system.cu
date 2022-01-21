@@ -3,42 +3,12 @@
 /* z2 gauge theory - two plaquettes
  
     link state 1 qubit
-    system state: 4 links -> 4 qubits
+    system state: after gauge fixing 3 links -> 3 qubits 
 
     .   .   .
     1   2
     o 0 o I .
 
-TODO: update for Z2 instead of D4
-XXX
-XXX    operation table for the D4 group:
-XXX
-XXX    [abc -> a*4+b*2+c]
-XXX
-XXX    representation: ρ_{abc} = (-1)^b [[0,1],[1,0]]^a [[i, 0],[0,-i]]^c
-XXX
-XXX    ρ_{a'b'c'}ρ_{abc} = (-1)^{b'+b} 
-XXX
-XXX     
-XXX          0   1   2   3   4   5   6   7
-XXX        ________________________________
-XXX       |
-XXX    0  |  0   1   2   3   4   5   6   7
-XXX       |
-XXX    1  |  1   2   3   0   7   4   5   6 
-XXX       | 
-XXX    2  |  2   3   0   1   6   7   4   5
-XXX       |
-XXX    3  |  3   0   1   2   5   6   7   4
-XXX       |
-XXX    4  |  4   7   6   5   0   1   2   3
-XXX       |
-XXX    5  |  5   4   7   6   1   0   1   2
-XXX       |
-XXX    6  |  6   5   4   7   2   1   0   1
-XXX       |
-XXX    7  |  7   6   5   4   3   2   1   0
-=======
     //TODO: adapt from z2
 //XXX    operation table for the D4 group:
 //XXX
@@ -67,7 +37,6 @@ XXX    7  |  7   6   5   4   3   2   1   0
 //XXX    6  |  6   5   4   7   2   1   0   1
 //XXX       |
 //XXX    7  |  7   6   5   4   3   2   1   0
->>>>>>> z2-gauge_transplant
 
  */
 
@@ -75,17 +44,6 @@ XXX    7  |  7   6   5   4   3   2   1   0
 
 double g_beta;
 
-<<<<<<< HEAD
-/* eigenvalues of T_{U_1,U_2} = (exp(β tr(\rho{U_1}^\prime \rho{U_2})))_{U_1,U_2}
-    
-   \rho{0} = Id, \rho{1} = X
-   T = [[e^{2β}, 1], [1, e^{2β}]]
-   
-   λ_\pm = e^{2β} +- 1 
-
- */
-=======
->>>>>>> z2-gauge_transplant
 __inline__ double fp(double b){
   return log(exp(2*b)+1);
 }
@@ -98,8 +56,6 @@ __inline__ double fm(double b){
 void init_state(){
     suqa::init_state();
 
-<<<<<<< HEAD
-=======
     suqa::apply_h(bm_qlink0[0]);
     suqa::apply_h(bm_qlink1[0]);
     suqa::apply_h(bm_qlink2[0]);
@@ -111,7 +67,6 @@ void init_state(){
 //    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
 //    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
 
->>>>>>> z2-gauge_transplant
 // automatically gauge-invariant initialization
 /*    .   .   .
  *    1   2
@@ -140,16 +95,6 @@ void init_state(){
 /* Quantum evolutor of the state */
 
 //void inversion(const bmReg& q){
-<<<<<<< HEAD
-//}
-
-void left_multiplication(const bmReg& qr1, const bmReg& qr2){
-    suqa::apply_cx(qr1[0], qr2[0]);
-}
-
-void self_plaquette(const bmReg& qr0, const bmReg& qr2){
-    left_multiplication(qr2, qr0);
-=======
 ////    suqa::apply_mcx({q[0],q[2]},{1U,0U},q[1]); 
 //}
 
@@ -178,25 +123,10 @@ void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const 
     left_multiplication(qr2, qr0);
 //    inversion(qr2);
     left_multiplication(qr3, qr0);
->>>>>>> z2-gauge_transplant
 }
 
-void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr2){
+void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3){
     // inverse operation of self_plaquette
-<<<<<<< HEAD
-    self_plaquette(qr0, qr2);
-}
-
-
-void self_plaquette1(){
-    self_plaquette(bm_qlink1, bm_qlink2);
-}
-void inverse_self_plaquette1(){
-    inverse_self_plaquette(bm_qlink1, bm_qlink2);
-}
-
-
-=======
 //    inversion(qr3);
     left_multiplication(qr3, qr0);
 //    inversion(qr3);
@@ -227,7 +157,6 @@ void inverse_self_plaquette1(){
 //    suqa::apply_cx(qaux, q0b);
 //    suqa::apply_cu1(q0b, qaux, alpha2, 1U);
 //}
->>>>>>> z2-gauge_transplant
 
 void self_trace_operator(const bmReg& qr, double th){
   suqa::apply_u1(qr[0], 0U, th);
@@ -252,23 +181,10 @@ void momentum_phase(const bmReg& qr, double th1, double th2){
     suqa::apply_u1(qr[0],th2);
     suqa::apply_u1(qr[0],0U, th1);
     DEBUG_CALL(printf("\tafter momentum_phase(qr, th1, th2)\n"));
-<<<<<<< HEAD
-    DEBUG_READ_STATE();
-    DEBUG_CALL(printf("\tafter suqa::apply_u1(qr[2], th2)\n"));
-=======
->>>>>>> z2-gauge_transplant
     DEBUG_READ_STATE();
 }
 
 void evolution(const double& t, const int& n){
-<<<<<<< HEAD
-    const double dt = -t/(double)n;
-
-    const double theta1 = dt*fp(g_beta);    // eigenvalues of kinetic hamiltonian on single gauge variable
-    const double theta2 = dt*fm(g_beta);
-    const double theta = 2*dt*g_beta;       // see Lamm's paper (the factor 2 is included here)
-    DEBUG_CALL(printf("Evolution parameters:\ng_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg %.16lg\n", g_beta, dt, theta1, theta2, theta));
-=======
 
     const double dt = -t/(double)n;
 
@@ -277,56 +193,18 @@ void evolution(const double& t, const int& n){
     const double theta = 4*dt*g_beta;
 
     DEBUG_CALL(if(n>0) printf("g_beta = %.16lg, dt = %.16lg, thetas: %.16lg %.16lg\n", g_beta, dt, theta1, theta));
->>>>>>> z2-gauge_transplant
 
     for(uint ti=0; ti<(uint)n; ++ti){
         self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after self_plaquette()\n"));
         DEBUG_READ_STATE();
-<<<<<<< HEAD
-        self_trace_operator(bm_qlink1, theta*2*((ti==0)?0.5:1.0)); // factor 2 because plaquette2 has the same value of plaquette 1; factor 0.5 because of Trotter
-=======
         self_trace_operator(bm_qlink1, theta*0.5);
->>>>>>> z2-gauge_transplant
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
         inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
         DEBUG_READ_STATE();
 
-<<<<<<< HEAD
-//        self_plaquette2(); automatically satisfied by plaquette1 rotation
-
-        fourier_transf_z2(bm_qlink0);
-        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink0)\n"));
-        DEBUG_READ_STATE();
-        fourier_transf_z2(bm_qlink1);
-        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink1)\n"));
-        DEBUG_READ_STATE();
-        fourier_transf_z2(bm_qlink2);
-        DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink2)\n"));
-        DEBUG_READ_STATE();
-
-        momentum_phase(bm_qlink0, theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink0, theta1, theta2)\n"));
-        DEBUG_READ_STATE();
-        momentum_phase(bm_qlink1, theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink1, theta1, theta2)\n"));
-        DEBUG_READ_STATE();
-        momentum_phase(bm_qlink2, theta1, theta2);
-        DEBUG_CALL(printf("after momentum_phase(bm_qlink2, theta1, theta2)\n"));
-        DEBUG_READ_STATE();
-
-
-        inverse_fourier_transf_z2(bm_qlink2);
-        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink2)\n"));
-        DEBUG_READ_STATE();
-        inverse_fourier_transf_z2(bm_qlink1);
-        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink1)\n"));
-        DEBUG_READ_STATE();
-        inverse_fourier_transf_z2(bm_qlink0);
-        DEBUG_CALL(printf("after inverse_fourier_transf_z2(bm_qlink0)\n"));
-=======
         fourier_transf_z2(bm_qlink0);
         DEBUG_CALL(printf("after fourier_transf_z2(bm_qlink0)\n"));
         DEBUG_READ_STATE();
@@ -375,20 +253,20 @@ void evolution(const double& t, const int& n){
         DEBUG_READ_STATE();
         inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after inverse_self_plaquette()\n"));
->>>>>>> z2-gauge_transplant
         DEBUG_READ_STATE();
-
-        if(ti==(uint)(n-1)){
-            self_plaquette1();
-            DEBUG_CALL(printf("after self_plaquette1()\n"));
-            DEBUG_READ_STATE();
-            self_trace_operator(bm_qlink1, theta*2*0.5); // factor 2 because plaquette2 has the same value of plaquette 1 ; 0.5 because of Trotter
-            DEBUG_CALL(printf("after self_trace_operator()\n"));
-            DEBUG_READ_STATE();
-            inverse_self_plaquette1();
-            DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
-            DEBUG_READ_STATE();
-        }
+//
+//      TODO: merge V^{1/2} between different iterations
+//        if(ti==(uint)(n-1)){
+//            self_plaquette1();
+//            DEBUG_CALL(printf("after self_plaquette1()\n"));
+//            DEBUG_READ_STATE();
+//            self_trace_operator(bm_qlink1, theta*2*0.5); // factor 2 because plaquette2 has the same value of plaquette 1 ; 0.5 because of Trotter
+//            DEBUG_CALL(printf("after self_trace_operator()\n"));
+//            DEBUG_READ_STATE();
+//            inverse_self_plaquette1();
+//            DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
+//            DEBUG_READ_STATE();
+//        }
     }
 }
 
@@ -450,13 +328,12 @@ const std::vector<double> op_vals = {2.0,0.0}; // eigvals
  
 // change basis to the observable basis somewhere in the system registers
 void apply_measure_rotation(){
-    self_plaquette1();
+    self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 }
 
 // inverse of the above function
 void apply_measure_antirotation(){
-    inverse_self_plaquette1();
-    
+    inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 }
 // map the classical measure recorded in creg_vals
 // to the corresponding value of the observable;
