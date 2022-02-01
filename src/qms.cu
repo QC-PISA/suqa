@@ -38,6 +38,9 @@ GateCounter gctr_measure("measure");
 GateCounter gctr_reverse("reverse");
 #endif
 
+
+bmReg bm_qaux={0}; 
+
 void save_measures(string outfilename){
     FILE * fil = fopen(outfilename.c_str(), "a");
     for(uint ei = 0; ei < qms::E_measures.size(); ++ei){
@@ -83,7 +86,10 @@ int main(int argc, char** argv){
     qms::t_PE_factor = (qms::ene_levels-1)/(double)(qms::ene_levels*(args.ene_max-args.ene_min)); 
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
+    //XXX D4 specific!
+    bm_qaux[0]=qms::nqubits-1;
     
+    cout<<"HERE"<<endl;
     // Banner
     suqa::print_banner();
     cout<<"arguments:\n"<<args<<endl;
