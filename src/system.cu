@@ -430,21 +430,21 @@ void apply_C(const uint &Ci, double rot_angle){
     DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
     DEBUG_READ_STATE();
     break;
-  case 9U:
-    suqa::apply_h(bm_qlink0[0]);
-    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
-   DEBUG_READ_STATE();
-    break;
-  case 10U:
-    suqa::apply_h(bm_qlink1[0]);
-    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
-    DEBUG_READ_STATE();
-    break;
-  case 11U:
-    suqa::apply_h(bm_qlink2[0]);
-    DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
-    DEBUG_READ_STATE();
-    break;
+//   case 9U:
+//     suqa::apply_h(bm_qlink0[0]);
+//     DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+//    DEBUG_READ_STATE();
+//     break;
+//   case 10U:
+//     suqa::apply_h(bm_qlink1[0]);
+//     DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+//     DEBUG_READ_STATE();
+//     break;
+//   case 11U:
+//     suqa::apply_h(bm_qlink2[0]);
+//     DEBUG_CALL(printf("after apply_y(bm_qlink2[0])\n"));
+//     DEBUG_READ_STATE();
+//     break;
     
   default:
     throw std::runtime_error("ERROR: wrong move selection");
