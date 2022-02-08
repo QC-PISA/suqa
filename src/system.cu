@@ -8,7 +8,7 @@
 
     .   .   .
     1   2
-    o 0 o I .
+    o 0 o 3 .
 
     operation table for the D4 group:
 
@@ -55,13 +55,13 @@ __inline__ double f2(double b){
 void init_state(){
     suqa::init_state();
 
-//    suqa::apply_h(bm_qlink0[0]);
-//    suqa::apply_cx(bm_qlink0[0], bm_qlink3[0]);
-//    suqa::apply_h(bm_qlink0[1]);
-//    suqa::apply_cx(bm_qlink0[1], bm_qlink3[1]);
-//    suqa::apply_h(bm_qlink0[2]);
-//    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
-//    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
+    suqa::apply_h(bm_qlink0[0]);
+    suqa::apply_cx(bm_qlink0[0], bm_qlink3[0]);
+    suqa::apply_h(bm_qlink0[1]);
+    suqa::apply_cx(bm_qlink0[1], bm_qlink3[1]);
+    suqa::apply_h(bm_qlink0[2]);
+    suqa::apply_cx(bm_qlink0[2], bm_qlink3[2]);
+    suqa::apply_mcx({bm_qlink3[0], bm_qlink3[2]}, {0U,1U}, bm_qlink3[1]);
 
 // automatically gauge-invariant initialization
 /*    .   .   .
@@ -130,21 +130,6 @@ void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2
 }
 
 
-void self_plaquette1(){
-    self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-}
-void inverse_self_plaquette1(){
-    inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-}
-
-
-void self_plaquette2(){
-    inversion(bm_qlink1);
-    left_multiplication(bm_qlink1,bm_qlink2);
-    inversion(bm_qlink1);
-}
-void inverse_self_plaquette2(){
-}
 
 void cphases(uint qaux, uint q0b, double alpha1, double alpha2){
     // eigenvalues of the trace operator
@@ -246,7 +231,7 @@ void evolution(const double& t, const int& n){
         self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         DEBUG_CALL(printf("after self_plaquette1()\n"));
         DEBUG_READ_STATE();
-        self_trace_operator(bm_qlink1, bm_qaux[0], theta*0.5);
+        self_trace_operator(bm_qlink1, bm_qaux[0], theta);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
         inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
@@ -256,7 +241,7 @@ void evolution(const double& t, const int& n){
         self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
         DEBUG_CALL(printf("after self_plaquette2()\n"));
         DEBUG_READ_STATE();
-        self_trace_operator(bm_qlink2, bm_qaux[0], theta*0.5);
+        self_trace_operator(bm_qlink2, bm_qaux[0], theta);
         DEBUG_CALL(printf("after self_trace_operator()\n"));
         DEBUG_READ_STATE();
         inverse_self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
@@ -303,29 +288,29 @@ void evolution(const double& t, const int& n){
         inverse_fourier_transf_d4(bm_qlink0);
         DEBUG_CALL(printf("after inverse_fourier_transf_d4(bm_qlink0)\n"));
         DEBUG_READ_STATE();
-
-
-        // V^{1/2}
-
-        self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after self_plaquette2()\n"));
-        DEBUG_READ_STATE();
-        self_trace_operator(bm_qlink2, bm_qaux[0], theta*0.5);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
-        DEBUG_READ_STATE();
-        inverse_self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
-        DEBUG_CALL(printf("after inverse_self_plaquette2()\n"));
-        DEBUG_READ_STATE();
-
-        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        DEBUG_CALL(printf("after self_plaquette1()\n"));
-        DEBUG_READ_STATE();
-        self_trace_operator(bm_qlink1, bm_qaux[0], theta*0.5);
-        DEBUG_CALL(printf("after self_trace_operator()\n"));
-        DEBUG_READ_STATE();
-        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
-        DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
-        DEBUG_READ_STATE();
+//
+//
+//        // V^{1/2}
+//
+//        self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+//        DEBUG_CALL(printf("after self_plaquette2()\n"));
+//        DEBUG_READ_STATE();
+//        self_trace_operator(bm_qlink2, bm_qaux[0], theta*0.5);
+//        DEBUG_CALL(printf("after self_trace_operator()\n"));
+//        DEBUG_READ_STATE();
+//        inverse_self_plaquette(bm_qlink2, bm_qlink3, bm_qlink1, bm_qlink3);
+//        DEBUG_CALL(printf("after inverse_self_plaquette2()\n"));
+//        DEBUG_READ_STATE();
+//
+//        self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+//        DEBUG_CALL(printf("after self_plaquette1()\n"));
+//        DEBUG_READ_STATE();
+//        self_trace_operator(bm_qlink1, bm_qaux[0], theta*0.5);
+//        DEBUG_CALL(printf("after self_trace_operator()\n"));
+//        DEBUG_READ_STATE();
+//        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
+//        DEBUG_CALL(printf("after inverse_self_plaquette1()\n"));
+//        DEBUG_READ_STATE();
     }
 }
 
