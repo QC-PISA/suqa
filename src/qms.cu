@@ -39,7 +39,7 @@ GateCounter gctr_reverse("reverse");
 #endif
 
 
-bmReg bm_qaux={0}; 
+//bmReg bm_qaux={0}; 
 
 void save_measures(string outfilename){
     FILE * fil = fopen(outfilename.c_str(), "a");
@@ -87,7 +87,7 @@ int main(int argc, char** argv){
     qms::t_phase_estimation = qms::t_PE_factor*8.*atan(1.0); // 2*pi*t_PE_factor
 
     //XXX D4 specific!
-    bm_qaux[0]=qms::nqubits-1;
+//    bm_qaux[0]=qms::nqubits-1;
     
     cout<<"HERE"<<endl;
     // Banner
