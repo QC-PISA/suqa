@@ -21,16 +21,18 @@ void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const 
 
 int main(int argc, char** argv){
     if(argc<5){
-       printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile>\n",argv[0]); 
+       printf("usage: %s <g_beta> <total_steps> <trotter_stepsize> <outfile> [--init <initfile>]\n",argv[0]); 
        exit(0);
     }
     g_beta = stod(argv[1]); // (extern) def in src/system.cu
     int total_steps = atoi(argv[2]);
     double trotter_stepsize = stod(argv[3]);
     string outfilename = argv[4];
+    bool with_initialization=argc>5;
+    string initfile=with_initialization ? argv[6] : "";
+
 
 	suqa::setup(syst_qbits);
-
 
     printf("arguments:\n g_beta = %.16lg\n total_steps = %d\n trotter_stepsize = %.16lg\n outfile = %s\n", g_beta, total_steps, trotter_stepsize, outfilename.c_str());
 
@@ -41,7 +43,21 @@ int main(int argc, char** argv){
 
     FILE * outfile;
 
-    init_state();
+    if(with_initialization){
+        size_t dim=1<<syst_qbits;
+        vector<double> re_coeff(dim);
+        vector<double> im_coeff(dim);
+
+        FILE * fl_init = fopen(initfile.c_str(),"r");
+        for(size_t ii=0; ii<dim; ++ii){
+            int ectrl=fscanf(fl_init,"%lg %lg\n",&re_coeff[ii],&im_coeff[ii]); (void)ectrl;
+        }
+
+        fclose(fl_init);
+        suqa::init_state(re_coeff,im_coeff);    
+    }else{
+        init_state();
+    }
     DEBUG_CALL(printf("initial state:\n"));
     DEBUG_READ_STATE();
 

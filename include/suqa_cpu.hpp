@@ -12,6 +12,18 @@ void func_suqa_init_state(double* vec_data) {
 #endif
 }
 
+void func_suqa_init_state_from_vec(double* vec_data, std::vector<double> re_coeff, std::vector<double> im_coeff) {
+    uint ss=suqa::state.size();
+	for (uint i = 0; i < 2*ss; ++i)
+		vec_data[i] = (i<ss) ? re_coeff[i] : im_coeff[i-ss];
+
+//	vec_data[0] = 1.0;
+#ifdef SPARSE
+    throw std::runtime_error("ERROR: sparse mode doesn't support initialization from vector state yet!");
+    suqa::actives = std::vector<uint>(1, 0U);
+#endif
+}
+
 double func_suqa_vnorm(double* vec_data) {
 // unthreaded
     const uint size=suqa::state.size();

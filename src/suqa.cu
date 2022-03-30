@@ -75,6 +75,18 @@ void suqa::init_state() {
 #endif
 }
 
+void suqa::init_state(std::vector<double> re_coeff, std::vector<double> im_coeff) {
+#ifdef GPU
+    HANDLE_CUDACALL(cudaDeviceSynchronize()); 
+    HANDLE_CUDACALL(cudaMemcpyAsync(re_coeff.data(),suqa::state.data_re,suqa::state.size()*sizeof(double),cudaMemcpyHostToDevice)); 
+    HANDLE_CUDACALL(cudaMemcpyAsync(im_coeff.data(),suqa::state.data_im,suqa::state.size()*sizeof(double),cudaMemcpyHostToDevice));
+    HANDLE_CUDACALL(cudaDeviceSynchronize());
+//    kernel_suqa_init_state_from_vec<<<suqa::blocks,suqa::threads>>>(suqa::state.data_re, suqa::state.data_im, suqa::state.size());
+#else
+    func_suqa_init_state_from_vec(suqa::state.data,re_coeff,im_coeff);
+#endif
+}
+
 double suqa::vnorm(){
 #ifdef GPU
     kernel_suqa_vnorm<<<suqa::blocks,suqa::threads,suqa::threads*sizeof(double)>>>(dev_partial_ret, suqa::state.data_re, suqa::state.data_im, suqa::state.size());

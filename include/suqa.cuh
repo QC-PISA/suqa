@@ -101,6 +101,7 @@ double vnorm();
 void vnormalize();
 
 void init_state();
+void init_state(std::vector<double> re_coeff, std::vector<double> im_coeff);
 
 void deallocate_state();
 void allocate_state(uint Dim);
