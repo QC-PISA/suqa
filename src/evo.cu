@@ -43,20 +43,19 @@ int main(int argc, char** argv){
 
     FILE * outfile;
 
+    size_t dim=1<<syst_qbits;
+    vector<double> re_coeff(dim);
+    vector<double> im_coeff(dim);
     if(with_initialization){
-        size_t dim=1<<syst_qbits;
-        vector<double> re_coeff(dim);
-        vector<double> im_coeff(dim);
-
         FILE * fl_init = fopen(initfile.c_str(),"r");
         for(size_t ii=0; ii<dim; ++ii){
             int ectrl=fscanf(fl_init,"%lg %lg\n",&re_coeff[ii],&im_coeff[ii]); (void)ectrl;
         }
 
         fclose(fl_init);
-        suqa::init_state(re_coeff,im_coeff);    
-    }else{
-        init_state();
+//        suqa::init_state(re_coeff,im_coeff);    
+//    }else{
+//        init_state();
     }
     DEBUG_CALL(printf("initial state:\n"));
     DEBUG_READ_STATE();
@@ -86,7 +85,12 @@ int main(int argc, char** argv){
 //        plaq_val_std = sqrt((plaq_val_std/(double)num_hits - plaq_val*plaq_val)/(double)(num_hits-1));
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
-        init_state();
+        if(with_initialization){
+            suqa::init_state(re_coeff,im_coeff);    
+        }else{
+            init_state();
+        }
+
 //		suqa::apply_h(bm_spin[rangen.randint(0,3)]);
 //        printf("random number= %d\n", rangen.randint(0,3));
 //        DEBUG_READ_STATE();
