@@ -18,6 +18,7 @@
 using namespace std;
 
 void self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3);
+void inverse_self_plaquette(const bmReg& qr0, const bmReg& qr1, const bmReg& qr2, const bmReg& qr3);
 
 int main(int argc, char** argv){
     if(argc<5){
@@ -57,6 +58,12 @@ int main(int argc, char** argv){
 //    }else{
 //        init_state();
     }
+    if(with_initialization){
+        suqa::init_state(re_coeff,im_coeff);    
+    }else{
+        init_state();
+    }
+
     DEBUG_CALL(printf("initial state:\n"));
     DEBUG_READ_STATE();
 
@@ -85,16 +92,11 @@ int main(int argc, char** argv){
 //        plaq_val_std = sqrt((plaq_val_std/(double)num_hits - plaq_val*plaq_val)/(double)(num_hits-1));
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
-        if(with_initialization){
-            suqa::init_state(re_coeff,im_coeff);    
-        }else{
-            init_state();
-        }
 
 //		suqa::apply_h(bm_spin[rangen.randint(0,3)]);
 //        printf("random number= %d\n", rangen.randint(0,3));
 //        DEBUG_READ_STATE();
-        evolution(t, ii);
+        evolution(trotter_stepsize, 1);
         DEBUG_CALL(printf("after evolution by t=%lg:\n",t));
         DEBUG_READ_STATE();
         self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
@@ -104,6 +106,7 @@ int main(int argc, char** argv){
         double p000, p010;
         suqa::prob_filter(bm_qlink1, {0U,0U,0U}, p000);
         suqa::prob_filter(bm_qlink1, {0U,1U,0U}, p010);
+        inverse_self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
         printf("p000 = %.12lg; p010 = %.12lg\n", p000, p010);
         plaq_val = 2.0*(p000-p010);
         plaq_val_std = sqrt(4.0*(p000+p010)-plaq_val*plaq_val);
@@ -111,6 +114,14 @@ int main(int argc, char** argv){
         fprintf(outfile, "%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);
         printf("%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);
         fclose(outfile);
+
+        double discrepancy=0.0;
+        for(size_t ii=0; ii<dim; ++ii){
+            double initial_coeff=re_coeff[ii]*re_coeff[ii]+im_coeff[ii]*im_coeff[ii];
+            double evo_coeff=suqa::state.data[ii]*suqa::state.data[ii]+suqa::state.data[dim+ii]*suqa::state.data[dim+ii];
+            discrepancy+=abs(initial_coeff-evo_coeff);
+        }
+        std::cout<<"discrepancy with initial vector: "<<discrepancy<<std::endl;
     }
     
     suqa::clear();
