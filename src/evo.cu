@@ -92,13 +92,9 @@ int main(int argc, char** argv){
 //        plaq_val_std = sqrt((plaq_val_std/(double)num_hits - plaq_val*plaq_val)/(double)(num_hits-1));
 //        fprintf(outfile, "%.16lg %d %.16lg %.16lg\n", t, num_hits, plaq_val, plaq_val_std);
 
-
 //		suqa::apply_h(bm_spin[rangen.randint(0,3)]);
 //        printf("random number= %d\n", rangen.randint(0,3));
 //        DEBUG_READ_STATE();
-        evolution(trotter_stepsize, 1);
-        DEBUG_CALL(printf("after evolution by t=%lg:\n",t));
-        DEBUG_READ_STATE();
         self_plaquette(bm_qlink1, bm_qlink0, bm_qlink2, bm_qlink0);
 
         //suqa::apply_h(state,  bm_spin[rangen.randint(0,3)]);
@@ -114,6 +110,12 @@ int main(int argc, char** argv){
         fprintf(outfile, "%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);
         printf("%.12lg %.12lg %.12lg\n", t, plaq_val, plaq_val_std);
         fclose(outfile);
+
+        if(ii<(uint)total_steps){
+            evolution(trotter_stepsize, 1);
+            DEBUG_CALL(printf("after evolution by t=%lg:\n",t));
+            DEBUG_READ_STATE();
+        }
 
         double discrepancy=0.0;
         for(size_t ii=0; ii<dim; ++ii){
