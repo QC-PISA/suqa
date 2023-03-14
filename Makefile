@@ -69,9 +69,7 @@ $(OBJDIR)/%.cu.o: $(SRC)/%.cu $(INCLUDES) $(OBJDIR) setvars
 ifeq ($(DEVICE),gpu)
 	$(COMPILE) -o $@ -c $<
 else
-	cp $< $<_temp.cpp
-	$(COMPILE) -o $@ -c $<_temp.cpp
-	rm $<_temp.cpp
+	$(COMPILE) -x c++ -o $@ -c $<
 endif
 
 test_suqa: $(OBJDIR)/test_suqa.cu.o $(SUQAOBJS) setvars
